@@ -269,7 +269,7 @@ body {
 /* Marcador de nodo (botón "Nodos") — el número siempre se ve; las coordenadas solo
    aparecen al pasar el mouse encima (necesita pointer-events:auto, a diferencia de las
    demás etiquetas que lo tienen en none para no estorbar el raycast de selección). */
-.node-marker { position: relative; transform: translate(-50%, -50%); pointer-events: auto; }
+.node-marker { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; }
 .node-num {
   color: #CBD5E1; font-size: 10px; background: rgba(10,22,40,.65);
   padding: 1px 4px; border-radius: 3px; white-space: nowrap; cursor: pointer;
@@ -283,6 +283,7 @@ body {
 .node-marker:hover .node-coords-tip { opacity: 1; visibility: visible; }
 .node-marker:hover .node-num { color: #fff; background: rgba(0,212,255,.35); }
 .profile-id-label {
+  position: absolute;
   color: #FFCC66; font-size: 9px; background: rgba(10,22,40,.65);
   padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
   transform: translate(-50%, -50%);
