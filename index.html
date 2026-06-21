@@ -699,6 +699,11 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   font-family: 'Courier New', monospace; width: 100%; box-sizing: border-box;
 }
 .sm-inp:focus { outline: none; border-color: var(--cyan); }
+/* Encuesta de Feedback — fuente más grande que el resto de los modales (sm-lbl/sm-inp
+   son compartidos por muchos otros modales; aquí se sobrescriben solo dentro de este). */
+#feedback-modal-overlay .sm-lbl { font-size: 12px; }
+#feedback-modal-overlay .sm-inp { font-size: 13px; font-family: inherit; padding: 6px 8px; }
+#feedback-modal-overlay .sec-modal-hdr span { font-size: 13px; }
 .sm-sel {
   background: #0b1828; border: 1px solid #1E3A5F;
   color: var(--txt); border-radius: 4px; padding: 4px 4px; font-size: 10px; width: 100%;
@@ -790,6 +795,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   z-index: 9999; white-space: nowrap;
 }
 #tsa-toast.warn  { border-color: #c47a1a; color: #fbbf24; }
+#tsa-toast.ok    { border-color: #1a7a3c; color: #22C55E; }
 #tsa-toast.show  { opacity: 1; }
 /* ── Member info panel ──────────────────────────────── */
 #mi-panel {
@@ -974,6 +980,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
     </div>
   </div>
   <button class="btn">Compartir</button>
+  <button class="btn" onclick="openFeedbackModal()" style="color:var(--cyan);border-color:var(--cyan);">💬 Feedback</button>
   <button class="btn" onclick="openHelp()">Ayuda</button>
 </div>
 
@@ -1491,6 +1498,57 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
     </div>
     <div class="sec-modal-ftr">
       <button class="btn-apply" onclick="closeNodesModal()">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Feedback (encuesta embebida — se manda por mailto:, sin servicio externo) ── -->
+<div class="sec-modal-overlay" id="feedback-modal-overlay" onclick="closeFeedbackModal(event)">
+  <div class="sec-modal" style="width:480px;max-height:88vh;" onclick="event.stopPropagation()">
+    <div class="sec-modal-hdr">
+      <span>FEEDBACK — TSA</span>
+      <button onclick="closeFeedbackModal()">✕</button>
+    </div>
+    <div class="sec-modal-body" style="padding:16px;">
+      <div class="sm-field" style="margin-bottom:12px;">
+        <label class="sm-lbl">¿Qué tipo de torre probaste?</label>
+        <select class="sm-inp" id="fb-tipo">
+          <option>Autosoportada 3 piernas</option>
+          <option>Autosoportada 4 piernas</option>
+          <option>Arriostrada (guyed)</option>
+          <option>Monopolo</option>
+          <option>Varios tipos</option>
+        </select>
+      </div>
+      <div class="sm-field" style="margin-bottom:12px;">
+        <label class="sm-lbl">¿Qué tan fácil fue usar la app? (1 = difícil, 5 = muy fácil)</label>
+        <select class="sm-inp" id="fb-facilidad">
+          <option value="5">5 — Muy fácil</option>
+          <option value="4">4</option>
+          <option value="3" selected>3</option>
+          <option value="2">2</option>
+          <option value="1">1 — Difícil</option>
+        </select>
+      </div>
+      <div class="sm-field" style="margin-bottom:12px;">
+        <label class="sm-lbl">¿Qué te gustó más?</label>
+        <textarea class="sm-inp" id="fb-gusto" rows="4" style="resize:vertical;"></textarea>
+      </div>
+      <div class="sm-field" style="margin-bottom:12px;">
+        <label class="sm-lbl">¿Qué te confundió o no funcionó como esperabas?</label>
+        <textarea class="sm-inp" id="fb-confuso" rows="4" style="resize:vertical;"></textarea>
+      </div>
+      <div class="sm-field" style="margin-bottom:4px;">
+        <label class="sm-lbl">¿Qué le agregarías o cambiarías?</label>
+        <textarea class="sm-inp" id="fb-agregaria" rows="4" style="resize:vertical;"></textarea>
+      </div>
+      <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+        Al dar clic en "Enviar", se abrirá tu programa de correo con estas respuestas ya redactadas — solo falta que tú le des clic a Enviar.
+      </div>
+    </div>
+    <div class="sec-modal-ftr">
+      <button class="btn-cancel" onclick="closeFeedbackModal()">Cancelar</button>
+      <button class="btn-apply" onclick="submitFeedback()">Enviar</button>
     </div>
   </div>
 </div>
@@ -3414,6 +3472,48 @@ function pickerConfirm() {
     buildSecModalPreview();
   }
   closeProfilePicker();
+}
+
+// Feedback — encuesta embebida en el propio HTML. Se envía por POST a Formspree (servicio
+// gratuito que reenvía la respuesta por correo) — no requiere backend propio ni que el
+// usuario abra su cliente de correo.
+const FEEDBACK_FORMSPREE_URL = 'https://formspree.io/f/mbdvrbno';
+function openFeedbackModal() {
+  ['fb-gusto','fb-confuso','fb-agregaria'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('feedback-modal-overlay').classList.add('open');
+}
+function closeFeedbackModal(e) {
+  if (e && e.target !== document.getElementById('feedback-modal-overlay')) return;
+  document.getElementById('feedback-modal-overlay').classList.remove('open');
+}
+async function submitFeedback() {
+  const tipo       = document.getElementById('fb-tipo').value;
+  const facilidad  = document.getElementById('fb-facilidad').value;
+  const gusto      = document.getElementById('fb-gusto').value.trim() || '(sin comentario)';
+  const confuso    = document.getElementById('fb-confuso').value.trim() || '(sin comentario)';
+  const agregaria  = document.getElementById('fb-agregaria').value.trim() || '(sin comentario)';
+  const btn = document.querySelector('#feedback-modal-overlay .btn-apply');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const fd = new FormData();
+    fd.append('_subject', 'Feedback TSA');
+    fd.append('Tipo de torre', tipo);
+    fd.append('Facilidad de uso (1-5)', facilidad);
+    fd.append('Qué le gustó más', gusto);
+    fd.append('Qué le confundió / no funcionó', confuso);
+    fd.append('Qué agregaría o cambiaría', agregaria);
+    const res = await fetch(FEEDBACK_FORMSPREE_URL, { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd });
+    if (res.ok) {
+      showToast('¡Gracias! Tu feedback fue enviado.', 'ok');
+      closeFeedbackModal();
+    } else {
+      showToast('No se pudo enviar — intenta de nuevo.');
+    }
+  } catch {
+    showToast('No se pudo enviar — revisa tu conexión.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enviar';
+  }
 }
 
 // Ayuda — abre Ayuda_TSA.html como página aparte (ventana nueva), no embebida.
