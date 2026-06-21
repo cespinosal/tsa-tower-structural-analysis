@@ -3,6 +3,24 @@
 <head>
 <meta charset="utf-8">
 <title>TSA — Tower Structural Analysis</title>
+<script>
+// Auto-ajuste a la resolución de pantalla — toda la UI está maquetada en píxeles fijos
+// (pensada para un monitor de escritorio); en laptops con resolución más chica
+// (1366x768, 1536x864, etc.) se ve recortada o desproporcionada. En vez de reescribir
+// cada medida, se reescala la app entera con "zoom" (el mismo mecanismo del zoom manual
+// del navegador, que ya no rompe el layout ni el canvas 3D) según el tamaño real de la
+// ventana. Se aplica aquí, antes de pintar el body, para evitar un parpadeo de la UI sin
+// escalar; updateAutoScale() se vuelve a exponer más abajo para el listener de resize.
+(function() {
+  const REF_W = 1600, REF_H = 900, MIN_S = 0.65, MAX_S = 1;
+  function apply() {
+    const s = Math.min(MAX_S, window.innerWidth / REF_W, window.innerHeight / REF_H);
+    document.documentElement.style.zoom = Math.max(MIN_S, s);
+  }
+  apply();
+  window.addEventListener('resize', apply);
+})();
+</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -980,7 +998,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
     </div>
   </div>
   <button class="btn">Compartir</button>
-  <button class="btn" onclick="openFeedbackModal()" style="color:var(--cyan);border-color:var(--cyan);">💬 Feedback</button>
+  <button class="btn" id="feedback-btn" onclick="openFeedbackModal()" style="color:var(--cyan);border-color:var(--cyan);">💬 Feedback</button>
   <button class="btn" onclick="openHelp()">Ayuda</button>
 </div>
 
@@ -1776,7 +1794,12 @@ if (typeof qt !== 'undefined' && qt.webChannelTransport && typeof QWebChannel !=
     const bridge = channel.objects.bridge;
     // Solo se activa en desarrollo — en el .exe compilado (Vo Bo) se queda en null y
     // Guardar/Abrir usan el comportamiento de siempre (ver bridge.py: isDevMode()).
-    bridge.isDevMode(isDev => { if (isDev) qtBridge = bridge; });
+    bridge.isDevMode(isDev => {
+      if (isDev) { qtBridge = bridge; }
+      // El .exe compilado no muestra "Feedback" — esa encuesta es para quien prueba
+      // el sitio publicado en GitHub Pages, no para el producto final de escritorio.
+      else { const fb = document.getElementById('feedback-btn'); if (fb) fb.remove(); }
+    });
   });
 }
 </script>
