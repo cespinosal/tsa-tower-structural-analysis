@@ -1,0 +1,11 @@
+build/
+dist/
+__pycache__/
+*.pyc
+*.spec.bak
+
+# Catálogos fuente (xlsx) — datos ya embebidos en TSA.html/index.html, no se publican
+*.xlsx
+
+# Proyectos de ejemplo / datos locales
+*.TSA

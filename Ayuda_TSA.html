@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>TSA — Guía de usuario</title>
+<style>
+  :root {
+    --bg: #0A1628; --bg-panel: #0D1E35; --bg-bar: #060F1C;
+    --border: #1E3A5F; --txt: #E2E8F0; --txt-sec: #94A3B8;
+    --cyan: #00D4FF; --accent: #185FA5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--txt);
+    font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; line-height: 1.6;
+  }
+  /* ── Header ───────────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 10px;
+    background: var(--bg-bar); border-bottom: 1px solid var(--border); padding: 12px 24px;
+  }
+  .topbar .logo-main { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
+  .topbar .logo-sub  { font-size: 10px; color: var(--txt-sec); letter-spacing: 1px; margin-left: 4px; }
+  /* ── Layout: sidebar + content ───────────────────────────── */
+  .layout { display: flex; max-width: 1180px; margin: 0 auto; }
+  .sidebar {
+    position: sticky; top: 49px; align-self: flex-start; width: 230px; flex-shrink: 0;
+    height: calc(100vh - 49px); overflow-y: auto; padding: 22px 14px; border-right: 1px solid var(--border);
+  }
+  .sidebar h4 {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--txt-sec);
+    margin: 18px 0 6px; padding-left: 8px;
+  }
+  .sidebar h4:first-child { margin-top: 0; }
+  .sidebar a {
+    display: block; padding: 5px 8px; border-radius: 5px; color: var(--txt-sec);
+    text-decoration: none; font-size: 12.5px;
+  }
+  .sidebar a:hover { background: rgba(0,212,255,.07); color: var(--txt); }
+  .content { flex: 1; min-width: 0; padding: 36px 44px 100px; }
+  /* ── Typography ───────────────────────────────────────────── */
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  h2 {
+    font-size: 19px; margin: 46px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    scroll-margin-top: 60px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  h3 { font-size: 14.5px; color: var(--cyan); margin: 26px 0 8px; scroll-margin-top: 60px; }
+  p { color: var(--txt); max-width: 760px; }
+  .tagline { color: var(--txt-sec); font-size: 15px; max-width: 700px; margin: 0 0 26px; }
+  ul, ol { max-width: 740px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  code, kbd {
+    background: #071326; border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 6px; font-family: 'Courier New', monospace; font-size: 12px; color: var(--cyan);
+  }
+  /* ── Tables ───────────────────────────────────────────── */
+  table { width: 100%; max-width: 820px; border-collapse: collapse; margin: 10px 0 18px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--txt-sec); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: .4px; }
+  td:first-child, th:first-child { white-space: nowrap; }
+  /* ── Cards / quick nav ───────────────────────────────────────────── */
+  .quicknav {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 10px; margin: 18px 0 36px;
+  }
+  .quicknav a {
+    display: block; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; text-decoration: none; color: var(--txt);
+  }
+  .quicknav a:hover { border-color: var(--cyan); }
+  .quicknav .qn-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .quicknav .qn-desc { font-size: 11.5px; color: var(--txt-sec); }
+  /* ── Callouts ───────────────────────────────────────────── */
+  .callout {
+    max-width: 760px; border-radius: 8px; padding: 14px 16px; margin: 16px 0; font-size: 12.5px;
+  }
+  .callout.warn { background: rgba(255,165,0,.08); border: 1px solid rgba(255,165,0,.35); }
+  .callout.info { background: rgba(0,212,255,.07); border: 1px solid rgba(0,212,255,.3); }
+  .callout b { display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  /* ── Misc ───────────────────────────────────────────── */
+  .badge {
+    display: inline-block; font-size: 9.5px; padding: 1px 7px; border-radius: 10px;
+    background: var(--accent); color: #fff; margin-left: 6px; vertical-align: middle;
+  }
+  .badge.soon { background: #3a3a3a; color: var(--txt-sec); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 18px; }
+  .pill { background: #0b1828; border: 1px solid var(--border); border-radius: 5px; padding: 4px 9px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo-main">🏗 TSA</span>
+  <span class="logo-sub">TOWER STRUCTURAL ANALYSIS — GUÍA DE USUARIO</span>
+</div>
+
+<div class="layout">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <nav class="sidebar">
+    <h4>Empezando</h4>
+    <a href="#intro">Introducción</a>
+    <a href="#primeros-pasos">Primeros pasos</a>
+    <a href="#tipos">Tipos de estructura</a>
+
+    <h4>Modelado</h4>
+    <a href="#secciones">Secciones y tramos</a>
+    <a href="#bracing">Patrones de arriostramiento</a>
+    <a href="#monopolo">Monopolo</a>
+    <a href="#arriostrada">Torres arriostradas (guyed)</a>
+
+    <h4>Materiales y perfiles</h4>
+    <a href="#bases-datos">Bases de datos</a>
+    <a href="#calidades">Calidades de acero</a>
+    <a href="#perfiles">Catálogo de perfiles (IMCA/AISC)</a>
+    <a href="#picker">Elegir perfil + calidad</a>
+
+    <h4>Visualización</h4>
+    <a href="#visor3d">Visor 3D</a>
+    <a href="#inspeccion">Inspección de miembros</a>
+
+    <h4>Proyecto</h4>
+    <a href="#unidades">Unidades</a>
+    <a href="#exportar">Exportar a STAAD.Pro</a>
+    <a href="#configuracion">Configuración</a>
+    <a href="#atajos">Atajos de teclado</a>
+
+    <h4>Importante</h4>
+    <a href="#aviso">Aviso profesional</a>
+    <a href="#pendientes">Funciones en desarrollo</a>
+  </nav>
+
+  <!-- ════════════ CONTENT ════════════ -->
+  <main class="content">
+
+    <h1 id="intro">TSA — Guía de usuario</h1>
+    <p class="tagline">
+      TSA (Tower Structural Analysis) es una aplicación de escritorio para modelar geométricamente
+      torres de telecomunicación — autosoportadas, arriostradas y monopolos — visualizarlas en 3D,
+      asignarles perfiles y calidades de acero, y exportar la geometría a STAAD.Pro.
+    </p>
+
+    <div class="quicknav">
+      <a href="#primeros-pasos"><div class="qn-title">🚀 Primeros pasos</div><div class="qn-desc">Crea tu primera torre en minutos</div></a>
+      <a href="#tipos"><div class="qn-title">🏗 Tipos de estructura</div><div class="qn-desc">3 piernas, 4 piernas, arriostrada, monopolo</div></a>
+      <a href="#secciones"><div class="qn-title">📐 Secciones y tramos</div><div class="qn-desc">Editar geometría y arriostramiento por tramo</div></a>
+      <a href="#bases-datos"><div class="qn-title">🗄 Bases de datos</div><div class="qn-desc">Calidades de acero y catálogo de perfiles</div></a>
+      <a href="#visor3d"><div class="qn-title">🖥 Visor 3D</div><div class="qn-desc">Navegación, etiquetas e inspección de miembros</div></a>
+      <a href="#exportar"><div class="qn-title">📤 Exportar a STAAD</div><div class="qn-desc">Qué se incluye en el archivo .std</div></a>
+    </div>
+
+    <div class="callout warn" id="aviso-top">
+      <b>⚠ Aviso profesional</b>
+      TSA genera la geometría y prepara los datos del modelo, pero <b style="display:inline">no sustituye
+      el criterio ni la responsabilidad de un ingeniero estructurista</b>. Todo diseño final debe ser
+      revisado, calculado y firmado por un profesional autorizado antes de su uso en obra.
+    </div>
+
+    <hr>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="primeros-pasos">Primeros pasos</h2>
+    <ol>
+      <li>En la barra lateral izquierda, haz clic en el ícono <b>Torre</b> (o en Inicio → "Nuevo proyecto").</li>
+      <li>Se abre el panel <b>"Nueva Torre"</b>. Llena los datos de PROYECTO (Asset Name, Site Name, País,
+        Ingeniero Responsable, Fecha) — son metadatos, no afectan la geometría.</li>
+      <li>En ESTRUCTURA, elige el <b>Tipo de estructura</b> y completa los campos de geometría
+        (altura, aperturas, número de tramos, etc.). Verás una <b>vista previa</b> en tiempo real a la
+        derecha del panel, generada con la misma geometría real que se dibujará después.</li>
+      <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo" si elegiste ese tipo).</li>
+      <li>El panel derecho aparece con las secciones de PROYECTO y GEOMETRÍA, editables en cualquier momento.</li>
+    </ol>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="tipos">Tipos de estructura</h2>
+    <table>
+      <thead><tr><th>Tipo</th><th>Descripción</th><th>Apoyos en la base*</th></tr></thead>
+      <tbody>
+        <tr><td>Autosoportada 3 piernas</td><td>Torre triangular en celosía, autoestable.</td><td>Articulado (PINNED)</td></tr>
+        <tr><td>Autosoportada 4 piernas</td><td>Torre cuadrada en celosía, autoestable.</td><td>Articulado (PINNED)</td></tr>
+        <tr><td>Arriostrada (guyed)</td><td>Mástil esbelto sostenido por niveles de retenidas (cables) ancladas al terreno.</td><td>Piernas: articulado · Anclajes: empotrado (FIXED)</td></tr>
+        <tr><td>Monopolo</td><td>Fuste tubular poligonal (3 a 24+ lados) — cónico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">
+      * Las condiciones de apoyo son la regla que usará el exportador/análisis interno; hoy la geometría
+      ya las contempla conceptualmente, pero el bloque <code>SUPPORTS</code> del export STAAD todavía está
+      en desarrollo (ver <a href="#pendientes" style="color:var(--cyan)">Funciones en desarrollo</a>).
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="secciones">Secciones y tramos</h2>
+    <p>
+      Toda torre se divide en <b>secciones</b> (o <b>tramos</b>, en Monopolo) apiladas verticalmente.
+      En el panel derecho, dentro de "DETALLE POR SECCIÓN" / "DETALLE POR TRAMO", cada tarjeta resume
+      una sección; el botón <b>✎ editar</b> abre el modal completo.
+    </p>
+    <p>Desde el modal de cada sección puedes editar (según el tipo de estructura):</p>
+    <ul>
+      <li><b>Altura del tramo</b> y <b>Bahías</b> (repeticiones verticales dentro del mismo tramo).</li>
+      <li><b>M — Montantes</b> y <b>D — Diagonales</b>: el perfil de piernas y diagonales.</li>
+      <li><b>Horizontal en TOP del tramo</b> y <b>Horizontal en TOP de cada bahía</b>, con su propio
+        <b>Plan Bracing</b> (patrón de arriostramiento horizontal en planta).</li>
+      <li><b>Hip Bracing</b> (solo disponible con ciertos patrones, p. ej. X-25%) — se ubica al final del modal.</li>
+    </ul>
+    <p>
+      Cada campo de perfil (M, D, horizontales, hip, etc.) es de solo lectura: haz clic sobre él para abrir
+      el <a href="#picker" style="color:var(--cyan)">buscador de perfiles</a> y elegir designación + calidad
+      de acero en una sola ventana.
+    </p>
+
+    <h3 id="bracing">Patrones de arriostramiento</h3>
+    <p>
+      En CONFIGURACIÓN eliges el patrón de diagonales (X, X-25%, X-50%, K y variantes, Staggered) mediante
+      íconos visuales. Algunos patrones (Staggered) permiten <b>invertir la orientación</b> de la diagonal;
+      los patrones K incluyen un perfil secundario (Ds/Hs).
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="monopolo">Monopolo</h2>
+    <p>Un monopolo se define por tramos <b>inclinados</b> (ahusados, comparten un único cono de
+      Diámetro Inicial → Diámetro Final) seguidos de tramos <b>rectos</b> (diámetro constante, capturado
+      por el usuario). Según el <b>Tipo de monopolo</b> elegido en el flyout:</p>
+    <table>
+      <thead><tr><th>Tipo</th><th>Tramos inclinados</th><th>Tramos rectos</th></tr></thead>
+      <tbody>
+        <tr><td>Tronco-Cónico</td><td>Todos los tramos</td><td>Ninguno</td></tr>
+        <tr><td>Escalonado</td><td>Ninguno</td><td>Todos (cada uno con su diámetro)</td></tr>
+        <tr><td>Combinado</td><td>Los primeros N (definidos por el usuario)</td><td>El resto</td></tr>
+      </tbody>
+    </table>
+    <p>Por cada tramo se puede definir, desde su modal de edición:</p>
+    <ul>
+      <li><b>Forma</b> (Redondo, 8/12/16/18 caras) — editable independientemente en cada tramo, inclinado o recto.</li>
+      <li><b>Espesor de pared</b> (mm) — se dibuja en el visor 3D como un anillo interior.</li>
+      <li><b>Diámetro del tramo</b> — fijo para tramos rectos; en tramos inclinados se calcula automáticamente
+        a partir del ahusado general y se muestra de solo lectura.</li>
+      <li><b>Calidad de acero (Fy)</b> — tomada de la base de datos de Calidades de Acero.</li>
+    </ul>
+    <div class="callout info">
+      <b>Nota geométrica</b>
+      Si entre dos tramos cambian el número de lados o el diámetro, la transición se modela como un
+      "salto" geométrico (anillo nuevo, sin traslape/empalme) — representa un cambio de sección sin
+      interpolación suave.
+    </div>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="arriostrada">Torres arriostradas (guyed)</h2>
+    <p>
+      Una torre arriostrada combina un mástil esbelto (mismo modelo de celosía que las autosoportadas)
+      con <b>niveles de retenidas</b> (vientos/cables) que se anclan al terreno. Se configuran en el flyout:
+      apertura constante del fuste, radio de anclaje inicial, número de niveles y la altura de cada uno.
+      La opción <b>"Torre con pivote"</b> agrega una articulación en la base del primer tramo.
+    </p>
+
+    <hr>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="bases-datos">Bases de datos</h2>
+    <p>
+      Desde el ícono <b>🗄 Bases de datos</b> de la barra lateral se administra toda la información de
+      materiales y perfiles que alimenta el resto de la app. Tiene tres pestañas: Calidades de Acero,
+      Perfiles IMCA y Perfiles AISC.
+    </p>
+
+    <h3 id="calidades">Calidades de acero</h3>
+    <p>Tabla editable (agregar / editar / eliminar) con Nombre, Fy, Fu y E (kg/cm²). Viene precargada con:</p>
+    <div class="pill-row">
+      <span class="pill">A37-24</span><span class="pill">A36</span><span class="pill">A572 Gr45</span>
+      <span class="pill">A992</span><span class="pill">A572 Gr50</span><span class="pill">A572 Gr60</span>
+    </div>
+    <p>Estas calidades alimentan todos los selectores de "Calidad" en los modales de sección y el Fy de Monopolo.</p>
+
+    <h3 id="perfiles">Catálogo de perfiles (IMCA / AISC)</h3>
+    <p>Cada catálogo se divide en dos familias:</p>
+    <table>
+      <thead><tr><th>Familia</th><th>IMCA</th><th>AISC</th></tr></thead>
+      <tbody>
+        <tr><td><b>LI</b> / Ángulos</td><td>Solo lados iguales</td><td>"Ángulos L" — lados iguales y desiguales en una sola tabla (Leg 1 / Leg 2 / Ix / Iy / rx / ry / rz)</td></tr>
+        <tr><td><b>OC</b> — Perfiles tubulares</td><td>Por capturar</td><td>51 perfiles Pipe (STD/XS/XXS) con Área, Espesor, Ix/Iy, r, Sx, Zx, J</td></tr>
+      </tbody>
+    </table>
+    <p>
+      El catálogo AISC viene <b>precargado</b> con 137 ángulos y 51 tubulares tomados directamente de la
+      base de datos oficial AISC Shapes Database v16.0. El catálogo IMCA aún está vacío — se llena
+      manualmente desde la misma pantalla.
+    </p>
+
+    <h3 id="picker">Elegir perfil + calidad</h3>
+    <p>
+      Al hacer clic sobre cualquier campo de perfil dentro del modal de una sección, se abre una ventana
+      con pestañas IMCA/AISC → LI/OC, buscador por designación, y el selector de Calidad de Acero — todo
+      en un solo paso. Al aceptar, el perfil y la calidad quedan asignados juntos.
+    </p>
+
+    <hr>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="visor3d">Visor 3D</h2>
+    <p>Controles disponibles en la barra de pestañas (parte superior del visor) y con el mouse:</p>
+    <table>
+      <thead><tr><th>Control</th><th>Función</th></tr></thead>
+      <tbody>
+        <tr><td>Arrastrar (clic izq.)</td><td>Orbitar la cámara</td></tr>
+        <tr><td>Rueda del mouse</td><td>Zoom</td></tr>
+        <tr><td>⊕ / ⊖</td><td>Zoom in / out</td></tr>
+        <tr><td>⛶ Zoom Window</td><td>Acercar a un área rectangular</td></tr>
+        <tr><td>↻ Orbitar</td><td>Rotación automática de la cámara</td></tr>
+        <tr><td>🏷 Nodos</td><td>Mostrar/ocultar etiquetas de nodo</td></tr>
+        <tr><td>𝐃 Perfiles</td><td>Mostrar/ocultar etiquetas de perfil sobre cada miembro</td></tr>
+        <tr><td>⚙ Configuración de malla</td><td>Tamaño, divisiones, grosor y desvanecido del grid</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="inspeccion">Inspección de miembros</h3>
+    <p>
+      Haz clic sobre cualquier pierna, diagonal u horizontal en el visor 3D para resaltarlo y abrir un
+      panel con su tramo, tipo de miembro, perfil asignado, longitud y nodos extremos.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="unidades">Unidades</h2>
+    <p>
+      La barra superior tiene un selector <b>MKS / IMP</b>. Hoy controla la unidad de fuerza usada en el
+      export STAAD (kg vs. kip); la conversión real de unidades de longitud en toda la interfaz
+      (m ↔ ft) está planeada pero <b>aún no implementada</b> — la geometría siempre se captura y almacena en metros.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="exportar">Exportar a STAAD.Pro</h2>
+    <p>
+      Desde el botón <b>Exportar</b> de la barra superior, "STAAD.Pro (.std)" genera un archivo de texto
+      con <code>JOINT COORDINATES</code> y <code>MEMBER INCIDENCES</code> listo para abrir en STAAD.Pro.
+    </p>
+    <ul>
+      <li>Para torres en celosía (autosoportada/arriostrada), se exporta la geometría 3D completa
+        (piernas, diagonales, horizontales, vientos).</li>
+      <li>Para <b>Monopolo</b>, se exporta únicamente el <b>eje central</b>: un nodo por límite de tramo
+        y una barra por tramo — no la malla completa del polígono, que es solo para visualización.</li>
+    </ul>
+    <div class="callout info">
+      <b>En desarrollo</b>
+      Los bloques <code>MEMBER PROPERTY</code>, <code>CONSTANTS</code> y <code>SUPPORTS</code> todavía no
+      se incluyen en el archivo exportado — por ahora el .std contiene solo geometría pura.
+    </div>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="configuracion">Configuración</h2>
+    <p>Desde el ícono ⚙ de la barra lateral:</p>
+    <ul>
+      <li><b>Color de fondo del canvas</b> — personalizable.</li>
+      <li><b>Reset a ajustes iniciales</b> — regresa todo a los valores de fábrica del programa.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="atajos">Atajos de teclado</h2>
+    <table>
+      <thead><tr><th>Atajo</th><th>Acción</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Guardar proyecto</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>Nuevo proyecto</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td><td>Rehacer</td></tr>
+        <tr><td><kbd>F</kbd></td><td>Ajustar vista a la torre</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Cerrar panel de selección</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:11.5px;color:var(--txt-sec);">La personalización de atajos aún no está disponible.</p>
+
+    <hr>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="aviso">Aviso profesional</h2>
+    <div class="callout warn">
+      <b>⚠ Responsabilidad del diseño</b>
+      TSA es una herramienta de modelado geométrico y preparación de datos. No realiza por sí sola el
+      análisis estructural, las revisiones por código, ni emite ningún juicio de ingeniería. Todo
+      proyecto generado con TSA debe ser revisado, calculado y validado por un ingeniero estructurista
+      responsable antes de utilizarse en construcción real.
+    </div>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="pendientes">Funciones en desarrollo</h2>
+    <p>Estas áreas ya tienen un punto de entrada en la interfaz pero su funcionalidad todavía está pendiente:</p>
+    <table>
+      <thead><tr><th>Función</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Pestaña "Render" (vista extruida de perfiles)</td><td><span class="badge soon">Placeholder</span></td></tr>
+        <tr><td>Pestañas FEM / Códigos / Cargas Viento / Antenas / Escaleras / Plataformas</td><td><span class="badge soon">Placeholder</span></td></tr>
+        <tr><td>Ícono de barra lateral: Análisis / Optimización</td><td><span class="badge soon">Placeholder</span></td></tr>
+        <tr><td>Conversión real de unidades MKS ↔ IMP</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Export STAAD: MEMBER PROPERTY / CONSTANTS / SUPPORTS</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Export DXF</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Catálogo de perfiles IMCA</td><td><span class="badge soon">Vacío — pendiente de fuente de datos</span></td></tr>
+      </tbody>
+    </table>
+
+  </main>
+</div>
+
+</body>
+</html>
