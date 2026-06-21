@@ -86,6 +86,29 @@
   hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
   .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 18px; }
   .pill { background: #0b1828; border: 1px solid var(--border); border-radius: 5px; padding: 4px 9px; font-size: 11.5px; }
+  /* ── Diagramas SVG ───────────────────────────────────────────── */
+  .diagram-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 14px 0 24px; }
+  .diagram-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px 8px; width: 130px; text-align: center;
+  }
+  .diagram-card svg { width: 100%; height: 110px; }
+  .diagram-card img { width: 100%; height: 110px; object-fit: contain; border-radius: 4px; cursor: zoom-in; }
+  .diagram-row-lg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 700px; margin: 14px 0 24px; }
+  .diagram-row-lg.cols-3 { grid-template-columns: repeat(3, 1fr); max-width: 760px; }
+  .diagram-row-lg .diagram-card { width: auto; padding: 14px 16px 12px; }
+  .diagram-row-lg .diagram-card img { height: 280px; }
+  .diagram-row-lg .dc-label { font-size: 13px; margin-top: 6px; }
+  .diagram-card .dc-label { font-size: 11px; color: var(--txt-sec); margin-top: 4px; }
+  /* ── Lightbox ───────────────────────────────────────────── */
+  .lightbox-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200; background: rgba(3,8,16,.88);
+    align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  .lightbox-overlay.open { display: flex; }
+  .lightbox-box { display: flex; flex-direction: column; align-items: center; max-width: 90vw; max-height: 90vh; }
+  .lightbox-box img { max-width: 90vw; max-height: 82vh; border-radius: 6px; box-shadow: 0 0 40px rgba(0,0,0,.5); }
+  .lightbox-caption { margin-top: 12px; color: var(--txt); font-size: 14px; text-align: center; }
 </style>
 </head>
 <body>
@@ -102,6 +125,7 @@
     <h4>Empezando</h4>
     <a href="#intro">Introducción</a>
     <a href="#primeros-pasos">Primeros pasos</a>
+    <a href="#ejemplos">Ejemplos precargados</a>
     <a href="#tipos">Tipos de estructura</a>
 
     <h4>Modelado</h4>
@@ -114,6 +138,8 @@
     <a href="#bases-datos">Bases de datos</a>
     <a href="#calidades">Calidades de acero</a>
     <a href="#perfiles">Catálogo de perfiles (IMCA/AISC)</a>
+    <a href="#user">Perfiles propios (USER)</a>
+    <a href="#retenidas-db">Cables de retenida</a>
     <a href="#picker">Elegir perfil + calidad</a>
 
     <h4>Visualización</h4>
@@ -121,10 +147,14 @@
     <a href="#inspeccion">Inspección de miembros</a>
 
     <h4>Proyecto</h4>
+    <a href="#guardar-abrir">Guardar / abrir proyecto</a>
     <a href="#unidades">Unidades</a>
     <a href="#exportar">Exportar a STAAD.Pro</a>
     <a href="#configuracion">Configuración</a>
     <a href="#atajos">Atajos de teclado</a>
+
+    <h4>Comunidad</h4>
+    <a href="#feedback">Dar feedback</a>
 
     <h4>Importante</h4>
     <a href="#aviso">Aviso profesional</a>
@@ -142,12 +172,12 @@
     </p>
 
     <div class="quicknav">
-      <a href="#primeros-pasos"><div class="qn-title">🚀 Primeros pasos</div><div class="qn-desc">Crea tu primera torre en minutos</div></a>
+      <a href="#ejemplos"><div class="qn-title">📂 Ejemplos precargados</div><div class="qn-desc">4 torres listas en Archivo → Ejemplos</div></a>
       <a href="#tipos"><div class="qn-title">🏗 Tipos de estructura</div><div class="qn-desc">3 piernas, 4 piernas, arriostrada, monopolo</div></a>
       <a href="#secciones"><div class="qn-title">📐 Secciones y tramos</div><div class="qn-desc">Editar geometría y arriostramiento por tramo</div></a>
-      <a href="#bases-datos"><div class="qn-title">🗄 Bases de datos</div><div class="qn-desc">Calidades de acero y catálogo de perfiles</div></a>
-      <a href="#visor3d"><div class="qn-title">🖥 Visor 3D</div><div class="qn-desc">Navegación, etiquetas e inspección de miembros</div></a>
-      <a href="#exportar"><div class="qn-title">📤 Exportar a STAAD</div><div class="qn-desc">Qué se incluye en el archivo .std</div></a>
+      <a href="#bases-datos"><div class="qn-title">🗄 Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
+      <a href="#visor3d"><div class="qn-title">🖥 Visor 3D</div><div class="qn-desc">Navegación, nodos, inspección de miembros</div></a>
+      <a href="#feedback"><div class="qn-title">💬 Dar feedback</div><div class="qn-desc">Manda tu opinión directo desde la app</div></a>
     </div>
 
     <div class="callout warn" id="aviso-top">
@@ -173,7 +203,40 @@
     </ol>
 
     <!-- ───────────────────────────────────────── -->
+    <h2 id="ejemplos">Ejemplos precargados</h2>
+    <p>
+      Para no empezar siempre desde cero, el menú <b>Inicio (🏠) → EJEMPLOS</b> trae 4 proyectos completos
+      listos para abrir con un clic:
+    </p>
+    <div class="pill-row">
+      <span class="pill">Monopolo</span><span class="pill">Autosoportada 4P</span>
+      <span class="pill">Autosoportada 3P</span><span class="pill">Arriostrada</span>
+    </div>
+    <p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">
+      Estos 4 ejemplos están incluidos directamente en la app (no dependen de abrir un archivo aparte),
+      así que funcionan igual sin conexión, en la app de escritorio o en el sitio publicado.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
     <h2 id="tipos">Tipos de estructura</h2>
+    <div class="diagram-row-lg">
+      <div class="diagram-card">
+        <img src="img/tipo_3p.png" alt="Torre autosoportada de 3 piernas">
+        <div class="dc-label">Autosoportada 3P</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/tipo_4p.png" alt="Torre autosoportada de 4 piernas">
+        <div class="dc-label">Autosoportada 4P</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/tipo_arriostrada.png" alt="Torre arriostrada con retenidas">
+        <div class="dc-label">Arriostrada</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/tipo_monopolo.png" alt="Monopolo tubular">
+        <div class="dc-label">Monopolo</div>
+      </div>
+    </div>
     <table>
       <thead><tr><th>Tipo</th><th>Descripción</th><th>Apoyos en la base*</th></tr></thead>
       <tbody>
@@ -202,12 +265,14 @@
       <li><b>M — Montantes</b> y <b>D — Diagonales</b>: el perfil de piernas y diagonales.</li>
       <li><b>Horizontal en TOP del tramo</b> y <b>Horizontal en TOP de cada bahía</b>, con su propio
         <b>Plan Bracing</b> (patrón de arriostramiento horizontal en planta).</li>
-      <li><b>Hip Bracing</b> (solo disponible con ciertos patrones, p. ej. X-25%) — se ubica al final del modal.</li>
+      <li><b>Hip Bracing</b> (solo disponible con ciertos patrones, p. ej. X-25%) — en torres autosoportadas
+        queda como el <b>último</b> campo del modal, después de los horizontales de TOP/bahía.</li>
     </ul>
     <p>
       Cada campo de perfil (M, D, horizontales, hip, etc.) es de solo lectura: haz clic sobre él para abrir
       el <a href="#picker" style="color:var(--cyan)">buscador de perfiles</a> y elegir designación + calidad
-      de acero en una sola ventana.
+      de acero en una sola ventana. Justo debajo de cada perfil aparece su calidad asignada
+      (ej. "A36 — Fy 2530 kg/cm²"), todo dentro de la misma caja.
     </p>
 
     <h3 id="bracing">Patrones de arriostramiento</h3>
@@ -222,6 +287,20 @@
     <p>Un monopolo se define por tramos <b>inclinados</b> (ahusados, comparten un único cono de
       Diámetro Inicial → Diámetro Final) seguidos de tramos <b>rectos</b> (diámetro constante, capturado
       por el usuario). Según el <b>Tipo de monopolo</b> elegido en el flyout:</p>
+    <div class="diagram-row-lg cols-3">
+      <div class="diagram-card">
+        <img src="img/mono_troncoconico.jpg" alt="Monopolo Tronco-Cónico">
+        <div class="dc-label">Tronco-Cónico<br>(todo ahusado)</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/mono_escalonado.jpg" alt="Monopolo Escalonado">
+        <div class="dc-label">Escalonado<br>(todo recto, diámetro fijo por tramo)</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/mono_combinado.jpg" alt="Monopolo Combinado">
+        <div class="dc-label">Combinado<br>(ahusado arriba + recto abajo)</div>
+      </div>
+    </div>
     <table>
       <thead><tr><th>Tipo</th><th>Tramos inclinados</th><th>Tramos rectos</th></tr></thead>
       <tbody>
@@ -260,9 +339,15 @@
     <h2 id="bases-datos">Bases de datos</h2>
     <p>
       Desde el ícono <b>🗄 Bases de datos</b> de la barra lateral se administra toda la información de
-      materiales y perfiles que alimenta el resto de la app. Tiene tres pestañas: Calidades de Acero,
-      Perfiles IMCA y Perfiles AISC.
+      materiales y perfiles que alimenta el resto de la app. Tiene 5 pestañas: Calidades de Acero,
+      Retenidas, Perfiles IMCA, Perfiles AISC y USER.
     </p>
+    <div class="callout info">
+      <b>🔒 Bloqueo de edición</b>
+      Todas las tablas abren <b>bloqueadas</b> (solo lectura) por default, para evitar cambios accidentales
+      al solo consultar. El ícono 🔒/🔓 del encabezado del modal habilita la edición; se vuelve a bloquear
+      cada vez que cierras y reabres el modal.
+    </div>
 
     <h3 id="calidades">Calidades de acero</h3>
     <p>Tabla editable (agregar / editar / eliminar) con Nombre, Fy, Fu y E (kg/cm²). Viene precargada con:</p>
@@ -270,28 +355,48 @@
       <span class="pill">A37-24</span><span class="pill">A36</span><span class="pill">A572 Gr45</span>
       <span class="pill">A992</span><span class="pill">A572 Gr50</span><span class="pill">A572 Gr60</span>
     </div>
-    <p>Estas calidades alimentan todos los selectores de "Calidad" en los modales de sección y el Fy de Monopolo.</p>
+    <p>Estas calidades alimentan todos los selectores de "Calidad" en los modales de sección y el Fy de Monopolo
+      (ahí también es un selector de calidad, no un número capturado a mano).</p>
 
     <h3 id="perfiles">Catálogo de perfiles (IMCA / AISC)</h3>
-    <p>Cada catálogo se divide en dos familias:</p>
+    <p>Cada catálogo (IMCA y AISC) se divide en 4 familias:</p>
     <table>
-      <thead><tr><th>Familia</th><th>IMCA</th><th>AISC</th></tr></thead>
+      <thead><tr><th>Familia</th><th>Qué es</th></tr></thead>
       <tbody>
-        <tr><td><b>LI</b> / Ángulos</td><td>Solo lados iguales</td><td>"Ángulos L" — lados iguales y desiguales en una sola tabla (Leg 1 / Leg 2 / Ix / Iy / rx / ry / rz)</td></tr>
-        <tr><td><b>OC</b> — Perfiles tubulares</td><td>Por capturar</td><td>51 perfiles Pipe (STD/XS/XXS) con Área, Espesor, Ix/Iy, r, Sx, Zx, J</td></tr>
+        <tr><td><b>LI</b></td><td>Ángulo de lados iguales</td></tr>
+        <tr><td><b>LD</b></td><td>Ángulo de lados desiguales</td></tr>
+        <tr><td><b>OC</b></td><td>Perfiles tubulares (huecos) — incluye Diámetro y Espesor</td></tr>
+        <tr><td><b>OS</b></td><td>Redondos sólidos (macizos, sin pared) — 33 diámetros estándar</td></tr>
       </tbody>
     </table>
     <p>
-      El catálogo AISC viene <b>precargado</b> con 137 ángulos y 51 tubulares tomados directamente de la
-      base de datos oficial AISC Shapes Database v16.0. El catálogo IMCA aún está vacío — se llena
-      manualmente desde la misma pantalla.
+      <b>AISC</b> viene precargado con datos reales: 61 ángulos LI, 76 LD y 51 tubulares de la base de datos
+      oficial AISC Shapes Database v16.0, más los 33 redondos sólidos OS calculados con fórmulas de círculo.
+      <b>IMCA</b> también viene precargado: 61 LI, 15 LD y 131 OC tomados del manual IMCA, más los mismos 33 OS.
+    </p>
+
+    <h3 id="user">Perfiles propios (USER)</h3>
+    <p>
+      En cada fila de Perfiles IMCA/AISC hay una estrella (☆/★) para copiar ese perfil a tu lista personal
+      <b>USER</b> — útil para tener a la mano los perfiles que más usas, sin buscarlos cada vez entre
+      cientos de filas. Clic en ☆ copia (se activa ★); clic en ★ lo quita de USER. La pestaña USER también
+      aparece como catálogo dentro del buscador de perfiles.
+    </p>
+
+    <h3 id="retenidas-db">Cables de retenida</h3>
+    <p>
+      El catálogo de cables (diámetro, forma, peso, área, carga de ruptura, módulo elástico) vive en
+      Bases de Datos → Retenidas, dividido en calidades <b>HS</b> y <b>EHS</b>. Alimenta el selector de
+      diámetro de cable dentro de "Editar Retenidas" — ahí solo se elige, los datos ya no se capturan a mano.
     </p>
 
     <h3 id="picker">Elegir perfil + calidad</h3>
     <p>
-      Al hacer clic sobre cualquier campo de perfil dentro del modal de una sección, se abre una ventana
-      con pestañas IMCA/AISC → LI/OC, buscador por designación, y el selector de Calidad de Acero — todo
-      en un solo paso. Al aceptar, el perfil y la calidad quedan asignados juntos.
+      Al hacer clic sobre cualquier campo de perfil (en el modal de sección, o el "Perfil Brazo" de
+      Retenidas), se abre una ventana con pestañas IMCA / AISC / USER → familia (LI/LD/OC/OS), buscador por
+      designación, y el selector de Calidad de Acero — todo en un solo paso. Al aceptar, el perfil y la
+      calidad quedan asignados juntos. La lista muestra Área y Peso siempre en unidades métricas (cm²,
+      kg/m), sin importar si el perfil viene de un catálogo en pulgadas — para Diámetro/Espesor también.
     </p>
 
     <hr>
@@ -307,7 +412,7 @@
         <tr><td>⊕ / ⊖</td><td>Zoom in / out</td></tr>
         <tr><td>⛶ Zoom Window</td><td>Acercar a un área rectangular</td></tr>
         <tr><td>↻ Orbitar</td><td>Rotación automática de la cámara</td></tr>
-        <tr><td>🏷 Nodos</td><td>Mostrar/ocultar etiquetas de nodo</td></tr>
+        <tr><td>🏷 Nodos</td><td>Muestra el número de cada nodo; pasa el mouse encima para ver sus coordenadas (x/y/z)</td></tr>
         <tr><td>𝐃 Perfiles</td><td>Mostrar/ocultar etiquetas de perfil sobre cada miembro</td></tr>
         <tr><td>⚙ Configuración de malla</td><td>Tamaño, divisiones, grosor y desvanecido del grid</td></tr>
       </tbody>
@@ -316,7 +421,17 @@
     <h3 id="inspeccion">Inspección de miembros</h3>
     <p>
       Haz clic sobre cualquier pierna, diagonal u horizontal en el visor 3D para resaltarlo y abrir un
-      panel con su tramo, tipo de miembro, perfil asignado, longitud y nodos extremos.
+      panel con su tramo, categoría, <b>perfil y calidad asignados</b>, longitud, nodos extremos e ID del
+      perfil. En vientos de retenida muestra la calidad del cable (HS/EHS) en vez de una calidad de acero.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="guardar-abrir">Guardar / abrir proyecto</h2>
+    <p>
+      Desde el menú <b>Inicio (🏠)</b>: "Nuevo proyecto", "Abrir proyecto…" y "Guardar como…". El archivo
+      guardado (<code>.TSA</code>) solo contiene la configuración (tipo, geometría, secciones, perfiles,
+      calidades) — la geometría 3D siempre se recalcula al abrir, así que un proyecto guardado antes de
+      una mejora del generador se ve automáticamente actualizado al volver a abrirlo.
     </p>
 
     <!-- ───────────────────────────────────────── -->
@@ -371,6 +486,14 @@
     <hr>
 
     <!-- ───────────────────────────────────────── -->
+    <h2 id="feedback">Dar feedback</h2>
+    <p>
+      El botón <b>💬 Feedback</b> de la barra superior abre una encuesta corta (tipo de torre probada,
+      facilidad de uso, qué te gustó, qué te confundió, qué agregarías). Al dar clic en "Enviar", la
+      respuesta se manda automáticamente — no necesitas abrir tu cliente de correo ni escribir nada aparte.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
     <h2 id="aviso">Aviso profesional</h2>
     <div class="callout warn">
       <b>⚠ Responsabilidad del diseño</b>
@@ -392,12 +515,35 @@
         <tr><td>Conversión real de unidades MKS ↔ IMP</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export STAAD: MEMBER PROPERTY / CONSTANTS / SUPPORTS</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export DXF</td><td><span class="badge soon">Planeado</span></td></tr>
-        <tr><td>Catálogo de perfiles IMCA</td><td><span class="badge soon">Vacío — pendiente de fuente de datos</span></td></tr>
       </tbody>
     </table>
 
   </main>
 </div>
+
+<!-- ════════════ Lightbox (clic en imagen para maximizar) ════════════ -->
+<div class="lightbox-overlay" id="lightbox-overlay" onclick="closeLightbox()">
+  <div class="lightbox-box">
+    <img id="lightbox-img" src="" alt="">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.diagram-card img').forEach(img => {
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      const label = img.closest('.diagram-card').querySelector('.dc-label');
+      document.getElementById('lightbox-img').src = img.src;
+      document.getElementById('lightbox-img').alt = img.alt;
+      document.getElementById('lightbox-caption').innerHTML = label ? label.innerHTML : img.alt;
+      document.getElementById('lightbox-overlay').classList.add('open');
+    });
+  });
+  function closeLightbox() {
+    document.getElementById('lightbox-overlay').classList.remove('open');
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
 
 </body>
 </html>
