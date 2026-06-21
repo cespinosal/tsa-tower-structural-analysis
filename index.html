@@ -2626,8 +2626,15 @@ function fitView() {
   // un escalado por dimensión máxima no bastaba: vientos muy abiertos (radio anclaje grande)
   // descentraban la vista y cortaban la parte superior/inferior de torres muy altas.
   const sphereRadius = b.size.length() / 2;
-  const halfFov = (camera.fov * Math.PI / 180) / 2;
-  const dist = sphereRadius / Math.sin(halfFov) * 1.08;
+  const halfFovV = (camera.fov * Math.PI / 180) / 2;
+  const distV = sphereRadius / Math.sin(halfFovV);
+  // Si el canvas queda más angosto que alto (panel derecho abierto, pantallas de menor
+  // resolución lógica), el FOV horizontal efectivo es menor al vertical — ajustarse solo
+  // al vertical deja la esfera cortada por los lados. Se calcula también la distancia
+  // necesaria para el FOV horizontal y se usa la mayor de las dos (la que de verdad limita).
+  const halfFovH = Math.atan(Math.tan(halfFovV) * camera.aspect);
+  const distH = sphereRadius / Math.sin(halfFovH);
+  const dist = Math.max(distV, distH) * 1.08;
   controls.target.copy(b.center);
   camera.position.copy(b.center).addScaledVector(_INITIAL_VIEW_DIR, dist);
   controls.update();
