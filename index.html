@@ -697,6 +697,41 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 .sec-modal-body::-webkit-scrollbar { width: 4px; }
 .sec-modal-body::-webkit-scrollbar-thumb { background: #263545; border-radius: 2px; }
 
+/* ── Modal: Reporte (vista previa estilo "hoja impresa" + impresión a PDF) ──────── */
+.report-modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 400;
+  background: rgba(3,8,16,.92); flex-direction: column;
+}
+.report-modal-overlay.open { display: flex; }
+.report-modal-toolbar {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px; background: var(--bg-bar); border-bottom: 1px solid var(--border);
+  color: var(--txt); font-size: 12px; font-weight: 700; letter-spacing: .5px;
+}
+.report-pages-scroll { flex: 1; overflow-y: auto; padding: 30px 0 60px; display: flex; flex-direction: column; align-items: center; }
+.report-page {
+  width: 780px; background: #fff; color: #1a1a1a;
+  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 50px 56px;
+  font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5;
+}
+.rp-cover { text-align: center; margin-bottom: 10px; }
+.rp-cover-brand { font-size: 11px; letter-spacing: 1.5px; color: #00698A; font-weight: 700; margin-bottom: 14px; }
+.rp-title { font-size: 22px; margin: 0 0 4px; color: #0A1628; }
+.rp-sub { font-size: 13px; color: #555; margin-bottom: 16px; }
+.rp-cover-img { width: 100%; max-height: 380px; object-fit: contain; background: #0A1628; border-radius: 6px; }
+.rp-h2 { font-size: 13px; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #0A1628; color: #0A1628; page-break-after: avoid; }
+table.rp-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 6px; page-break-inside: avoid; }
+table.rp-table th, table.rp-table td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+table.rp-table th { background: #eef2f7; font-weight: 600; white-space: nowrap; }
+table.rp-table .rp-total-row td { font-weight: 700; background: #eef2f7; }
+.rp-disclaimer { font-size: 10px; color: #555; background: #f7f7f7; border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-top: 16px; }
+.rp-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
+@media print {
+  body * { visibility: hidden; }
+  .report-page, .report-page * { visibility: visible; }
+  .report-page { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; margin: 0; }
+}
+
 /* Modal: cards por sección */
 .sm-card { padding: 10px 16px 12px; border-bottom: 1px solid #111c28; }
 .sm-card-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
@@ -1084,7 +1119,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
     <div class="side-spacer"></div>
 
     <!-- Reporte -->
-    <button class="side-btn">
+    <button class="side-btn" onclick="openReportModal()">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="4" y="2" width="14" height="18" rx="2"/>
         <line x1="7" y1="8"  x2="15" y2="8"/>
@@ -1588,6 +1623,20 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
       <button class="btn-cancel" onclick="closeFeedbackModal()">Cancelar</button>
       <button class="btn-apply" onclick="submitFeedback()">Enviar</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Modal: Reporte (vista previa HTML, imprimir/guardar como PDF) ──────────────── -->
+<div class="report-modal-overlay" id="report-modal-overlay">
+  <div class="report-modal-toolbar">
+    <span>VISTA PREVIA — REPORTE</span>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-apply" onclick="printReport()">🖨 Guardar como PDF</button>
+      <button class="btn-cancel" onclick="closeReportModal()">Cerrar</button>
+    </div>
+  </div>
+  <div class="report-pages-scroll">
+    <div class="report-page" id="report-page-content"></div>
   </div>
 </div>
 
@@ -3469,6 +3518,18 @@ function _pickerMetric(r, cat, fam) {
     diametro: (r.diametro ?? 0) * 2.54, espesor: (r.espesor ?? 0) * 2.54,
   };
 }
+// Peso por metro (kg/m) de una designación de perfil, buscándola en USER/IMCA/AISC —
+// usado por el reporte para el resumen de perfiles (steel takeoff). null si no se encuentra.
+function _profileWeightPerMeter(designacion) {
+  if (!designacion || designacion === '-' || designacion === '—') return null;
+  const loc = _findProfileLocation(designacion);
+  if (!loc) return null;
+  const source = loc.cat === 'user' ? userProfiles : profileCatalogs[loc.cat][loc.fam];
+  const row = source.find(r => r.designacion === designacion);
+  if (!row) return null;
+  const m = loc.cat === 'user' ? _pickerMetric(row, row.origenCat, row.origenFam) : _pickerMetric(row, loc.cat, loc.fam);
+  return m.peso;
+}
 function renderProfilePickerList() {
   const isUser = pickerCatalog === 'user';
   const isOC = !isUser && pickerFamily === 'oc';
@@ -4618,6 +4679,164 @@ function takeScreenshot() {
   a.download = `${base}_screenshot.png`;
   a.click();
   showToast('Screenshot guardado.');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Reporte (vista previa en HTML, impresión a PDF vía window.print())
+// ══════════════════════════════════════════════════════════════════
+const REPORT_TYPE_LABELS = { triangular: 'Autosoportada 3 piernas', square: 'Autosoportada 4 piernas', guyed: 'Arriostrada (guyed)', monopole: 'Monopolo' };
+
+function _reportSteelTakeoff() {
+  if (!_towerData) return { rows: [], total: 0 };
+  const totals = {};
+  _towerData.members.forEach(m => {
+    if (m.type === 'monothk') return;   // pared del monopolo: geometría tubular, no perfil de catálogo
+    const { profile, calidadName, isCableCal } = getMemberProfile(m);
+    if (!profile || profile === '—' || isCableCal) return;
+    const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+    const len = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+    const key = profile + '|' + (calidadName || '');
+    if (!totals[key]) totals[key] = { profile, calidad: calidadName, length: 0 };
+    totals[key].length += len;
+  });
+  const rows = Object.values(totals).map(t => {
+    const pesoUnit = _profileWeightPerMeter(t.profile);
+    return { ...t, pesoUnit, pesoTotal: pesoUnit != null ? pesoUnit * t.length : null };
+  }).sort((a, b) => a.profile.localeCompare(b.profile));
+  const total = rows.reduce((s, r) => s + (r.pesoTotal || 0), 0);
+  return { rows, total };
+}
+
+function openReportModal() {
+  if (!projectGenerated) { showToast('⚠  Genere una torre antes de crear el reporte.'); return; }
+  document.getElementById('report-page-content').innerHTML = _renderReportHTML();
+  document.getElementById('report-modal-overlay').classList.add('open');
+}
+function closeReportModal() {
+  document.getElementById('report-modal-overlay').classList.remove('open');
+}
+function printReport() { window.print(); }
+
+function _renderReportHTML() {
+  const cfg = getConfig();
+  renderer.render(scene, camera);
+  const img = renderer.domElement.toDataURL('image/png');
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isMono = cfg.type === 'monopole';
+  const g = name => steelGrades.find(x => x.name === name);
+
+  const geomRows = isMono ? [
+    ['Altura total', `${cfg.height} m`],
+    ['Apertura inferior / superior', `${cfg.baseW} m / ${cfg.topW} m`],
+    ['Tramos inclinados / rectos', `${cfg.nInc} / ${cfg.nStr}`],
+  ] : cfg.type === 'guyed' ? [
+    ['Altura total', `${cfg.height} m`],
+    ['Apertura del fuste', `${cfg.shaftW} m`],
+    ['Niveles de retenidas', `${cfg.guyLevels}`],
+    ['Torre con pivote', cfg.guyPivot ? 'Sí' : 'No'],
+  ] : [
+    ['Altura total', `${cfg.height} m`],
+    ['Apertura base / superior', `${cfg.baseW} m / ${cfg.topW} m`],
+    ['Número de secciones', `${cfg.nsec}`],
+  ];
+
+  const seccionesRows = isMono
+    ? cfg.secData.map((s, i) => {
+        const gr = g(s.monoFy);
+        return `<tr><td>${i + 1}</td><td>${i < cfg.nInc ? 'Inclinado' : 'Recto'}</td><td>${s.h} m</td>
+          <td>${s.monoSides >= 24 ? 'Redondo' : s.monoSides + ' lados'}</td>
+          <td>${s.monoThk === '-' ? '—' : s.monoThk + ' mm'}</td>
+          <td>${gr ? `${gr.name} (Fy ${gr.fy})` : '—'}</td></tr>`;
+      }).join('')
+    : cfg.secData.map((s, i) => {
+        const prof = (val, cal) => { if (!val || val === '-') return '—'; const gr = g(cal); return gr ? `${val} <small>(${gr.name})</small>` : val; };
+        return `<tr><td>${i + 1}</td><td>${s.diag}</td><td>x${s.bays}</td><td>${s.h} m</td>
+          <td>${prof(s.M, s.MCal)}</td><td>${prof(s.D, s.DCal)}</td></tr>`;
+      }).join('');
+
+  const { rows: takeoffRows, total: takeoffTotal } = _reportSteelTakeoff();
+  const takeoffHtml = takeoffRows.length ? `
+    <table class="rp-table">
+      <thead><tr><th>Perfil</th><th>Calidad</th><th>Longitud total (m)</th><th>Peso unitario (kg/m)</th><th>Peso total (kg)</th></tr></thead>
+      <tbody>
+        ${takeoffRows.map(r => `<tr><td>${r.profile}</td><td>${r.calidad || '—'}</td><td>${r.length.toFixed(1)}</td>
+          <td>${r.pesoUnit != null ? r.pesoUnit.toFixed(2) : '—'}</td><td>${r.pesoTotal != null ? r.pesoTotal.toFixed(1) : '—'}</td></tr>`).join('')}
+        <tr class="rp-total-row"><td colspan="4">TOTAL ESTIMADO DE ACERO</td><td>${takeoffTotal.toFixed(1)} kg</td></tr>
+      </tbody>
+    </table>` : `<p style="font-size:11px;color:#777;">Sin perfiles de catálogo asignados todavía.</p>`;
+
+  // Niveles de retenidas (altura+cable, uno por nivel) y anillos de anclaje (radio/azimut,
+  // agrupados de 3 en 3) son listas independientes — varios niveles pueden compartir el
+  // mismo anillo de anclaje, no hay una correspondencia 1 a 1 entre ambas.
+  const retenidasHtml = (cfg.type === 'guyed') ? `
+    <h2 class="rp-h2">Retenidas</h2>
+    ${cfg.guyHeights.length ? `
+    <table class="rp-table">
+      <thead><tr><th>Nivel</th><th>Altura</th><th>Cable</th><th>Calidad</th><th>Tensión</th></tr></thead>
+      <tbody>
+        ${cfg.guyHeights.map((h, i) => {
+          const cd = cfg.guyCableData[i];
+          return `<tr><td>${i + 1}</td><td>${h} m</td><td>${cd?.diam || '—'}</td>
+            <td>${cd?.diamData?.calidad || '—'}</td><td>${cd?.tensionPct ?? '—'}%</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : `<p style="font-size:11px;color:#777;">Sin niveles de retenidas definidos.</p>`}
+    ${cfg.guyAnchorData.length ? `
+    <table class="rp-table">
+      <thead><tr><th>Anillo de anclaje</th><th>Elevación</th><th>Radio</th><th>Azimut</th></tr></thead>
+      <tbody>
+        ${cfg.guyAnchorData.map((a, i) => `<tr><td>${Math.floor(i / 3) + 1}</td><td>${a.elev} m</td><td>${a.radio} m</td><td>${a.azimut}°</td></tr>`).join('')}
+      </tbody>
+    </table>` : ''}` : '';
+
+  return `
+    <div class="rp-cover">
+      <div class="rp-cover-brand">TSA — TOWER STRUCTURAL ANALYSIS</div>
+      <h1 class="rp-title">Reporte de Modelado Estructural</h1>
+      <div class="rp-sub">${cfg.siteName || cfg.assetName || 'Proyecto sin nombre'}</div>
+      ${img ? `<img class="rp-cover-img" src="${img}" alt="Vista de la torre">` : ''}
+    </div>
+
+    <h2 class="rp-h2">Datos generales del proyecto</h2>
+    <table class="rp-table">
+      <tbody>
+        <tr><th>Asset Name</th><td>${cfg.assetName || '—'}</td><th>Site Name</th><td>${cfg.siteName || '—'}</td></tr>
+        <tr><th>País</th><td>${cfg.pais || '—'}</td><th>Ingeniero responsable</th><td>${cfg.ingResponsable || '—'}</td></tr>
+        <tr><th>Fecha de creación</th><td>${fmtDate(cfg.fechaCreacion) || '—'}</td><th>Tipo de estructura</th><td>${REPORT_TYPE_LABELS[cfg.type] || cfg.type}</td></tr>
+        <tr><th>Ubicación</th><td colspan="3">${cfg.location ? `${cfg.location.lat.toFixed(6)}, ${cfg.location.lng.toFixed(6)}` : '—'}</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="rp-h2">Resumen geométrico</h2>
+    <table class="rp-table"><tbody>
+      ${geomRows.map(([l, v]) => `<tr><th>${l}</th><td>${v}</td></tr>`).join('')}
+    </tbody></table>
+
+    <h2 class="rp-h2">${isMono ? 'Detalle por tramo' : 'Detalle por sección'}</h2>
+    <table class="rp-table">
+      <thead>${isMono
+        ? '<tr><th>Tramo</th><th>Tipo</th><th>Altura</th><th>Forma</th><th>Espesor</th><th>Fy</th></tr>'
+        : '<tr><th>Sección</th><th>Patrón</th><th>Bahías</th><th>Altura</th><th>M (piernas)</th><th>D (diagonales)</th></tr>'}</thead>
+      <tbody>${seccionesRows}</tbody>
+    </table>
+
+    <h2 class="rp-h2">Resumen de perfiles utilizados</h2>
+    ${takeoffHtml}
+
+    ${retenidasHtml}
+
+    <div class="rp-disclaimer">
+      <b>Aviso profesional:</b> TSA es una herramienta de modelado geométrico y preparación de datos.
+      No realiza por sí sola el análisis estructural, las revisiones por código, ni emite ningún juicio
+      de ingeniería. Todo proyecto generado con TSA debe ser revisado, calculado y validado por un
+      ingeniero estructurista responsable antes de utilizarse en construcción real.
+    </div>
+
+    <div class="rp-footer">
+      <span>Generado el ${fmtDate(todayIso)}</span>
+      <span>Generado por TSA — Tower Structural Analysis</span>
+    </div>
+  `;
 }
 
 function exportSTAAD() {
@@ -6132,14 +6351,10 @@ function _highlightMember(m) {
   scene.add(_hlMesh);
 }
 
-function showMemberInfo(m, cx, cy) {
-  const panel = document.getElementById('mi-panel');
-  if (!panel || !_towerData) return;
-  const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
-  const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
-  const len = fmtNum(Math.sqrt(dx*dx+dy*dy+dz*dz));
-  const typeNames = {leg:'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', monothk:'PARED (ESPESOR)'};
-  document.getElementById('mi-type').textContent = typeNames[m.type] || m.type.toUpperCase();
+// Determina qué perfil/calidad corresponde a un miembro generado, según su tipo y la
+// sección/nivel al que pertenece — única fuente de verdad, usada por el panel de
+// inspección (showMemberInfo) y por el reporte (steel takeoff).
+function getMemberProfile(m) {
   const sec = m.sec ?? null;
   const sd  = (sec != null && typeof secData !== 'undefined') ? secData[sec] : null;
   const isPrincipal = m.principal !== false;
@@ -6187,6 +6402,17 @@ function showMemberInfo(m, cx, cy) {
       calidadName = m.isDiag ? sd.HhipDCal : (m.isDiaphragm ? sd.HhipDiaCal : sd.HhipHCal);
     }
   }
+  return { profile, calidadName, isCableCal, isPrincipal, sec };
+}
+function showMemberInfo(m, cx, cy) {
+  const panel = document.getElementById('mi-panel');
+  if (!panel || !_towerData) return;
+  const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+  const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
+  const len = fmtNum(Math.sqrt(dx*dx+dy*dy+dz*dz));
+  const typeNames = {leg:'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', monothk:'PARED (ESPESOR)'};
+  document.getElementById('mi-type').textContent = typeNames[m.type] || m.type.toUpperCase();
+  const { profile, calidadName, isCableCal, isPrincipal, sec } = getMemberProfile(m);
   const calidadText = isCableCal ? (calidadName || '—') : calLabelText(calidadName, false);
   const rows = [
     ['Tramo',     sec != null ? `${sec+1}` : '—'],
