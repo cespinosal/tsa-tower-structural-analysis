@@ -201,6 +201,20 @@
       <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo" si elegiste ese tipo).</li>
       <li>El panel derecho aparece con las secciones de PROYECTO y GEOMETRÍA, editables en cualquier momento.</li>
     </ol>
+    <div class="diagram-row-lg cols-3">
+      <div class="diagram-card">
+        <img src="img/ayuda_torres_tipo.jpg" alt="Panel Nueva Torre — selección de tipo de estructura">
+        <div class="dc-label">Nueva Torre — Tipo de estructura</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/ayuda_arriostrada_params.jpg" alt="Parámetros de geometría para torre arriostrada">
+        <div class="dc-label">Parámetros — Arriostrada</div>
+      </div>
+      <div class="diagram-card">
+        <img src="img/ayuda_monopolo_params.jpg" alt="Parámetros de geometría para monopolo">
+        <div class="dc-label">Parámetros — Monopolo</div>
+      </div>
+    </div>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="ejemplos">Ejemplos precargados</h2>
@@ -216,6 +230,10 @@
       Estos 4 ejemplos están incluidos directamente en la app (no dependen de abrir un archivo aparte),
       así que funcionan igual sin conexión, en la app de escritorio o en el sitio publicado.
     </p>
+    <div class="diagram-card" style="max-width:300px;">
+      <img src="img/ayuda_ejemplos_menu.jpg" alt="Menú Inicio → EJEMPLOS con los 4 proyectos precargados">
+      <div class="dc-label">Inicio (🏠) → EJEMPLOS</div>
+    </div>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="tipos">Tipos de estructura</h2>
@@ -242,8 +260,8 @@
       <tbody>
         <tr><td>Autosoportada 3 piernas</td><td>Torre triangular en celosía, autoestable.</td><td>Articulado (PINNED)</td></tr>
         <tr><td>Autosoportada 4 piernas</td><td>Torre cuadrada en celosía, autoestable.</td><td>Articulado (PINNED)</td></tr>
-        <tr><td>Arriostrada (guyed)</td><td>Mástil esbelto sostenido por niveles de retenidas (cables) ancladas al terreno.</td><td>Piernas: articulado · Anclajes: empotrado (FIXED)</td></tr>
-        <tr><td>Monopolo</td><td>Fuste tubular poligonal (3 a 24+ lados) — cónico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
+        <tr><td>Arriostrada (guyed)</td><td>Mástil esbelto sostenido por niveles de retenidas (cables) ancladas al terreno.</td><td>Piernas: articulado (PINNED)<br>Anclajes: empotrado (FIXED)</td></tr>
+        <tr><td>Monopolo</td><td>Fuste cicular o poligonal (8,12, 16 o 18 lados) — tronco-cónico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
       </tbody>
     </table>
     <p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">
@@ -259,6 +277,10 @@
       En el panel derecho, dentro de "DETALLE POR SECCIÓN" / "DETALLE POR TRAMO", cada tarjeta resume
       una sección; el botón <b>✎ editar</b> abre el modal completo.
     </p>
+    <div class="diagram-card" style="max-width:420px;">
+      <img src="img/ayuda_secciones_detalle.jpg" alt="Modal de detalle por sección/tramo">
+      <div class="dc-label">Modal de detalle por sección</div>
+    </div>
     <p>Desde el modal de cada sección puedes editar (según el tipo de estructura):</p>
     <ul>
       <li><b>Altura del tramo</b> y <b>Bahías</b> (repeticiones verticales dentro del mismo tramo).</li>
@@ -274,6 +296,10 @@
       de acero en una sola ventana. Justo debajo de cada perfil aparece su calidad asignada
       (ej. "A36 — Fy 2530 kg/cm²"), todo dentro de la misma caja.
     </p>
+    <div class="diagram-card" style="max-width:420px;">
+      <img src="img/ayuda_secciones_perfil_picker.jpg" alt="Campo de perfil con calidad de acero asignada">
+      <div class="dc-label">Perfil + calidad de acero en la misma caja</div>
+    </div>
 
     <h3 id="bracing">Patrones de arriostramiento</h3>
     <p>
@@ -281,6 +307,10 @@
       íconos visuales. Algunos patrones (Staggered) permiten <b>invertir la orientación</b> de la diagonal;
       los patrones K incluyen un perfil secundario (Ds/Hs).
     </p>
+    <div class="diagram-card" style="max-width:340px;">
+      <img src="img/ayuda_patrones_bracing.jpg" alt="Íconos de patrones de arriostramiento en CONFIGURACIÓN">
+      <div class="dc-label">Selector de patrón en CONFIGURACIÓN</div>
+    </div>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="monopolo">Monopolo</h2>
@@ -332,6 +362,10 @@
       apertura constante del fuste, radio de anclaje inicial, número de niveles y la altura de cada uno.
       La opción <b>"Torre con pivote"</b> agrega una articulación en la base del primer tramo.
     </p>
+    <div class="diagram-card" style="max-width:420px;">
+      <img src="img/ayuda_arriostrada_retenidas.jpg" alt="Configuración de niveles de retenidas en torre arriostrada">
+      <div class="dc-label">Niveles de retenidas — Torre arriostrada</div>
+    </div>
 
     <hr>
 
@@ -424,6 +458,10 @@
       panel con su tramo, categoría, <b>perfil y calidad asignados</b>, longitud, nodos extremos e ID del
       perfil. En vientos de retenida muestra la calidad del cable (HS/EHS) en vez de una calidad de acero.
     </p>
+    <div class="diagram-card" style="max-width:420px;">
+      <img src="img/ayuda_inspeccion_miembro.png" alt="Panel de inspección de miembro seleccionado">
+      <div class="dc-label">Panel de inspección de miembro</div>
+    </div>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="guardar-abrir">Guardar / abrir proyecto</h2>
