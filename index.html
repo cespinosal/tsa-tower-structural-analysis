@@ -29,6 +29,32 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; }
 
+/* ── Splash (versión HTML/web) ────────────────────────────────── */
+#splash-overlay {
+  position: fixed; inset: 0; z-index: 9999; background: #0A1628;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Segoe UI', Arial, sans-serif; transition: opacity .4s;
+}
+#splash-overlay.fade-out { opacity: 0; }
+#splash-brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 46px; }
+#splash-icon { width: 64px; height: 64px; margin-bottom: 14px; }
+#splash-title { font-size: 30px; font-weight: 700; color: #E2E8F0; letter-spacing: 1px; }
+#splash-subtitle { font-size: 12px; color: rgb(244, 34, 51); letter-spacing: 2px; margin-top: 4px; }
+#splash-welcome {
+  display: none; font-size: 40px; font-weight: 700; color: #00D4FF;
+  letter-spacing: 2px; margin-top: -10px;
+}
+#splash-overlay.welcome #splash-brand { margin-bottom: 18px; }
+#splash-overlay.welcome #splash-welcome { display: block; }
+#splash-loading-wrap { width: 320px; display: flex; flex-direction: column; align-items: center; }
+#splash-caption {
+  height: 16px; font-size: 12px; color: #94A3B8; letter-spacing: .5px; margin-bottom: 10px;
+}
+#splash-caption::after { content: '|'; color: #00D4FF; animation: splash-blink 1s steps(1) infinite; }
+#splash-bar-track { width: 100%; height: 4px; background: #152340; border-radius: 2px; overflow: hidden; }
+#splash-bar-fill { width: 0%; height: 100%; background: #00D4FF; border-radius: 2px; transition: width .08s linear; }
+@keyframes splash-blink { 50% { opacity: 0; } }
+
 :root {
   --bg-deep:    #0A1628;   /* fondo principal        */
   --bg-bar:     #060F1C;   /* barras toolbar/tabs     */
@@ -809,10 +835,20 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
 /* Tablas largas de Bases de Datos: encabezado fijo como tabla aparte (position:sticky en
    <th> es poco confiable entre navegadores) — header y body usan table-layout:fixed con
    el mismo <colgroup> para que las columnas queden alineadas entre ambas tablas. */
-.ret-table.db-table { table-layout: fixed; }
-.ret-table td { padding: 4px 8px; border-bottom: 1px solid #111c28; }
+.ret-table.db-table { table-layout: fixed; width: max-content; min-width: 100%; }
+#db-table-hdr-wrap { overflow-x: auto; overflow-y: visible; padding: 14px 14px 0; flex-shrink: 0; }
+#db-table-hdr-wrap table.ret-table th { white-space: normal; line-height: 1.3; }
+#db-table-hdr-wrap::-webkit-scrollbar { height: 0; }
+#db-body-wrap { overflow-x: auto; }
+.ret-table td { padding: 4px 8px; border-bottom: 1px solid #111c28; overflow: hidden; }
 .ret-table tbody tr:hover { background: #0e2236; }
 .ret-table input[type=number] { width: 90px; }
+/* Tablas de Bases de Datos con muchas columnas (ej. Canal, 13 columnas): el ancho fijo de
+   90px por input desborda la celda y el texto se monta con la columna siguiente — aquí se
+   fuerza a llenar el ancho real de la celda en vez de un tamaño fijo. */
+.ret-table.db-table input[type=number], .ret-table.db-table input[type=text] {
+  width: 100%; min-width: 0; box-sizing: border-box; padding: 2px 4px; font-size: 10.5px;
+}
 .ret-table input:disabled { opacity: .55; cursor: default; }
 .ret-cable-cell {
   cursor: pointer; color: var(--cyan); padding: 4px 8px;
@@ -1022,6 +1058,70 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
 </head>
 <body>
 
+<!-- ══════════════ SPLASH (solo versión HTML/web — el .exe ya tiene su propio splash nativo) ══ -->
+<div id="splash-overlay">
+  <div id="splash-brand">
+    <img src="ico_TSA.png" id="splash-icon" alt="">
+    <div id="splash-title">TSA</div>
+    <div id="splash-subtitle">TOWER STRUCTURAL ANALYSIS</div>
+  </div>
+  <div id="splash-welcome">BIENVENIDO</div>
+  <div id="splash-loading-wrap">
+    <div id="splash-caption"></div>
+    <div id="splash-bar-track"><div id="splash-bar-fill"></div></div>
+  </div>
+</div>
+<script>
+(function() {
+  const overlay = document.getElementById('splash-overlay');
+  if (!overlay) return;
+  // Dentro de la app de escritorio (QWebEngineView, dev o .exe) ya hay un splash nativo
+  // de Python — este splash HTML es solo para abrir TSA.html directo en un navegador.
+  if (typeof qt !== 'undefined' && qt.webChannelTransport) { overlay.remove(); return; }
+  const phrases = ['Cargando bases de datos...', 'Cargando ejemplos...', 'Cargando interfaz de usuario...'];
+  const totalMs = 5000;
+  const slot = totalMs / phrases.length;
+  const captionEl = document.getElementById('splash-caption');
+  const barEl = document.getElementById('splash-bar-fill');
+
+  function typePhrase(idx) {
+    if (idx >= phrases.length) return;
+    const text = phrases[idx];
+    captionEl.textContent = '';
+    const charDur = Math.max(12, Math.min(40, (slot * 0.65) / text.length));
+    let i = 0;
+    const typer = setInterval(() => {
+      captionEl.textContent = text.slice(0, ++i);
+      if (i >= text.length) clearInterval(typer);
+    }, charDur);
+    setTimeout(() => typePhrase(idx + 1), slot);
+  }
+
+  function animateBar() {
+    const start = performance.now();
+    function step(now) {
+      const pct = Math.min(100, ((now - start) / totalMs) * 100);
+      barEl.style.width = pct + '%';
+      if (pct < 100) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function finishSplash() {
+    document.getElementById('splash-loading-wrap').style.display = 'none';
+    overlay.classList.add('welcome');
+    setTimeout(() => {
+      overlay.classList.add('fade-out');
+      setTimeout(() => overlay.remove(), 450);
+    }, 1700);
+  }
+
+  typePhrase(0);
+  animateBar();
+  setTimeout(finishSplash, totalMs);
+})();
+</script>
+
 <!-- ══════════════ TOOLBAR ══════════════════════════════════════ -->
 <div class="toolbar">
   <span class="logo">
@@ -1059,7 +1159,6 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   <button class="tab">⬡ &nbsp;Antenas</button>
   <button class="tab">⬡ &nbsp;Escaleras</button>
   <button class="tab">⬡ &nbsp;Plataformas</button>
-  <button class="tab" id="tab-render">⬡ &nbsp;Render</button>
   <div class="tabbar-end">
     <button class="icon-btn">📈<span class="icon-tip">Gráficas</span></button>
     <button class="icon-btn">⊞<span class="icon-tip">Tabla</span></button>
@@ -1520,7 +1619,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <div class="sect-title" style="margin:0 0 8px;padding:0;">RETENIDAS</div>
       <table class="ret-table">
         <thead><tr>
-          <th>Nivel en Torre (m)</th><th>Cable</th><th>Tensión Inicial (%)</th><th>Conexión</th><th>Nodos conectados</th><th>Triángulo Est.</th><th>Brazo (m)</th><th>Perfil Brazo</th><th style="width:26px;"></th>
+          <th>Nivel en Torre (m)</th><th>Cable</th><th>Tensión Inicial (%)</th><th>Conexión</th><th>Nodos conectados</th><th>Triángulo Est.</th><th>Editar Estabilizador</th><th style="width:26px;"></th>
         </tr></thead>
         <tbody id="ret-table-body"></tbody>
       </table>
@@ -1540,6 +1639,81 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
     <div class="sec-modal-ftr">
       <button class="btn-cancel" onclick="closeRetenidasModal()">Cancelar</button>
       <button class="btn-apply"  onclick="saveRetenidasModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sub-modal: Estabilizadores (longitud + perfil del brazo, por nivel) ──────── -->
+<div class="sec-modal-overlay" id="estabilizador-modal-overlay" onclick="closeEstabilizadorModal(event)" style="z-index:280;">
+  <div class="sec-modal" style="width:360px;" onclick="event.stopPropagation()">
+    <div class="sec-modal-hdr">
+      <span>TRIÁNGULO ESTABILIZADOR</span>
+      <button onclick="closeEstabilizadorModal()">✕</button>
+    </div>
+    <div class="sec-modal-body" style="padding:16px;">
+      <div class="sm-field" style="margin-bottom:14px;">
+        <label class="sm-lbl">Tipo de estabilizador</label>
+        <div class="diag-icon-grid" id="estab-tipo-grid"></div>
+      </div>
+      <!-- Longitud del brazo y Perfil: definen el vértice V (compartido por Puntal y
+           Tensor) y el miembro principal del brazo — activos en los 3 tipos, no solo Simple. -->
+      <div class="sm-field" style="margin-bottom:14px;">
+        <label class="sm-lbl">Longitud del brazo (m)</label>
+        <input class="sm-inp" type="number" step="0.1" min="0.1" id="estab-brazoLen">
+      </div>
+      <div class="sm-field" style="margin-bottom:14px;">
+        <label class="sm-lbl">Perfil</label>
+        <div class="ret-cable-cell" id="estab-perfil-cell" onclick="openEstabPerfilPicker()">Seleccionar…</div>
+      </div>
+      <div id="estab-complex-fields" style="display:none;">
+        <label class="sm-chk-row" style="margin-bottom:10px;justify-content:flex-start;">
+          <input type="checkbox" id="estab-puntal-chk"><span class="sm-chk-lbl">Puntal</span>
+        </label>
+        <div id="estab-puntal-perfil-wrap" style="display:none;margin-bottom:14px;">
+          <div class="sm-field" style="margin-bottom:10px;">
+            <label class="sm-lbl">Altura mínima del puntal (m, hacia abajo)</label>
+            <input class="sm-inp" type="number" step="0.1" max="0" id="estab-puntal-altura">
+          </div>
+          <div class="sm-field" style="margin-bottom:10px;">
+            <label class="sm-lbl">Perfil — Puntal</label>
+            <div class="ret-cable-cell" id="estab-puntal-perfil-cell" onclick="openEstabPerfilPicker('puntal')">Seleccionar…</div>
+          </div>
+          <label class="sm-chk-row" style="margin:0 0 10px 14px;justify-content:flex-start;">
+            <input type="checkbox" id="estab-puntal-horiz-chk"><span class="sm-chk-lbl">Horizontal</span>
+          </label>
+          <div id="estab-puntal-horiz-wrap" style="display:none;margin-left:14px;">
+            <div class="sm-field">
+              <label class="sm-lbl">Perfil — Horizontal Puntal</label>
+              <div class="ret-cable-cell" id="estab-puntal-horiz-perfil-cell" onclick="openEstabPerfilPicker('puntalH')">Seleccionar…</div>
+            </div>
+          </div>
+        </div>
+        <label class="sm-chk-row" style="margin-bottom:10px;justify-content:flex-start;">
+          <input type="checkbox" id="estab-tensor-chk"><span class="sm-chk-lbl">Tensor</span>
+        </label>
+        <div id="estab-tensor-perfil-wrap" style="display:none;">
+          <div class="sm-field" style="margin-bottom:10px;">
+            <label class="sm-lbl">Altura mínima del tensor (m, hacia arriba)</label>
+            <input class="sm-inp" type="number" step="0.1" min="0" id="estab-tensor-altura">
+          </div>
+          <div class="sm-field" style="margin-bottom:10px;">
+          <label class="sm-lbl">Perfil — Tensor</label>
+          <div class="ret-cable-cell" id="estab-tensor-perfil-cell" onclick="openEstabPerfilPicker('tensor')">Seleccionar…</div>
+          </div>
+          <label class="sm-chk-row" style="margin:0 0 10px 14px;justify-content:flex-start;">
+            <input type="checkbox" id="estab-tensor-horiz-chk"><span class="sm-chk-lbl">Horizontal</span>
+          </label>
+          <div id="estab-tensor-horiz-wrap" style="display:none;margin-left:14px;">
+            <div class="sm-field">
+              <label class="sm-lbl">Perfil — Horizontal Tensor</label>
+              <div class="ret-cable-cell" id="estab-tensor-horiz-perfil-cell" onclick="openEstabPerfilPicker('tensorH')">Seleccionar…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sec-modal-ftr">
+      <button class="btn-apply" onclick="closeEstabilizadorModal()">Listo</button>
     </div>
   </div>
 </div>
@@ -1654,7 +1828,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
 
 <!-- ── Modal: Bases de Datos (placeholder — Calidades de Acero / Perfiles IMCA / AISC) ── -->
 <div class="sec-modal-overlay" id="database-modal-overlay" onclick="closeDatabaseModal(event)">
-  <div class="sec-modal" style="width:680px;max-height:88vh;" onclick="event.stopPropagation()">
+  <div class="sec-modal" style="width:1180px;max-width:96vw;max-height:88vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>BASES DE DATOS</span>
       <span style="display:flex;align-items:center;gap:10px;">
@@ -1666,13 +1840,13 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
     <div style="display:flex;gap:6px;padding:10px 14px 0;border-bottom:1px solid var(--border);">
       <button class="db-tab active" id="db-tab-acero" onclick="switchDatabaseTab('acero')">Calidades de Acero</button>
       <button class="db-tab" id="db-tab-cables" onclick="switchDatabaseTab('cables')">Retenidas</button>
-      <button class="db-tab" id="db-tab-imca" onclick="switchDatabaseTab('imca')">Perfiles IMCA</button>
       <button class="db-tab" id="db-tab-aisc" onclick="switchDatabaseTab('aisc')">Perfiles AISC</button>
-      <button class="db-tab" id="db-tab-user" onclick="switchDatabaseTab('user')">USER</button>
+      <button class="db-tab" id="db-tab-imca" onclick="switchDatabaseTab('imca')">Perfiles IMCA</button>
+      <button class="db-tab" id="db-tab-user" onclick="switchDatabaseTab('user')">Favoritos 🌟</button>
     </div>
     <div id="db-subtabs" style="display:flex;gap:6px;padding:10px 14px 0;"></div>
-    <div id="db-table-hdr" style="padding:14px 14px 0;"></div>
-    <div class="sec-modal-body" style="padding:0 14px 14px;">
+    <div id="db-table-hdr-wrap"><div id="db-table-hdr"></div></div>
+    <div class="sec-modal-body" id="db-body-wrap" style="padding:0 14px 14px;">
       <div id="db-content"></div>
     </div>
   </div>
@@ -1686,9 +1860,9 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button onclick="closeProfilePicker()">✕</button>
     </div>
     <div style="display:flex;gap:6px;padding:10px 14px 0;border-bottom:1px solid var(--border);">
-      <button class="db-tab active" id="pp-tab-imca" onclick="pickerSwitchCatalog('imca')">Perfiles IMCA</button>
       <button class="db-tab" id="pp-tab-aisc" onclick="pickerSwitchCatalog('aisc')">Perfiles AISC</button>
-      <button class="db-tab" id="pp-tab-user" onclick="pickerSwitchCatalog('user')">USER</button>
+      <button class="db-tab active" id="pp-tab-imca" onclick="pickerSwitchCatalog('imca')">Perfiles IMCA</button>
+      <button class="db-tab" id="pp-tab-user" onclick="pickerSwitchCatalog('user')">Favoritos 🌟</button>
     </div>
     <div class="sec-modal-body" style="padding:14px;">
       <div id="pp-subtabs" style="display:flex;gap:6px;margin-bottom:10px;"></div>
@@ -2144,6 +2318,50 @@ function genGuyed(cfg) {
       for (let k = 0; k < 3; k++) {
         members.push({ni:lnodes[gLv][k], nj:vIds[k],       type:'stabarm', guyLevel:g});
         members.push({ni:lnodes[gLv][k], nj:vIds[(k+2)%3], type:'stabarm', guyLevel:g});
+      }
+      // Puntales/Tensores — miembros ADICIONALES, no sustituyen al triángulo estabilizador
+      // de arriba (ese nunca se quita). Cada uno conecta el MISMO par de piernas que su
+      // vértice Vk, pero desde un nivel distinto a gLv: Tensor siempre hacia arriba
+      // (altura positiva), Puntal siempre hacia abajo (negativa) — forzado al nodo de
+      // bahía real más cercano a la altura pedida por el usuario (los niveles no son
+      // uniformes entre tramos, así que no se puede usar una distancia fija).
+      const _nearestLevel = (reqAbsH, dir) => {
+        let best = -1, bestDiff = Infinity;
+        for (let lv = 0; lv < levelHeights.length; lv++) {
+          const rel = levelHeights[lv] - levelHeights[gLv];
+          if (dir > 0 ? rel <= 0 : rel >= 0) continue;
+          const diff = Math.abs(Math.abs(rel) - reqAbsH);
+          if (diff < bestDiff) { bestDiff = diff; best = lv; }
+        }
+        return best;
+      };
+      if (cd.estabPuntalOn) {
+        const lv = _nearestLevel(Math.abs(+cd.estabPuntalAltura) || 0, -1);
+        if (lv >= 0) {
+          for (let k = 0; k < 3; k++) {
+            const j = (k+1) % 3;
+            members.push({ni:lnodes[lv][k], nj:vIds[k], type:'puntal', guyLevel:g});
+            members.push({ni:lnodes[lv][j], nj:vIds[k], type:'puntal', guyLevel:g});
+          }
+          // Horizontal — check anidado bajo Puntal: cierra el anillo L1-L2-L3-L1 al MISMO
+          // nivel ya forzado por el puntal (no agrega un nivel nuevo).
+          if (cd.estabPuntalHorizOn) for (let k = 0; k < 3; k++) {
+            members.push({ni:lnodes[lv][k], nj:lnodes[lv][(k+1)%3], type:'horizPuntal', guyLevel:g});
+          }
+        }
+      }
+      if (cd.estabTensorOn) {
+        const lv = _nearestLevel(Math.abs(+cd.estabTensorAltura) || 0, 1);
+        if (lv >= 0) {
+          for (let k = 0; k < 3; k++) {
+            const j = (k+1) % 3;
+            members.push({ni:lnodes[lv][k], nj:vIds[k], type:'tensor', guyLevel:g});
+            members.push({ni:lnodes[lv][j], nj:vIds[k], type:'tensor', guyLevel:g});
+          }
+          if (cd.estabTensorHorizOn) for (let k = 0; k < 3; k++) {
+            members.push({ni:lnodes[lv][k], nj:lnodes[lv][(k+1)%3], type:'horizTensor', guyLevel:g});
+          }
+        }
       }
       useNodes.forEach(ai => {
         const aid = ancIdsAll[ai];
@@ -2986,6 +3204,12 @@ function renderTower(data) {
       color=C_GUY(); opacity=0.6; transparent=true;
     } else if (type==='stabarm') {
       color=C_STABARM();
+    } else if (type==='tensor') {
+      color=0x22C55E;
+    } else if (type==='puntal') {
+      color=0x9AA7B2;
+    } else if (type==='horizPuntal' || type==='horizTensor') {
+      color=0xFFCC00;
     } else if (type==='monothk') {
       color=C_SECONDARY; opacity=0.6; transparent=true;
     } else if (type==='planbrace') {
@@ -3213,9 +3437,14 @@ function delSteelGrade(i) {
 }
 // Encabezado en una tabla aparte (fija, fuera del scroll) + cuerpo en otra tabla (la que
 // se desplaza) — ambas con el mismo <colgroup> para que las columnas queden alineadas.
+// Ancho FIJO por columna (no %) — con muchas columnas (ej. Canal, 13) forzar todo a caber
+// en el modal las hacía tan angostas que el texto se montaba entre celdas. Con ancho fijo
+// la tabla puede quedar más ancha que el modal; el contenedor que la envuelve scrollea
+// horizontalmente (ver #db-table-hdr-wrap / #db-body-wrap) y se sincronizan entre sí.
+const DB_COL_PX = 105, DB_COL_FIRST_PX = 165;
 function _dbColgroup(n) {
-  const pct = (100 / n).toFixed(3);
-  return '<colgroup>' + Array(n).fill(`<col style="width:${pct}%">`).join('') + '<col style="width:26px">' + '</colgroup>';
+  return '<colgroup>' + `<col style="width:${DB_COL_FIRST_PX}px">`
+    + Array(n - 1).fill(`<col style="width:${DB_COL_PX}px">`).join('') + '<col style="width:26px">' + '</colgroup>';
 }
 function renderSteelGradesTable() {
   const dis = dbEditUnlocked ? '' : 'disabled';
@@ -3261,8 +3490,8 @@ const PROFILE_CATALOGS_KEY = 'tsa_profile_catalogs_v1';
 // AISC sí distingue lados iguales (LI) de lados desiguales (LD) — se separan a partir de
 // la misma tabla de ángulos AISC v16.0, comparando leg1 vs leg2 de cada perfil.
 const PROFILE_FAMILY_LABELS = {
-  imca: { li: 'LI — Ángulo de lados iguales', ld: 'LD — Ángulo de lados desiguales', oc: 'OC — Perfiles tubulares', os: 'OS — Sólidos' },
-  aisc: { li: 'LI — Ángulo de lados iguales', ld: 'LD — Ángulo de lados desiguales', oc: 'OC — Perfiles tubulares', os: 'OS — Sólidos' },
+  imca: { li: 'LI — Ángulo de lados iguales', ld: 'LD — Ángulo de lados desiguales', oc: 'OC — Perfiles tubulares', os: 'OS — Sólidos', c: 'C — Canal' },
+  aisc: { li: 'LI — Ángulo de lados iguales', ld: 'LD — Ángulo de lados desiguales', oc: 'OC — Perfiles tubulares', os: 'OS — Sólidos', c: 'C — Canal' },
 };
 const PROFILE_CATALOG_DEFS = {
   imca: {
@@ -3270,12 +3499,14 @@ const PROFILE_CATALOG_DEFS = {
     ld: { fields: [['designacion','Designación','text'], ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['leg1','Leg 1 (cm)','number'], ['leg2','Leg 2 (cm)','number'], ['espesor','Espesor (mm)','number'], ['ix','Ix (cm⁴)','number'], ['iy','Iy (cm⁴)','number'], ['rx','rx (cm)','number'], ['ry','ry (cm)','number'], ['rz','rz (cm)','number']] },
     oc: { fields: [['designacion','Designación','text'], ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['diametro','Diámetro (cm)','number'], ['espesor','Espesor pared (mm)','number'], ['ix','Ix (cm⁴)','number'], ['iy','Iy (cm⁴)','number'], ['r','r (cm)','number'], ['sx','Sx (cm³)','number'], ['zx','Zx (cm³)','number'], ['j','J (cm⁴)','number']] },
     os: { fields: [['designacion','Designación','text'], ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['diametro','Diámetro (cm)','number'], ['ix','Ix (cm⁴)','number'], ['iy','Iy (cm⁴)','number'], ['r','r (cm)','number'], ['sx','Sx (cm³)','number'], ['zx','Zx (cm³)','number'], ['j','J (cm⁴)','number']] },
+    c: { fields: [['designacion','Designación','text'], ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['d','d (cm)','number'], ['bf','bf (cm)','number'], ['tw','tw (mm)','number'], ['tf','tf (mm)','number'], ['x','x (cm)','number'], ['ix','Ix (cm⁴)','number'], ['iy','Iy (cm⁴)','number'], ['rx','rx (cm)','number'], ['ry','ry (cm)','number']] },
   },
   aisc: {
     li: { fields: [['designacion','Designación','text'], ['peso','Peso (lb/ft)','number'], ['area','Área (in²)','number'], ['leg1','Leg 1 (in)','number'], ['leg2','Leg 2 (in)','number'], ['espesor','Espesor (in)','number'], ['ix','Ix (in⁴)','number'], ['iy','Iy (in⁴)','number'], ['rx','rx (in)','number'], ['ry','ry (in)','number'], ['rz','rz (in)','number']] },
     ld: { fields: [['designacion','Designación','text'], ['peso','Peso (lb/ft)','number'], ['area','Área (in²)','number'], ['leg1','Leg 1 (in)','number'], ['leg2','Leg 2 (in)','number'], ['espesor','Espesor (in)','number'], ['ix','Ix (in⁴)','number'], ['iy','Iy (in⁴)','number'], ['rx','rx (in)','number'], ['ry','ry (in)','number'], ['rz','rz (in)','number']] },
     oc: { fields: [['designacion','Designación','text'], ['peso','Peso (lb/ft)','number'], ['area','Área (in²)','number'], ['diametro','Diámetro (in)','number'], ['espesor','Espesor pared (in)','number'], ['ix','Ix (in⁴)','number'], ['iy','Iy (in⁴)','number'], ['r','r (in)','number'], ['sx','Sx (in³)','number'], ['zx','Zx (in³)','number'], ['j','J (in⁴)','number']] },
     os: { fields: [['designacion','Designación','text'], ['peso','Peso (lb/ft)','number'], ['area','Área (in²)','number'], ['diametro','Diámetro (in)','number'], ['ix','Ix (in⁴)','number'], ['iy','Iy (in⁴)','number'], ['r','r (in)','number'], ['sx','Sx (in³)','number'], ['zx','Zx (in³)','number'], ['j','J (in⁴)','number']] },
+    c: { fields: [['designacion','Designación','text'], ['peso','Peso (lb/ft)','number'], ['area','Área (in²)','number'], ['d','d (in)','number'], ['bf','bf (in)','number'], ['tw','tw (in)','number'], ['tf','tf (in)','number'], ['x','x (in)','number'], ['ix','Ix (in⁴)','number'], ['iy','Iy (in⁴)','number'], ['rx','rx (in)','number'], ['ry','ry (in)','number']] },
   },
 };
 // Datos reales AISC Shapes Database v16.0 (Angle / Pipe) — precargados como default de AISC.
@@ -3288,18 +3519,21 @@ const DEFAULT_IMCA_OS = [{"designacion": "OS 6.3", "peso": 0.2447, "area": 0.312
 const DEFAULT_AISC_OS = [{"designacion": "OS 1/4", "peso": 0.1644, "area": 0.0483, "diametro": 0.248, "ix": 0.00019, "iy": 0.00019, "r": 0.062, "sx": 0.0015, "zx": 0.00254, "j": 0.00037}, {"designacion": "OS 5/16", "peso": 0.2586, "area": 0.076, "diametro": 0.311, "ix": 0.00046, "iy": 0.00046, "r": 0.0778, "sx": 0.00295, "zx": 0.00501, "j": 0.00092}, {"designacion": "OS 3/8", "peso": 0.3739, "area": 0.1099, "diametro": 0.374, "ix": 0.00096, "iy": 0.00096, "r": 0.0935, "sx": 0.00514, "zx": 0.00872, "j": 0.00192}, {"designacion": "OS 7/16", "peso": 0.5105, "area": 0.15, "diametro": 0.437, "ix": 0.00179, "iy": 0.00179, "r": 0.1093, "sx": 0.00819, "zx": 0.01391, "j": 0.00358}, {"designacion": "OS 1/2", "peso": 0.6682, "area": 0.1963, "diametro": 0.5, "ix": 0.00307, "iy": 0.00307, "r": 0.125, "sx": 0.01227, "zx": 0.02083, "j": 0.00614}, {"designacion": "OS 9/16", "peso": 0.8472, "area": 0.2489, "diametro": 0.563, "ix": 0.00493, "iy": 0.00493, "r": 0.1407, "sx": 0.01752, "zx": 0.02974, "j": 0.00986}, {"designacion": "OS 5/8", "peso": 1.0474, "area": 0.3078, "diametro": 0.626, "ix": 0.00754, "iy": 0.00754, "r": 0.1565, "sx": 0.02408, "zx": 0.04088, "j": 0.01507}, {"designacion": "OS 11/16", "peso": 1.2688, "area": 0.3728, "diametro": 0.689, "ix": 0.01106, "iy": 0.01106, "r": 0.1722, "sx": 0.03211, "zx": 0.05451, "j": 0.02212}, {"designacion": "OS 3/4", "peso": 1.5114, "area": 0.4441, "diametro": 0.752, "ix": 0.0157, "iy": 0.0157, "r": 0.188, "sx": 0.04174, "zx": 0.07087, "j": 0.03139}, {"designacion": "OS 13/16", "peso": 1.7581, "area": 0.5166, "diametro": 0.811, "ix": 0.02124, "iy": 0.02124, "r": 0.2028, "sx": 0.05237, "zx": 0.08891, "j": 0.04248}, {"designacion": "OS 7/8", "peso": 2.0418, "area": 0.6, "diametro": 0.874, "ix": 0.02864, "iy": 0.02864, "r": 0.2185, "sx": 0.06555, "zx": 0.11128, "j": 0.05729}, {"designacion": "OS 15/16", "peso": 2.3467, "area": 0.6896, "diametro": 0.937, "ix": 0.03784, "iy": 0.03784, "r": 0.2343, "sx": 0.08077, "zx": 0.13711, "j": 0.07568}, {"designacion": "OS 1", "peso": 2.6729, "area": 0.7854, "diametro": 1.0, "ix": 0.04909, "iy": 0.04909, "r": 0.25, "sx": 0.09817, "zx": 0.16667, "j": 0.09817}, {"designacion": "OS 1-1/16", "peso": 3.0202, "area": 0.8875, "diametro": 1.063, "ix": 0.06267, "iy": 0.06267, "r": 0.2657, "sx": 0.11792, "zx": 0.20019, "j": 0.12535}, {"designacion": "OS 1-1/8", "peso": 3.3888, "area": 0.9958, "diametro": 1.126, "ix": 0.0789, "iy": 0.0789, "r": 0.2815, "sx": 0.14015, "zx": 0.23793, "j": 0.15781}, {"designacion": "OS 1-3/16", "peso": 3.7785, "area": 1.1103, "diametro": 1.189, "ix": 0.0981, "iy": 0.0981, "r": 0.2972, "sx": 0.16501, "zx": 0.28014, "j": 0.1962}, {"designacion": "OS 1-1/4", "peso": 4.1895, "area": 1.2311, "diametro": 1.252, "ix": 0.1206, "iy": 0.1206, "r": 0.313, "sx": 0.19265, "zx": 0.32706, "j": 0.2412}, {"designacion": "OS 1-5/16", "peso": 4.5941, "area": 1.3499, "diametro": 1.311, "ix": 0.14501, "iy": 0.14501, "r": 0.3278, "sx": 0.22122, "zx": 0.37556, "j": 0.29003}, {"designacion": "OS 1-3/8", "peso": 5.0462, "area": 1.4828, "diametro": 1.374, "ix": 0.17496, "iy": 0.17496, "r": 0.3435, "sx": 0.25467, "zx": 0.43234, "j": 0.34992}, {"designacion": "OS 1-7/16", "peso": 5.5194, "area": 1.6218, "diametro": 1.437, "ix": 0.20932, "iy": 0.20932, "r": 0.3593, "sx": 0.29132, "zx": 0.49457, "j": 0.41864}, {"designacion": "OS 1-1/2", "peso": 6.014, "area": 1.7671, "diametro": 1.5, "ix": 0.2485, "iy": 0.2485, "r": 0.375, "sx": 0.33134, "zx": 0.5625, "j": 0.49701}, {"designacion": "OS 1-5/8", "peso": 7.0666, "area": 2.0765, "diametro": 1.626, "ix": 0.34311, "iy": 0.34311, "r": 0.4065, "sx": 0.42204, "zx": 0.71647, "j": 0.68622}, {"designacion": "OS 1-3/4", "peso": 8.2041, "area": 2.4107, "diametro": 1.752, "ix": 0.46246, "iy": 0.46246, "r": 0.438, "sx": 0.52793, "zx": 0.89625, "j": 0.92492}, {"designacion": "OS 1-7/8", "peso": 9.4264, "area": 2.7699, "diametro": 1.878, "ix": 0.61053, "iy": 0.61053, "r": 0.4695, "sx": 0.65021, "zx": 1.10383, "j": 1.22106}, {"designacion": "OS 2", "peso": 10.6915, "area": 3.1416, "diametro": 2.0, "ix": 0.7854, "iy": 0.7854, "r": 0.5, "sx": 0.7854, "zx": 1.33333, "j": 1.5708}, {"designacion": "OS 2-1/4", "peso": 13.5551, "area": 3.983, "diametro": 2.252, "ix": 1.26246, "iy": 1.26246, "r": 0.563, "sx": 1.12121, "zx": 1.90342, "j": 2.52493}, {"designacion": "OS 2-3/8", "peso": 15.0641, "area": 4.4265, "diametro": 2.374, "ix": 1.55921, "iy": 1.55921, "r": 0.5935, "sx": 1.31356, "zx": 2.22997, "j": 3.11842}, {"designacion": "OS 2-1/2", "peso": 16.7054, "area": 4.9087, "diametro": 2.5, "ix": 1.91748, "iy": 1.91748, "r": 0.625, "sx": 1.53398, "zx": 2.60417, "j": 3.83495}, {"designacion": "OS 2-5/8", "peso": 18.4315, "area": 5.4159, "diametro": 2.626, "ix": 2.3342, "iy": 2.3342, "r": 0.6565, "sx": 1.77777, "zx": 3.01804, "j": 4.6684}, {"designacion": "OS 2-3/4", "peso": 20.2425, "area": 5.9481, "diametro": 2.752, "ix": 2.81542, "iy": 2.81542, "r": 0.688, "sx": 2.04612, "zx": 3.47359, "j": 5.63085}, {"designacion": "OS 2-7/8", "peso": 22.0778, "area": 6.4874, "diametro": 2.874, "ix": 3.34909, "iy": 3.34909, "r": 0.7185, "sx": 2.3306, "zx": 3.95655, "j": 6.69817}, {"designacion": "OS 3", "peso": 24.0558, "area": 7.0686, "diametro": 3.0, "ix": 3.97608, "iy": 3.97608, "r": 0.75, "sx": 2.65072, "zx": 4.5, "j": 7.95216}, {"designacion": "OS 3-1/4", "peso": 28.198, "area": 8.2857, "diametro": 3.248, "ix": 5.46325, "iy": 5.46325, "r": 0.812, "sx": 3.36404, "zx": 5.71096, "j": 10.92649}];
 const _AISC_ANGLES_RAW = [{"designacion": "L12X12X1-3/8", "peso": 105.0, "area": 31.1, "leg1": 12.0, "leg2": 12.0, "espesor": 1.38, "ix": 413.0, "iy": 413.0, "rx": 3.64, "ry": 3.64, "rz": 2.3}, {"designacion": "L12X12X1-1/4", "peso": 96.4, "area": 28.4, "leg1": 12.0, "leg2": 12.0, "espesor": 1.25, "ix": 381.0, "iy": 381.0, "rx": 3.66, "ry": 3.66, "rz": 2.31}, {"designacion": "L12X12X1-1/8", "peso": 87.2, "area": 25.8, "leg1": 12.0, "leg2": 12.0, "espesor": 1.13, "ix": 350.0, "iy": 350.0, "rx": 3.68, "ry": 3.68, "rz": 2.33}, {"designacion": "L12X12X1", "peso": 77.8, "area": 23.0, "leg1": 12.0, "leg2": 12.0, "espesor": 1.0, "ix": 315.0, "iy": 315.0, "rx": 3.7, "ry": 3.7, "rz": 2.34}, {"designacion": "L10X10X1-3/8", "peso": 87.1, "area": 25.6, "leg1": 10.0, "leg2": 10.0, "espesor": 1.38, "ix": 231.0, "iy": 231.0, "rx": 3.0, "ry": 3.0, "rz": 1.91}, {"designacion": "L10X10X1-1/4", "peso": 79.9, "area": 23.4, "leg1": 10.0, "leg2": 10.0, "espesor": 1.25, "ix": 213.0, "iy": 213.0, "rx": 3.02, "ry": 3.02, "rz": 1.91}, {"designacion": "L10X10X1-1/8", "peso": 72.3, "area": 21.3, "leg1": 10.0, "leg2": 10.0, "espesor": 1.13, "ix": 196.0, "iy": 196.0, "rx": 3.03, "ry": 3.03, "rz": 1.92}, {"designacion": "L10X10X1", "peso": 64.7, "area": 19.0, "leg1": 10.0, "leg2": 10.0, "espesor": 1.0, "ix": 177.0, "iy": 177.0, "rx": 3.05, "ry": 3.05, "rz": 1.92}, {"designacion": "L10X10X7/8", "peso": 56.9, "area": 16.8, "leg1": 10.0, "leg2": 10.0, "espesor": 0.875, "ix": 158.0, "iy": 158.0, "rx": 3.07, "ry": 3.07, "rz": 1.93}, {"designacion": "L10X10X3/4", "peso": 49.1, "area": 14.5, "leg1": 10.0, "leg2": 10.0, "espesor": 0.75, "ix": 139.0, "iy": 139.0, "rx": 3.1, "ry": 3.1, "rz": 1.96}, {"designacion": "L8X8X1-1/8", "peso": 56.9, "area": 16.8, "leg1": 8.0, "leg2": 8.0, "espesor": 1.13, "ix": 98.1, "iy": 98.1, "rx": 2.41, "ry": 2.41, "rz": 1.56}, {"designacion": "L8X8X1", "peso": 51.0, "area": 15.1, "leg1": 8.0, "leg2": 8.0, "espesor": 1.0, "ix": 89.1, "iy": 89.1, "rx": 2.43, "ry": 2.43, "rz": 1.56}, {"designacion": "L8X8X7/8", "peso": 45.0, "area": 13.3, "leg1": 8.0, "leg2": 8.0, "espesor": 0.875, "ix": 79.7, "iy": 79.7, "rx": 2.45, "ry": 2.45, "rz": 1.57}, {"designacion": "L8X8X3/4", "peso": 38.9, "area": 11.5, "leg1": 8.0, "leg2": 8.0, "espesor": 0.75, "ix": 69.9, "iy": 69.9, "rx": 2.46, "ry": 2.46, "rz": 1.57}, {"designacion": "L8X8X5/8", "peso": 32.7, "area": 9.69, "leg1": 8.0, "leg2": 8.0, "espesor": 0.625, "ix": 59.6, "iy": 59.6, "rx": 2.48, "ry": 2.48, "rz": 1.58}, {"designacion": "L8X8X9/16", "peso": 29.6, "area": 8.77, "leg1": 8.0, "leg2": 8.0, "espesor": 0.563, "ix": 54.2, "iy": 54.2, "rx": 2.49, "ry": 2.49, "rz": 1.58}, {"designacion": "L8X8X1/2", "peso": 26.4, "area": 7.84, "leg1": 8.0, "leg2": 8.0, "espesor": 0.5, "ix": 48.8, "iy": 48.8, "rx": 2.49, "ry": 2.49, "rz": 1.59}, {"designacion": "L8X6X1", "peso": 44.2, "area": 13.1, "leg1": 8.0, "leg2": 6.0, "espesor": 1.0, "ix": 80.9, "iy": 38.8, "rx": 2.49, "ry": 1.72, "rz": 1.28}, {"designacion": "L8X6X7/8", "peso": 39.1, "area": 11.5, "leg1": 8.0, "leg2": 6.0, "espesor": 0.875, "ix": 72.4, "iy": 34.9, "rx": 2.5, "ry": 1.74, "rz": 1.28}, {"designacion": "L8X6X3/4", "peso": 33.8, "area": 9.99, "leg1": 8.0, "leg2": 6.0, "espesor": 0.75, "ix": 63.5, "iy": 30.8, "rx": 2.52, "ry": 1.75, "rz": 1.29}, {"designacion": "L8X6X5/8", "peso": 28.5, "area": 8.41, "leg1": 8.0, "leg2": 6.0, "espesor": 0.625, "ix": 54.2, "iy": 26.4, "rx": 2.54, "ry": 1.77, "rz": 1.29}, {"designacion": "L8X6X9/16", "peso": 25.7, "area": 7.61, "leg1": 8.0, "leg2": 6.0, "espesor": 0.563, "ix": 49.4, "iy": 24.1, "rx": 2.55, "ry": 1.78, "rz": 1.3}, {"designacion": "L8X6X1/2", "peso": 23.0, "area": 6.8, "leg1": 8.0, "leg2": 6.0, "espesor": 0.5, "ix": 44.4, "iy": 21.7, "rx": 2.55, "ry": 1.79, "rz": 1.3}, {"designacion": "L8X6X7/16", "peso": 20.2, "area": 5.99, "leg1": 8.0, "leg2": 6.0, "espesor": 0.438, "ix": 39.3, "iy": 19.3, "rx": 2.56, "ry": 1.8, "rz": 1.31}, {"designacion": "L8X4X1", "peso": 37.4, "area": 11.1, "leg1": 8.0, "leg2": 4.0, "espesor": 1.0, "ix": 69.7, "iy": 11.6, "rx": 2.51, "ry": 1.03, "rz": 0.844}, {"designacion": "L8X4X7/8", "peso": 33.1, "area": 9.79, "leg1": 8.0, "leg2": 4.0, "espesor": 0.875, "ix": 62.6, "iy": 10.5, "rx": 2.53, "ry": 1.04, "rz": 0.846}, {"designacion": "L8X4X3/4", "peso": 28.7, "area": 8.49, "leg1": 8.0, "leg2": 4.0, "espesor": 0.75, "ix": 55.0, "iy": 9.37, "rx": 2.55, "ry": 1.05, "rz": 0.85}, {"designacion": "L8X4X5/8", "peso": 24.2, "area": 7.16, "leg1": 8.0, "leg2": 4.0, "espesor": 0.625, "ix": 47.0, "iy": 8.11, "rx": 2.56, "ry": 1.06, "rz": 0.856}, {"designacion": "L8X4X9/16", "peso": 21.9, "area": 6.49, "leg1": 8.0, "leg2": 4.0, "espesor": 0.563, "ix": 42.9, "iy": 7.44, "rx": 2.57, "ry": 1.07, "rz": 0.859}, {"designacion": "L8X4X1/2", "peso": 19.6, "area": 5.8, "leg1": 8.0, "leg2": 4.0, "espesor": 0.5, "ix": 38.6, "iy": 6.75, "rx": 2.58, "ry": 1.08, "rz": 0.863}, {"designacion": "L8X4X7/16", "peso": 17.2, "area": 5.11, "leg1": 8.0, "leg2": 4.0, "espesor": 0.438, "ix": 34.2, "iy": 6.03, "rx": 2.59, "ry": 1.09, "rz": 0.867}, {"designacion": "L7X4X3/4", "peso": 26.2, "area": 7.74, "leg1": 7.0, "leg2": 4.0, "espesor": 0.75, "ix": 37.8, "iy": 9.0, "rx": 2.21, "ry": 1.08, "rz": 0.855}, {"designacion": "L7X4X5/8", "peso": 22.1, "area": 6.5, "leg1": 7.0, "leg2": 4.0, "espesor": 0.625, "ix": 32.4, "iy": 7.79, "rx": 2.23, "ry": 1.1, "rz": 0.86}, {"designacion": "L7X4X1/2", "peso": 17.9, "area": 5.26, "leg1": 7.0, "leg2": 4.0, "espesor": 0.5, "ix": 26.6, "iy": 6.48, "rx": 2.25, "ry": 1.11, "rz": 0.866}, {"designacion": "L7X4X7/16", "peso": 15.7, "area": 4.63, "leg1": 7.0, "leg2": 4.0, "espesor": 0.438, "ix": 23.6, "iy": 5.79, "rx": 2.26, "ry": 1.12, "rz": 0.869}, {"designacion": "L7X4X3/8", "peso": 13.6, "area": 4.0, "leg1": 7.0, "leg2": 4.0, "espesor": 0.375, "ix": 20.5, "iy": 5.06, "rx": 2.27, "ry": 1.12, "rz": 0.873}, {"designacion": "L6X6X1", "peso": 37.4, "area": 11.0, "leg1": 6.0, "leg2": 6.0, "espesor": 1.0, "ix": 35.4, "iy": 35.4, "rx": 1.79, "ry": 1.79, "rz": 1.17}, {"designacion": "L6X6X7/8", "peso": 33.1, "area": 9.75, "leg1": 6.0, "leg2": 6.0, "espesor": 0.875, "ix": 31.9, "iy": 31.9, "rx": 1.81, "ry": 1.81, "rz": 1.17}, {"designacion": "L6X6X3/4", "peso": 28.7, "area": 8.46, "leg1": 6.0, "leg2": 6.0, "espesor": 0.75, "ix": 28.1, "iy": 28.1, "rx": 1.82, "ry": 1.82, "rz": 1.17}, {"designacion": "L6X6X5/8", "peso": 24.2, "area": 7.13, "leg1": 6.0, "leg2": 6.0, "espesor": 0.625, "ix": 24.1, "iy": 24.1, "rx": 1.84, "ry": 1.84, "rz": 1.17}, {"designacion": "L6X6X9/16", "peso": 21.9, "area": 6.45, "leg1": 6.0, "leg2": 6.0, "espesor": 0.563, "ix": 22.0, "iy": 22.0, "rx": 1.85, "ry": 1.85, "rz": 1.18}, {"designacion": "L6X6X1/2", "peso": 19.6, "area": 5.77, "leg1": 6.0, "leg2": 6.0, "espesor": 0.5, "ix": 19.9, "iy": 19.9, "rx": 1.86, "ry": 1.86, "rz": 1.18}, {"designacion": "L6X6X7/16", "peso": 17.2, "area": 5.08, "leg1": 6.0, "leg2": 6.0, "espesor": 0.438, "ix": 17.6, "iy": 17.6, "rx": 1.86, "ry": 1.86, "rz": 1.18}, {"designacion": "L6X6X3/8", "peso": 14.9, "area": 4.38, "leg1": 6.0, "leg2": 6.0, "espesor": 0.375, "ix": 15.4, "iy": 15.4, "rx": 1.87, "ry": 1.87, "rz": 1.19}, {"designacion": "L6X6X5/16", "peso": 12.4, "area": 3.67, "leg1": 6.0, "leg2": 6.0, "espesor": 0.313, "ix": 13.0, "iy": 13.0, "rx": 1.88, "ry": 1.88, "rz": 1.19}, {"designacion": "L6X4X7/8", "peso": 27.2, "area": 8.0, "leg1": 6.0, "leg2": 4.0, "espesor": 0.875, "ix": 27.7, "iy": 9.7, "rx": 1.86, "ry": 1.1, "rz": 0.854}, {"designacion": "L6X4X3/4", "peso": 23.6, "area": 6.94, "leg1": 6.0, "leg2": 4.0, "espesor": 0.75, "ix": 24.5, "iy": 8.63, "rx": 1.88, "ry": 1.12, "rz": 0.856}, {"designacion": "L6X4X5/8", "peso": 20.0, "area": 5.86, "leg1": 6.0, "leg2": 4.0, "espesor": 0.625, "ix": 21.0, "iy": 7.48, "rx": 1.89, "ry": 1.13, "rz": 0.859}, {"designacion": "L6X4X9/16", "peso": 18.1, "area": 5.31, "leg1": 6.0, "leg2": 4.0, "espesor": 0.563, "ix": 19.2, "iy": 6.86, "rx": 1.9, "ry": 1.14, "rz": 0.861}, {"designacion": "L6X4X1/2", "peso": 16.2, "area": 4.75, "leg1": 6.0, "leg2": 4.0, "espesor": 0.5, "ix": 17.3, "iy": 6.22, "rx": 1.91, "ry": 1.14, "rz": 0.864}, {"designacion": "L6X4X7/16", "peso": 14.3, "area": 4.18, "leg1": 6.0, "leg2": 4.0, "espesor": 0.438, "ix": 15.4, "iy": 5.56, "rx": 1.92, "ry": 1.15, "rz": 0.867}, {"designacion": "L6X4X3/8", "peso": 12.3, "area": 3.61, "leg1": 6.0, "leg2": 4.0, "espesor": 0.375, "ix": 13.4, "iy": 4.86, "rx": 1.93, "ry": 1.16, "rz": 0.87}, {"designacion": "L6X4X5/16", "peso": 10.3, "area": 3.03, "leg1": 6.0, "leg2": 4.0, "espesor": 0.313, "ix": 11.4, "iy": 4.13, "rx": 1.94, "ry": 1.17, "rz": 0.874}, {"designacion": "L6X3-1/2X1/2", "peso": 15.3, "area": 4.5, "leg1": 6.0, "leg2": 3.5, "espesor": 0.5, "ix": 16.6, "iy": 4.24, "rx": 1.92, "ry": 0.968, "rz": 0.756}, {"designacion": "L6X3-1/2X3/8", "peso": 11.7, "area": 3.44, "leg1": 6.0, "leg2": 3.5, "espesor": 0.375, "ix": 12.9, "iy": 3.33, "rx": 1.93, "ry": 0.984, "rz": 0.763}, {"designacion": "L6X3-1/2X5/16", "peso": 9.8, "area": 2.89, "leg1": 6.0, "leg2": 3.5, "espesor": 0.313, "ix": 10.9, "iy": 2.84, "rx": 1.94, "ry": 0.991, "rz": 0.767}, {"designacion": "L5X5X7/8", "peso": 27.2, "area": 8.0, "leg1": 5.0, "leg2": 5.0, "espesor": 0.875, "ix": 17.8, "iy": 17.8, "rx": 1.49, "ry": 1.49, "rz": 0.971}, {"designacion": "L5X5X3/4", "peso": 23.6, "area": 6.98, "leg1": 5.0, "leg2": 5.0, "espesor": 0.75, "ix": 15.7, "iy": 15.7, "rx": 1.5, "ry": 1.5, "rz": 0.972}, {"designacion": "L5X5X5/8", "peso": 20.0, "area": 5.9, "leg1": 5.0, "leg2": 5.0, "espesor": 0.625, "ix": 13.6, "iy": 13.6, "rx": 1.52, "ry": 1.52, "rz": 0.975}, {"designacion": "L5X5X1/2", "peso": 16.2, "area": 4.79, "leg1": 5.0, "leg2": 5.0, "espesor": 0.5, "ix": 11.3, "iy": 11.3, "rx": 1.53, "ry": 1.53, "rz": 0.98}, {"designacion": "L5X5X7/16", "peso": 14.3, "area": 4.22, "leg1": 5.0, "leg2": 5.0, "espesor": 0.438, "ix": 10.0, "iy": 10.0, "rx": 1.54, "ry": 1.54, "rz": 0.983}, {"designacion": "L5X5X3/8", "peso": 12.3, "area": 3.65, "leg1": 5.0, "leg2": 5.0, "espesor": 0.375, "ix": 8.76, "iy": 8.76, "rx": 1.55, "ry": 1.55, "rz": 0.986}, {"designacion": "L5X5X5/16", "peso": 10.3, "area": 3.07, "leg1": 5.0, "leg2": 5.0, "espesor": 0.313, "ix": 7.44, "iy": 7.44, "rx": 1.56, "ry": 1.56, "rz": 0.99}, {"designacion": "L5X3-1/2X3/4", "peso": 19.8, "area": 5.85, "leg1": 5.0, "leg2": 3.5, "espesor": 0.75, "ix": 13.9, "iy": 5.52, "rx": 1.55, "ry": 0.974, "rz": 0.744}, {"designacion": "L5X3-1/2X5/8", "peso": 16.8, "area": 4.93, "leg1": 5.0, "leg2": 3.5, "espesor": 0.625, "ix": 12.0, "iy": 4.8, "rx": 1.56, "ry": 0.987, "rz": 0.746}, {"designacion": "L5X3-1/2X1/2", "peso": 13.6, "area": 4.0, "leg1": 5.0, "leg2": 3.5, "espesor": 0.5, "ix": 10.0, "iy": 4.02, "rx": 1.58, "ry": 1.0, "rz": 0.75}, {"designacion": "L5X3-1/2X3/8", "peso": 10.4, "area": 3.05, "leg1": 5.0, "leg2": 3.5, "espesor": 0.375, "ix": 7.75, "iy": 3.15, "rx": 1.59, "ry": 1.02, "rz": 0.755}, {"designacion": "L5X3-1/2X5/16", "peso": 8.7, "area": 2.56, "leg1": 5.0, "leg2": 3.5, "espesor": 0.313, "ix": 6.58, "iy": 2.69, "rx": 1.6, "ry": 1.02, "rz": 0.758}, {"designacion": "L5X3-1/2X1/4", "peso": 7.0, "area": 2.07, "leg1": 5.0, "leg2": 3.5, "espesor": 0.25, "ix": 5.36, "iy": 2.2, "rx": 1.61, "ry": 1.03, "rz": 0.761}, {"designacion": "L5X3X1/2", "peso": 12.8, "area": 3.75, "leg1": 5.0, "leg2": 3.0, "espesor": 0.5, "ix": 9.43, "iy": 2.55, "rx": 1.58, "ry": 0.824, "rz": 0.642}, {"designacion": "L5X3X7/16", "peso": 11.3, "area": 3.31, "leg1": 5.0, "leg2": 3.0, "espesor": 0.438, "ix": 8.41, "iy": 2.29, "rx": 1.59, "ry": 0.831, "rz": 0.644}, {"designacion": "L5X3X3/8", "peso": 9.8, "area": 2.86, "leg1": 5.0, "leg2": 3.0, "espesor": 0.375, "ix": 7.35, "iy": 2.01, "rx": 1.6, "ry": 0.838, "rz": 0.646}, {"designacion": "L5X3X5/16", "peso": 8.2, "area": 2.41, "leg1": 5.0, "leg2": 3.0, "espesor": 0.313, "ix": 6.24, "iy": 1.72, "rx": 1.61, "ry": 0.846, "rz": 0.649}, {"designacion": "L5X3X1/4", "peso": 6.6, "area": 1.94, "leg1": 5.0, "leg2": 3.0, "espesor": 0.25, "ix": 5.09, "iy": 1.41, "rx": 1.62, "ry": 0.853, "rz": 0.652}, {"designacion": "L4X4X3/4", "peso": 18.5, "area": 5.44, "leg1": 4.0, "leg2": 4.0, "espesor": 0.75, "ix": 7.62, "iy": 7.62, "rx": 1.18, "ry": 1.18, "rz": 0.774}, {"designacion": "L4X4X5/8", "peso": 15.7, "area": 4.61, "leg1": 4.0, "leg2": 4.0, "espesor": 0.625, "ix": 6.62, "iy": 6.62, "rx": 1.2, "ry": 1.2, "rz": 0.774}, {"designacion": "L4X4X1/2", "peso": 12.8, "area": 3.75, "leg1": 4.0, "leg2": 4.0, "espesor": 0.5, "ix": 5.52, "iy": 5.52, "rx": 1.21, "ry": 1.21, "rz": 0.776}, {"designacion": "L4X4X7/16", "peso": 11.3, "area": 3.3, "leg1": 4.0, "leg2": 4.0, "espesor": 0.438, "ix": 4.93, "iy": 4.93, "rx": 1.22, "ry": 1.22, "rz": 0.777}, {"designacion": "L4X4X3/8", "peso": 9.8, "area": 2.86, "leg1": 4.0, "leg2": 4.0, "espesor": 0.375, "ix": 4.32, "iy": 4.32, "rx": 1.23, "ry": 1.23, "rz": 0.779}, {"designacion": "L4X4X5/16", "peso": 8.2, "area": 2.4, "leg1": 4.0, "leg2": 4.0, "espesor": 0.313, "ix": 3.67, "iy": 3.67, "rx": 1.24, "ry": 1.24, "rz": 0.781}, {"designacion": "L4X4X1/4", "peso": 6.6, "area": 1.93, "leg1": 4.0, "leg2": 4.0, "espesor": 0.25, "ix": 3.0, "iy": 3.0, "rx": 1.25, "ry": 1.25, "rz": 0.783}, {"designacion": "L4X3-1/2X1/2", "peso": 11.9, "area": 3.5, "leg1": 4.0, "leg2": 3.5, "espesor": 0.5, "ix": 5.3, "iy": 3.76, "rx": 1.23, "ry": 1.04, "rz": 0.716}, {"designacion": "L4X3-1/2X3/8", "peso": 9.1, "area": 2.68, "leg1": 4.0, "leg2": 3.5, "espesor": 0.375, "ix": 4.15, "iy": 2.96, "rx": 1.25, "ry": 1.05, "rz": 0.719}, {"designacion": "L4X3-1/2X5/16", "peso": 7.7, "area": 2.25, "leg1": 4.0, "leg2": 3.5, "espesor": 0.313, "ix": 3.53, "iy": 2.52, "rx": 1.25, "ry": 1.06, "rz": 0.721}, {"designacion": "L4X3-1/2X1/4", "peso": 6.2, "area": 1.82, "leg1": 4.0, "leg2": 3.5, "espesor": 0.25, "ix": 2.89, "iy": 2.07, "rx": 1.26, "ry": 1.07, "rz": 0.723}, {"designacion": "L4X3X5/8", "peso": 13.6, "area": 3.99, "leg1": 4.0, "leg2": 3.0, "espesor": 0.625, "ix": 6.01, "iy": 2.85, "rx": 1.23, "ry": 0.845, "rz": 0.631}, {"designacion": "L4X3X1/2", "peso": 11.1, "area": 3.25, "leg1": 4.0, "leg2": 3.0, "espesor": 0.5, "ix": 5.02, "iy": 2.4, "rx": 1.24, "ry": 0.858, "rz": 0.633}, {"designacion": "L4X3X3/8", "peso": 8.5, "area": 2.49, "leg1": 4.0, "leg2": 3.0, "espesor": 0.375, "ix": 3.94, "iy": 1.89, "rx": 1.26, "ry": 0.873, "rz": 0.636}, {"designacion": "L4X3X5/16", "peso": 7.2, "area": 2.09, "leg1": 4.0, "leg2": 3.0, "espesor": 0.313, "ix": 3.36, "iy": 1.62, "rx": 1.27, "ry": 0.88, "rz": 0.638}, {"designacion": "L4X3X1/4", "peso": 5.8, "area": 1.69, "leg1": 4.0, "leg2": 3.0, "espesor": 0.25, "ix": 2.75, "iy": 1.33, "rx": 1.27, "ry": 0.887, "rz": 0.639}, {"designacion": "L3-1/2X3-1/2X1/2", "peso": 11.1, "area": 3.25, "leg1": 3.5, "leg2": 3.5, "espesor": 0.5, "ix": 3.63, "iy": 3.63, "rx": 1.05, "ry": 1.05, "rz": 0.679}, {"designacion": "L3-1/2X3-1/2X7/16", "peso": 9.8, "area": 2.89, "leg1": 3.5, "leg2": 3.5, "espesor": 0.438, "ix": 3.25, "iy": 3.25, "rx": 1.06, "ry": 1.06, "rz": 0.681}, {"designacion": "L3-1/2X3-1/2X3/8", "peso": 8.5, "area": 2.5, "leg1": 3.5, "leg2": 3.5, "espesor": 0.375, "ix": 2.86, "iy": 2.86, "rx": 1.07, "ry": 1.07, "rz": 0.683}, {"designacion": "L3-1/2X3-1/2X5/16", "peso": 7.2, "area": 2.1, "leg1": 3.5, "leg2": 3.5, "espesor": 0.313, "ix": 2.44, "iy": 2.44, "rx": 1.08, "ry": 1.08, "rz": 0.685}, {"designacion": "L3-1/2X3-1/2X1/4", "peso": 5.8, "area": 1.7, "leg1": 3.5, "leg2": 3.5, "espesor": 0.25, "ix": 2.0, "iy": 2.0, "rx": 1.09, "ry": 1.09, "rz": 0.688}, {"designacion": "L3-1/2X3X1/2", "peso": 10.2, "area": 3.02, "leg1": 3.5, "leg2": 3.0, "espesor": 0.5, "ix": 3.45, "iy": 2.32, "rx": 1.07, "ry": 0.877, "rz": 0.618}, {"designacion": "L3-1/2X3X7/16", "peso": 9.1, "area": 2.67, "leg1": 3.5, "leg2": 3.0, "espesor": 0.438, "ix": 3.1, "iy": 2.09, "rx": 1.08, "ry": 0.885, "rz": 0.62}, {"designacion": "L3-1/2X3X3/8", "peso": 7.9, "area": 2.32, "leg1": 3.5, "leg2": 3.0, "espesor": 0.375, "ix": 2.73, "iy": 1.84, "rx": 1.09, "ry": 0.892, "rz": 0.622}, {"designacion": "L3-1/2X3X5/16", "peso": 6.6, "area": 1.95, "leg1": 3.5, "leg2": 3.0, "espesor": 0.313, "ix": 2.33, "iy": 1.58, "rx": 1.09, "ry": 0.9, "rz": 0.624}, {"designacion": "L3-1/2X3X1/4", "peso": 5.4, "area": 1.58, "leg1": 3.5, "leg2": 3.0, "espesor": 0.25, "ix": 1.92, "iy": 1.3, "rx": 1.1, "ry": 0.908, "rz": 0.628}, {"designacion": "L3-1/2X2-1/2X1/2", "peso": 9.4, "area": 2.77, "leg1": 3.5, "leg2": 2.5, "espesor": 0.5, "ix": 3.24, "iy": 1.36, "rx": 1.08, "ry": 0.701, "rz": 0.532}, {"designacion": "L3-1/2X2-1/2X3/8", "peso": 7.2, "area": 2.12, "leg1": 3.5, "leg2": 2.5, "espesor": 0.375, "ix": 2.56, "iy": 1.09, "rx": 1.1, "ry": 0.716, "rz": 0.535}, {"designacion": "L3-1/2X2-1/2X5/16", "peso": 6.1, "area": 1.79, "leg1": 3.5, "leg2": 2.5, "espesor": 0.313, "ix": 2.2, "iy": 0.937, "rx": 1.11, "ry": 0.723, "rz": 0.538}, {"designacion": "L3-1/2X2-1/2X1/4", "peso": 4.9, "area": 1.45, "leg1": 3.5, "leg2": 2.5, "espesor": 0.25, "ix": 1.81, "iy": 0.775, "rx": 1.12, "ry": 0.731, "rz": 0.541}, {"designacion": "L3X3X1/2", "peso": 9.4, "area": 2.76, "leg1": 3.0, "leg2": 3.0, "espesor": 0.5, "ix": 2.2, "iy": 2.2, "rx": 0.895, "ry": 0.895, "rz": 0.58}, {"designacion": "L3X3X7/16", "peso": 8.3, "area": 2.43, "leg1": 3.0, "leg2": 3.0, "espesor": 0.438, "ix": 1.98, "iy": 1.98, "rx": 0.903, "ry": 0.903, "rz": 0.58}, {"designacion": "L3X3X3/8", "peso": 7.2, "area": 2.11, "leg1": 3.0, "leg2": 3.0, "espesor": 0.375, "ix": 1.75, "iy": 1.75, "rx": 0.91, "ry": 0.91, "rz": 0.581}, {"designacion": "L3X3X5/16", "peso": 6.1, "area": 1.78, "leg1": 3.0, "leg2": 3.0, "espesor": 0.313, "ix": 1.5, "iy": 1.5, "rx": 0.918, "ry": 0.918, "rz": 0.583}, {"designacion": "L3X3X1/4", "peso": 4.9, "area": 1.44, "leg1": 3.0, "leg2": 3.0, "espesor": 0.25, "ix": 1.23, "iy": 1.23, "rx": 0.926, "ry": 0.926, "rz": 0.585}, {"designacion": "L3X3X3/16", "peso": 3.71, "area": 1.09, "leg1": 3.0, "leg2": 3.0, "espesor": 0.188, "ix": 0.948, "iy": 0.948, "rx": 0.933, "ry": 0.933, "rz": 0.586}, {"designacion": "L3X2-1/2X1/2", "peso": 8.5, "area": 2.5, "leg1": 3.0, "leg2": 2.5, "espesor": 0.5, "ix": 2.07, "iy": 1.29, "rx": 0.91, "ry": 0.718, "rz": 0.516}, {"designacion": "L3X2-1/2X7/16", "peso": 7.6, "area": 2.22, "leg1": 3.0, "leg2": 2.5, "espesor": 0.438, "ix": 1.87, "iy": 1.17, "rx": 0.917, "ry": 0.724, "rz": 0.516}, {"designacion": "L3X2-1/2X3/8", "peso": 6.6, "area": 1.93, "leg1": 3.0, "leg2": 2.5, "espesor": 0.375, "ix": 1.65, "iy": 1.03, "rx": 0.924, "ry": 0.731, "rz": 0.517}, {"designacion": "L3X2-1/2X5/16", "peso": 5.6, "area": 1.63, "leg1": 3.0, "leg2": 2.5, "espesor": 0.313, "ix": 1.41, "iy": 0.888, "rx": 0.932, "ry": 0.739, "rz": 0.518}, {"designacion": "L3X2-1/2X1/4", "peso": 4.5, "area": 1.32, "leg1": 3.0, "leg2": 2.5, "espesor": 0.25, "ix": 1.16, "iy": 0.734, "rx": 0.94, "ry": 0.746, "rz": 0.52}, {"designacion": "L3X2-1/2X3/16", "peso": 3.39, "area": 1.0, "leg1": 3.0, "leg2": 2.5, "espesor": 0.188, "ix": 0.899, "iy": 0.568, "rx": 0.947, "ry": 0.753, "rz": 0.521}, {"designacion": "L3X2X1/2", "peso": 7.7, "area": 2.26, "leg1": 3.0, "leg2": 2.0, "espesor": 0.5, "ix": 1.92, "iy": 0.667, "rx": 0.922, "ry": 0.543, "rz": 0.425}, {"designacion": "L3X2X3/8", "peso": 5.9, "area": 1.75, "leg1": 3.0, "leg2": 2.0, "espesor": 0.375, "ix": 1.54, "iy": 0.539, "rx": 0.937, "ry": 0.555, "rz": 0.426}, {"designacion": "L3X2X5/16", "peso": 5.0, "area": 1.48, "leg1": 3.0, "leg2": 2.0, "espesor": 0.313, "ix": 1.32, "iy": 0.467, "rx": 0.945, "ry": 0.562, "rz": 0.428}, {"designacion": "L3X2X1/4", "peso": 4.1, "area": 1.2, "leg1": 3.0, "leg2": 2.0, "espesor": 0.25, "ix": 1.09, "iy": 0.39, "rx": 0.953, "ry": 0.569, "rz": 0.431}, {"designacion": "L3X2X3/16", "peso": 3.07, "area": 0.917, "leg1": 3.0, "leg2": 2.0, "espesor": 0.188, "ix": 0.847, "iy": 0.305, "rx": 0.961, "ry": 0.577, "rz": 0.435}, {"designacion": "L2-1/2X2-1/2X1/2", "peso": 7.7, "area": 2.26, "leg1": 2.5, "leg2": 2.5, "espesor": 0.5, "ix": 1.22, "iy": 1.22, "rx": 0.735, "ry": 0.735, "rz": 0.481}, {"designacion": "L2-1/2X2-1/2X3/8", "peso": 5.9, "area": 1.73, "leg1": 2.5, "leg2": 2.5, "espesor": 0.375, "ix": 0.972, "iy": 0.972, "rx": 0.749, "ry": 0.749, "rz": 0.481}, {"designacion": "L2-1/2X2-1/2X5/16", "peso": 5.0, "area": 1.46, "leg1": 2.5, "leg2": 2.5, "espesor": 0.313, "ix": 0.837, "iy": 0.837, "rx": 0.756, "ry": 0.756, "rz": 0.481}, {"designacion": "L2-1/2X2-1/2X1/4", "peso": 4.1, "area": 1.19, "leg1": 2.5, "leg2": 2.5, "espesor": 0.25, "ix": 0.692, "iy": 0.692, "rx": 0.764, "ry": 0.764, "rz": 0.482}, {"designacion": "L2-1/2X2-1/2X3/16", "peso": 3.07, "area": 0.901, "leg1": 2.5, "leg2": 2.5, "espesor": 0.188, "ix": 0.535, "iy": 0.535, "rx": 0.771, "ry": 0.771, "rz": 0.482}, {"designacion": "L2-1/2X2X3/8", "peso": 5.3, "area": 1.55, "leg1": 2.5, "leg2": 2.0, "espesor": 0.375, "ix": 0.914, "iy": 0.513, "rx": 0.766, "ry": 0.574, "rz": 0.419}, {"designacion": "L2-1/2X2X5/16", "peso": 4.5, "area": 1.32, "leg1": 2.5, "leg2": 2.0, "espesor": 0.313, "ix": 0.79, "iy": 0.446, "rx": 0.774, "ry": 0.581, "rz": 0.42}, {"designacion": "L2-1/2X2X1/4", "peso": 3.62, "area": 1.07, "leg1": 2.5, "leg2": 2.0, "espesor": 0.25, "ix": 0.656, "iy": 0.372, "rx": 0.782, "ry": 0.589, "rz": 0.423}, {"designacion": "L2-1/2X2X3/16", "peso": 2.75, "area": 0.818, "leg1": 2.5, "leg2": 2.0, "espesor": 0.188, "ix": 0.511, "iy": 0.292, "rx": 0.79, "ry": 0.597, "rz": 0.426}, {"designacion": "L2-1/2X1-1/2X1/4", "peso": 3.19, "area": 0.947, "leg1": 2.5, "leg2": 1.5, "espesor": 0.25, "ix": 0.594, "iy": 0.16, "rx": 0.792, "ry": 0.411, "rz": 0.321}, {"designacion": "L2-1/2X1-1/2X3/16", "peso": 2.44, "area": 0.724, "leg1": 2.5, "leg2": 1.5, "espesor": 0.188, "ix": 0.464, "iy": 0.126, "rx": 0.801, "ry": 0.418, "rz": 0.324}, {"designacion": "L2X2X3/8", "peso": 4.7, "area": 1.37, "leg1": 2.0, "leg2": 2.0, "espesor": 0.375, "ix": 0.476, "iy": 0.476, "rx": 0.591, "ry": 0.591, "rz": 0.386}, {"designacion": "L2X2X5/16", "peso": 3.92, "area": 1.16, "leg1": 2.0, "leg2": 2.0, "espesor": 0.313, "ix": 0.414, "iy": 0.414, "rx": 0.598, "ry": 0.598, "rz": 0.386}, {"designacion": "L2X2X1/4", "peso": 3.19, "area": 0.944, "leg1": 2.0, "leg2": 2.0, "espesor": 0.25, "ix": 0.346, "iy": 0.346, "rx": 0.605, "ry": 0.605, "rz": 0.387}, {"designacion": "L2X2X3/16", "peso": 2.44, "area": 0.722, "leg1": 2.0, "leg2": 2.0, "espesor": 0.188, "ix": 0.271, "iy": 0.271, "rx": 0.612, "ry": 0.612, "rz": 0.389}, {"designacion": "L2X2X1/8", "peso": 1.65, "area": 0.491, "leg1": 2.0, "leg2": 2.0, "espesor": 0.125, "ix": 0.189, "iy": 0.189, "rx": 0.62, "ry": 0.62, "rz": 0.391}];
 // AISC no separa LI/LD en archivos distintos — se deriva aquí comparando leg1 vs leg2.
-const DEFAULT_AISC_LI = _AISC_ANGLES_RAW.filter(r => r.leg1 === r.leg2);
-const DEFAULT_AISC_LD = _AISC_ANGLES_RAW.filter(r => r.leg1 !== r.leg2);
-const DEFAULT_AISC_OC = [{"designacion": "Pipe26STD", "peso": 103.0, "area": 28.2, "diametro": 26.0, "espesor": 0.375, "ix": 2320.0, "iy": 2320.0, "r": 9.07, "sx": 178.0, "zx": 230.0, "j": 4640.0}, {"designacion": "Pipe24STD", "peso": 94.7, "area": 26.0, "diametro": 24.0, "espesor": 0.375, "ix": 1820.0, "iy": 1820.0, "r": 8.36, "sx": 152.0, "zx": 196.0, "j": 3640.0}, {"designacion": "Pipe20STD", "peso": 78.7, "area": 21.6, "diametro": 20.0, "espesor": 0.375, "ix": 1040.0, "iy": 1040.0, "r": 6.95, "sx": 104.0, "zx": 135.0, "j": 2090.0}, {"designacion": "Pipe18STD", "peso": 70.7, "area": 19.4, "diametro": 18.0, "espesor": 0.375, "ix": 756.0, "iy": 756.0, "r": 6.24, "sx": 84.0, "zx": 109.0, "j": 1510.0}, {"designacion": "Pipe16STD", "peso": 62.6, "area": 17.2, "diametro": 16.0, "espesor": 0.375, "ix": 527.0, "iy": 527.0, "r": 5.53, "sx": 65.9, "zx": 85.7, "j": 1050.0}, {"designacion": "Pipe14STD", "peso": 54.6, "area": 15.0, "diametro": 14.0, "espesor": 0.375, "ix": 350.0, "iy": 350.0, "r": 4.83, "sx": 50.0, "zx": 65.2, "j": 700.0}, {"designacion": "Pipe12STD", "peso": 49.6, "area": 13.7, "diametro": 12.75, "espesor": 0.375, "ix": 262.0, "iy": 262.0, "r": 4.39, "sx": 41.0, "zx": 53.7, "j": 523.0}, {"designacion": "Pipe10STD", "peso": 40.5, "area": 11.5, "diametro": 10.75, "espesor": 0.365, "ix": 151.0, "iy": 151.0, "r": 3.68, "sx": 28.1, "zx": 36.9, "j": 302.0}, {"designacion": "Pipe8STD", "peso": 28.6, "area": 7.85, "diametro": 8.625, "espesor": 0.322, "ix": 68.1, "iy": 68.1, "r": 2.95, "sx": 15.8, "zx": 20.8, "j": 136.0}, {"designacion": "Pipe6STD", "peso": 19.0, "area": 5.2, "diametro": 6.625, "espesor": 0.28, "ix": 26.5, "iy": 26.5, "r": 2.25, "sx": 7.99, "zx": 10.6, "j": 52.9}, {"designacion": "Pipe5STD", "peso": 14.6, "area": 4.01, "diametro": 5.563, "espesor": 0.258, "ix": 14.3, "iy": 14.3, "r": 1.88, "sx": 5.14, "zx": 6.83, "j": 28.6}, {"designacion": "Pipe4STD", "peso": 10.8, "area": 2.96, "diametro": 4.5, "espesor": 0.237, "ix": 6.82, "iy": 6.82, "r": 1.51, "sx": 3.03, "zx": 4.05, "j": 13.6}, {"designacion": "Pipe3-1/2STD", "peso": 9.12, "area": 2.5, "diametro": 4.0, "espesor": 0.226, "ix": 4.52, "iy": 4.52, "r": 1.34, "sx": 2.26, "zx": 3.03, "j": 9.04}, {"designacion": "Pipe3STD", "peso": 7.58, "area": 2.07, "diametro": 3.5, "espesor": 0.216, "ix": 2.85, "iy": 2.85, "r": 1.17, "sx": 1.63, "zx": 2.19, "j": 5.69}, {"designacion": "Pipe2-1/2STD", "peso": 5.8, "area": 1.61, "diametro": 2.875, "espesor": 0.203, "ix": 1.45, "iy": 1.45, "r": 0.952, "sx": 1.01, "zx": 1.37, "j": 2.89}, {"designacion": "Pipe2STD", "peso": 3.66, "area": 1.02, "diametro": 2.375, "espesor": 0.154, "ix": 0.627, "iy": 0.627, "r": 0.791, "sx": 0.528, "zx": 0.713, "j": 1.25}, {"designacion": "Pipe1-1/2STD", "peso": 2.72, "area": 0.749, "diametro": 1.9, "espesor": 0.145, "ix": 0.293, "iy": 0.293, "r": 0.626, "sx": 0.309, "zx": 0.421, "j": 0.586}, {"designacion": "Pipe1-1/4STD", "peso": 2.27, "area": 0.625, "diametro": 1.66, "espesor": 0.14, "ix": 0.184, "iy": 0.184, "r": 0.543, "sx": 0.222, "zx": 0.305, "j": 0.368}, {"designacion": "Pipe1STD", "peso": 1.68, "area": 0.469, "diametro": 1.315, "espesor": 0.133, "ix": 0.083, "iy": 0.083, "r": 0.423, "sx": 0.126, "zx": 0.177, "j": 0.166}, {"designacion": "Pipe3/4STD", "peso": 1.13, "area": 0.312, "diametro": 1.05, "espesor": 0.113, "ix": 0.035, "iy": 0.035, "r": 0.336, "sx": 0.0671, "zx": 0.0942, "j": 0.07}, {"designacion": "Pipe1/2STD", "peso": 0.85, "area": 0.234, "diametro": 0.84, "espesor": 0.109, "ix": 0.016, "iy": 0.016, "r": 0.264, "sx": 0.0388, "zx": 0.0555, "j": 0.032}, {"designacion": "Pipe26XS", "peso": 136.0, "area": 36.1, "diametro": 26.0, "espesor": 0.5, "ix": 2950.0, "iy": 2950.0, "r": 9.03, "sx": 227.0, "zx": 294.0, "j": 5900.0}, {"designacion": "Pipe24XS", "peso": 126.0, "area": 33.3, "diametro": 24.0, "espesor": 0.5, "ix": 2310.0, "iy": 2310.0, "r": 8.33, "sx": 192.0, "zx": 250.0, "j": 4620.0}, {"designacion": "Pipe20XS", "peso": 104.0, "area": 27.6, "diametro": 20.0, "espesor": 0.5, "ix": 1320.0, "iy": 1320.0, "r": 6.91, "sx": 132.0, "zx": 172.0, "j": 2640.0}, {"designacion": "Pipe18XS", "peso": 93.5, "area": 24.8, "diametro": 18.0, "espesor": 0.5, "ix": 956.0, "iy": 956.0, "r": 6.21, "sx": 106.0, "zx": 139.0, "j": 1910.0}, {"designacion": "Pipe16XS", "peso": 82.9, "area": 22.0, "diametro": 16.0, "espesor": 0.5, "ix": 665.0, "iy": 665.0, "r": 5.5, "sx": 83.1, "zx": 109.0, "j": 1330.0}, {"designacion": "Pipe14XS", "peso": 72.2, "area": 19.2, "diametro": 14.0, "espesor": 0.5, "ix": 440.0, "iy": 440.0, "r": 4.79, "sx": 62.9, "zx": 82.7, "j": 880.0}, {"designacion": "Pipe12XS", "peso": 65.5, "area": 17.5, "diametro": 12.75, "espesor": 0.5, "ix": 339.0, "iy": 339.0, "r": 4.35, "sx": 53.2, "zx": 70.2, "j": 678.0}, {"designacion": "Pipe10XS", "peso": 54.8, "area": 15.1, "diametro": 10.75, "espesor": 0.5, "ix": 199.0, "iy": 199.0, "r": 3.64, "sx": 37.0, "zx": 49.2, "j": 398.0}, {"designacion": "Pipe8XS", "peso": 43.4, "area": 11.9, "diametro": 8.625, "espesor": 0.5, "ix": 100.0, "iy": 100.0, "r": 2.89, "sx": 23.1, "zx": 31.0, "j": 199.0}, {"designacion": "Pipe6XS", "peso": 28.6, "area": 7.83, "diametro": 6.625, "espesor": 0.432, "ix": 38.3, "iy": 38.3, "r": 2.2, "sx": 11.6, "zx": 15.6, "j": 76.6}, {"designacion": "Pipe5XS", "peso": 20.8, "area": 5.73, "diametro": 5.563, "espesor": 0.375, "ix": 19.5, "iy": 19.5, "r": 1.85, "sx": 7.02, "zx": 9.5, "j": 39.0}, {"designacion": "Pipe4XS", "peso": 15.0, "area": 4.14, "diametro": 4.5, "espesor": 0.337, "ix": 9.12, "iy": 9.12, "r": 1.48, "sx": 4.05, "zx": 5.53, "j": 18.2}, {"designacion": "Pipe3-1/2XS", "peso": 12.5, "area": 3.43, "diametro": 4.0, "espesor": 0.318, "ix": 5.94, "iy": 5.94, "r": 1.31, "sx": 2.97, "zx": 4.07, "j": 11.9}, {"designacion": "Pipe3XS", "peso": 10.3, "area": 2.83, "diametro": 3.5, "espesor": 0.3, "ix": 3.7, "iy": 3.7, "r": 1.14, "sx": 2.11, "zx": 2.91, "j": 7.4}, {"designacion": "Pipe2-1/2XS", "peso": 7.67, "area": 2.1, "diametro": 2.875, "espesor": 0.276, "ix": 1.83, "iy": 1.83, "r": 0.93, "sx": 1.27, "zx": 1.77, "j": 3.66}, {"designacion": "Pipe2XS", "peso": 5.03, "area": 1.4, "diametro": 2.375, "espesor": 0.218, "ix": 0.827, "iy": 0.827, "r": 0.771, "sx": 0.696, "zx": 0.964, "j": 1.65}, {"designacion": "Pipe1-1/2XS", "peso": 3.63, "area": 1.0, "diametro": 1.9, "espesor": 0.2, "ix": 0.372, "iy": 0.372, "r": 0.61, "sx": 0.392, "zx": 0.549, "j": 0.744}, {"designacion": "Pipe1-1/4XS", "peso": 3.0, "area": 0.837, "diametro": 1.66, "espesor": 0.191, "ix": 0.231, "iy": 0.231, "r": 0.528, "sx": 0.278, "zx": 0.393, "j": 0.462}, {"designacion": "Pipe1XS", "peso": 2.17, "area": 0.602, "diametro": 1.315, "espesor": 0.179, "ix": 0.101, "iy": 0.101, "r": 0.41, "sx": 0.154, "zx": 0.221, "j": 0.202}, {"designacion": "Pipe3/4XS", "peso": 1.48, "area": 0.407, "diametro": 1.05, "espesor": 0.154, "ix": 0.043, "iy": 0.043, "r": 0.325, "sx": 0.0818, "zx": 0.119, "j": 0.086}, {"designacion": "Pipe1/2XS", "peso": 1.09, "area": 0.303, "diametro": 0.84, "espesor": 0.147, "ix": 0.019, "iy": 0.019, "r": 0.253, "sx": 0.0462, "zx": 0.0686, "j": 0.038}, {"designacion": "Pipe12XXS", "peso": 126.0, "area": 35.4, "diametro": 12.75, "espesor": 1.0, "ix": 625.0, "iy": 625.0, "r": 4.2, "sx": 97.6, "zx": 134.0, "j": 1250.0}, {"designacion": "Pipe10XXS", "peso": 104.0, "area": 28.8, "diametro": 10.75, "espesor": 1.0, "ix": 354.0, "iy": 354.0, "r": 3.51, "sx": 65.6, "zx": 90.9, "j": 709.0}, {"designacion": "Pipe8XXS", "peso": 72.5, "area": 20.0, "diametro": 8.625, "espesor": 0.875, "ix": 154.0, "iy": 154.0, "r": 2.78, "sx": 35.8, "zx": 49.9, "j": 308.0}, {"designacion": "Pipe6XXS", "peso": 53.2, "area": 14.7, "diametro": 6.625, "espesor": 0.864, "ix": 63.5, "iy": 63.5, "r": 2.08, "sx": 19.2, "zx": 27.4, "j": 127.0}, {"designacion": "Pipe5XXS", "peso": 38.6, "area": 10.7, "diametro": 5.563, "espesor": 0.75, "ix": 32.2, "iy": 32.2, "r": 1.74, "sx": 11.6, "zx": 16.7, "j": 64.4}, {"designacion": "Pipe4XXS", "peso": 27.6, "area": 7.66, "diametro": 4.5, "espesor": 0.674, "ix": 14.7, "iy": 14.7, "r": 1.39, "sx": 6.53, "zx": 9.5, "j": 29.4}, {"designacion": "Pipe3XXS", "peso": 18.6, "area": 5.17, "diametro": 3.5, "espesor": 0.6, "ix": 5.79, "iy": 5.79, "r": 1.06, "sx": 3.31, "zx": 4.89, "j": 11.6}, {"designacion": "Pipe2-1/2XXS", "peso": 13.7, "area": 3.83, "diametro": 2.875, "espesor": 0.552, "ix": 2.78, "iy": 2.78, "r": 0.854, "sx": 1.94, "zx": 2.91, "j": 5.56}, {"designacion": "Pipe2XXS", "peso": 9.04, "area": 2.51, "diametro": 2.375, "espesor": 0.436, "ix": 1.27, "iy": 1.27, "r": 0.711, "sx": 1.07, "zx": 1.6, "j": 2.54}];
-let profileCatalogs = { imca: {li: DEFAULT_IMCA_LI, ld: DEFAULT_IMCA_LD, oc: DEFAULT_IMCA_OC, os: DEFAULT_IMCA_OS}, aisc: {li: DEFAULT_AISC_LI, ld: DEFAULT_AISC_LD, oc: DEFAULT_AISC_OC, os: DEFAULT_AISC_OS} };
+const DEFAULT_IMCA_C = [{"designacion": "C75X5.2", "peso": 5.2, "area": 7.03, "d": 7.62, "bf": 3.48, "tw": 3.35, "tf": 6.93, "x": 1.13, "ix": 65.3, "iy": 7.03, "rx": 3.05, "ry": 1.0}, {"designacion": "C75X6.1", "peso": 6.1, "area": 7.74, "d": 7.62, "bf": 3.58, "tw": 4.32, "tf": 6.93, "x": 1.11, "ix": 68.7, "iy": 7.95, "rx": 3.0, "ry": 1.01}, {"designacion": "C75X7.4", "peso": 7.4, "area": 9.48, "d": 7.62, "bf": 3.81, "tw": 6.55, "tf": 6.93, "x": 1.12, "ix": 77.0, "iy": 10.0, "rx": 2.84, "ry": 1.03}, {"designacion": "C75X8.9", "peso": 8.9, "area": 11.4, "d": 7.62, "bf": 4.06, "tw": 9.04, "tf": 6.93, "x": 1.16, "ix": 86.2, "iy": 12.5, "rx": 2.77, "ry": 1.05}, {"designacion": "C100X6.7", "peso": 6.7, "area": 8.65, "d": 10.2, "bf": 3.86, "tw": 3.18, "tf": 7.52, "x": 1.2, "ix": 147.0, "iy": 11.0, "rx": 4.11, "ry": 1.13}, {"designacion": "C100X8", "peso": 8.0, "area": 10.2, "d": 10.2, "bf": 4.01, "tw": 4.67, "tf": 7.52, "x": 1.16, "ix": 160.0, "iy": 13.0, "rx": 3.96, "ry": 1.13}, {"designacion": "C100X9.3", "peso": 9.3, "area": 11.9, "d": 10.2, "bf": 4.19, "tw": 6.27, "tf": 7.52, "x": 1.15, "ix": 174.0, "iy": 15.6, "rx": 3.84, "ry": 1.15}, {"designacion": "C100X10.8", "peso": 10.8, "area": 13.7, "d": 10.2, "bf": 4.37, "tw": 8.15, "tf": 7.52, "x": 1.17, "ix": 191.0, "iy": 17.7, "rx": 3.73, "ry": 1.14}, {"designacion": "C130X10.4", "peso": 10.4, "area": 12.7, "d": 12.7, "bf": 4.45, "tw": 4.83, "tf": 8.13, "x": 1.23, "ix": 311.0, "iy": 19.6, "rx": 4.95, "ry": 1.24}, {"designacion": "C130X13", "peso": 13.0, "area": 17.0, "d": 12.7, "bf": 4.8, "tw": 8.26, "tf": 8.13, "x": 1.21, "ix": 370.0, "iy": 26.0, "rx": 4.67, "ry": 1.23}, {"designacion": "C150X12.2", "peso": 12.2, "area": 15.4, "d": 15.2, "bf": 4.88, "tw": 5.08, "tf": 8.71, "x": 1.3, "ix": 545.0, "iy": 28.6, "rx": 5.94, "ry": 1.36}, {"designacion": "C150X15.6", "peso": 15.6, "area": 19.8, "d": 15.2, "bf": 5.16, "tw": 7.98, "tf": 8.71, "x": 1.27, "ix": 629.0, "iy": 35.8, "rx": 5.64, "ry": 1.34}, {"designacion": "C150X19.3", "peso": 19.3, "area": 24.6, "d": 15.2, "bf": 5.49, "tw": 11.1, "tf": 8.71, "x": 1.31, "ix": 720.0, "iy": 43.7, "rx": 5.41, "ry": 1.33}, {"designacion": "C180X14.6", "peso": 14.6, "area": 18.5, "d": 17.8, "bf": 5.31, "tw": 5.33, "tf": 9.3, "x": 1.37, "ix": 882.0, "iy": 39.8, "rx": 6.91, "ry": 1.47}, {"designacion": "C180X18.2", "peso": 18.2, "area": 23.2, "d": 17.8, "bf": 5.56, "tw": 7.98, "tf": 9.3, "x": 1.33, "ix": 1010.0, "iy": 48.3, "rx": 6.58, "ry": 1.44}, {"designacion": "C180X22", "peso": 22.0, "area": 27.9, "d": 17.8, "bf": 5.84, "tw": 10.6, "tf": 9.3, "x": 1.35, "ix": 1130.0, "iy": 57.0, "rx": 6.38, "ry": 1.42}, {"designacion": "C200X17.1", "peso": 17.1, "area": 21.7, "d": 20.3, "bf": 5.74, "tw": 5.59, "tf": 9.91, "x": 1.45, "ix": 1350.0, "iy": 54.5, "rx": 7.9, "ry": 1.58}, {"designacion": "C200X20.5", "peso": 20.5, "area": 26.0, "d": 20.3, "bf": 5.94, "tw": 7.7, "tf": 9.91, "x": 1.41, "ix": 1500.0, "iy": 63.3, "rx": 7.59, "ry": 1.56}, {"designacion": "C200X27.9", "peso": 27.9, "area": 35.5, "d": 20.3, "bf": 6.43, "tw": 12.4, "tf": 9.91, "x": 1.44, "ix": 1830.0, "iy": 82.0, "rx": 7.16, "ry": 1.52}, {"designacion": "C230X19.9", "peso": 19.9, "area": 25.4, "d": 22.9, "bf": 6.17, "tw": 5.92, "tf": 10.5, "x": 1.53, "ix": 1990.0, "iy": 72.8, "rx": 8.84, "ry": 1.69}, {"designacion": "C230X22", "peso": 22.0, "area": 28.4, "d": 22.9, "bf": 6.32, "tw": 7.24, "tf": 10.5, "x": 1.49, "ix": 2120.0, "iy": 79.5, "rx": 8.64, "ry": 1.67}, {"designacion": "C230X30", "peso": 30.0, "area": 37.9, "d": 22.9, "bf": 6.73, "tw": 11.4, "tf": 10.5, "x": 1.48, "ix": 2530.0, "iy": 100.0, "rx": 8.18, "ry": 1.63}, {"designacion": "C250X22.8", "peso": 22.8, "area": 28.9, "d": 25.4, "bf": 6.6, "tw": 6.1, "tf": 11.1, "x": 1.61, "ix": 2800.0, "iy": 94.5, "rx": 9.86, "ry": 1.81}, {"designacion": "C250X30", "peso": 30.0, "area": 37.9, "d": 25.4, "bf": 6.96, "tw": 9.63, "tf": 11.1, "x": 1.54, "ix": 3280.0, "iy": 117.0, "rx": 9.32, "ry": 1.75}, {"designacion": "C250X37", "peso": 37.0, "area": 47.4, "d": 25.4, "bf": 7.34, "tw": 13.4, "tf": 11.1, "x": 1.57, "ix": 3790.0, "iy": 139.0, "rx": 8.94, "ry": 1.71}, {"designacion": "C250X45", "peso": 45.0, "area": 56.8, "d": 25.4, "bf": 7.7, "tw": 17.1, "tf": 11.1, "x": 1.65, "ix": 4290.0, "iy": 164.0, "rx": 8.71, "ry": 1.7}, {"designacion": "C310X30.8", "peso": 30.8, "area": 39.2, "d": 30.5, "bf": 7.47, "tw": 7.16, "tf": 12.7, "x": 1.77, "ix": 5370.0, "iy": 161.0, "rx": 11.7, "ry": 2.02}, {"designacion": "C310X37", "peso": 37.0, "area": 47.4, "d": 30.5, "bf": 7.75, "tw": 9.83, "tf": 12.7, "x": 1.71, "ix": 5990.0, "iy": 185.0, "rx": 11.3, "ry": 1.98}, {"designacion": "C310X45", "peso": 45.0, "area": 56.8, "d": 30.5, "bf": 8.05, "tw": 13.0, "tf": 12.7, "x": 1.71, "ix": 6740.0, "iy": 213.0, "rx": 10.9, "ry": 1.94}, {"designacion": "C380X50.4", "peso": 50.4, "area": 64.5, "d": 38.1, "bf": 8.64, "tw": 10.2, "tf": 16.5, "x": 2.0, "ix": 13100.0, "iy": 336.0, "rx": 14.2, "ry": 2.29}, {"designacion": "C380X60", "peso": 60.0, "area": 76.1, "d": 38.1, "bf": 8.94, "tw": 13.2, "tf": 16.5, "x": 1.98, "ix": 14500.0, "iy": 382.0, "rx": 13.8, "ry": 2.24}, {"designacion": "C380X74", "peso": 74.0, "area": 94.8, "d": 38.1, "bf": 9.45, "tw": 18.2, "tf": 16.5, "x": 2.03, "ix": 16800.0, "iy": 458.0, "rx": 13.3, "ry": 2.2}];
+const _angleSortAsc = (a, b) => a.leg1 - b.leg1 || a.leg2 - b.leg2 || a.espesor - b.espesor;
+const DEFAULT_AISC_LI = _AISC_ANGLES_RAW.filter(r => r.leg1 === r.leg2).sort(_angleSortAsc);
+const DEFAULT_AISC_LD = _AISC_ANGLES_RAW.filter(r => r.leg1 !== r.leg2).sort(_angleSortAsc);
+const DEFAULT_AISC_OC = [{"designacion": "Pipe1/2STD", "peso": 0.85, "area": 0.234, "diametro": 0.84, "espesor": 0.109, "ix": 0.016, "iy": 0.016, "r": 0.264, "sx": 0.0388, "zx": 0.0555, "j": 0.032}, {"designacion": "Pipe1/2XS", "peso": 1.09, "area": 0.303, "diametro": 0.84, "espesor": 0.147, "ix": 0.019, "iy": 0.019, "r": 0.253, "sx": 0.0462, "zx": 0.0686, "j": 0.038}, {"designacion": "Pipe3/4STD", "peso": 1.13, "area": 0.312, "diametro": 1.05, "espesor": 0.113, "ix": 0.035, "iy": 0.035, "r": 0.336, "sx": 0.0671, "zx": 0.0942, "j": 0.07}, {"designacion": "Pipe3/4XS", "peso": 1.48, "area": 0.407, "diametro": 1.05, "espesor": 0.154, "ix": 0.043, "iy": 0.043, "r": 0.325, "sx": 0.0818, "zx": 0.119, "j": 0.086}, {"designacion": "Pipe1STD", "peso": 1.68, "area": 0.469, "diametro": 1.315, "espesor": 0.133, "ix": 0.083, "iy": 0.083, "r": 0.423, "sx": 0.126, "zx": 0.177, "j": 0.166}, {"designacion": "Pipe1XS", "peso": 2.17, "area": 0.602, "diametro": 1.315, "espesor": 0.179, "ix": 0.101, "iy": 0.101, "r": 0.41, "sx": 0.154, "zx": 0.221, "j": 0.202}, {"designacion": "Pipe1-1/4STD", "peso": 2.27, "area": 0.625, "diametro": 1.66, "espesor": 0.14, "ix": 0.184, "iy": 0.184, "r": 0.543, "sx": 0.222, "zx": 0.305, "j": 0.368}, {"designacion": "Pipe1-1/4XS", "peso": 3.0, "area": 0.837, "diametro": 1.66, "espesor": 0.191, "ix": 0.231, "iy": 0.231, "r": 0.528, "sx": 0.278, "zx": 0.393, "j": 0.462}, {"designacion": "Pipe1-1/2STD", "peso": 2.72, "area": 0.749, "diametro": 1.9, "espesor": 0.145, "ix": 0.293, "iy": 0.293, "r": 0.626, "sx": 0.309, "zx": 0.421, "j": 0.586}, {"designacion": "Pipe1-1/2XS", "peso": 3.63, "area": 1.0, "diametro": 1.9, "espesor": 0.2, "ix": 0.372, "iy": 0.372, "r": 0.61, "sx": 0.392, "zx": 0.549, "j": 0.744}, {"designacion": "Pipe2STD", "peso": 3.66, "area": 1.02, "diametro": 2.375, "espesor": 0.154, "ix": 0.627, "iy": 0.627, "r": 0.791, "sx": 0.528, "zx": 0.713, "j": 1.25}, {"designacion": "Pipe2XS", "peso": 5.03, "area": 1.4, "diametro": 2.375, "espesor": 0.218, "ix": 0.827, "iy": 0.827, "r": 0.771, "sx": 0.696, "zx": 0.964, "j": 1.65}, {"designacion": "Pipe2XXS", "peso": 9.04, "area": 2.51, "diametro": 2.375, "espesor": 0.436, "ix": 1.27, "iy": 1.27, "r": 0.711, "sx": 1.07, "zx": 1.6, "j": 2.54}, {"designacion": "Pipe2-1/2STD", "peso": 5.8, "area": 1.61, "diametro": 2.875, "espesor": 0.203, "ix": 1.45, "iy": 1.45, "r": 0.952, "sx": 1.01, "zx": 1.37, "j": 2.89}, {"designacion": "Pipe2-1/2XS", "peso": 7.67, "area": 2.1, "diametro": 2.875, "espesor": 0.276, "ix": 1.83, "iy": 1.83, "r": 0.93, "sx": 1.27, "zx": 1.77, "j": 3.66}, {"designacion": "Pipe2-1/2XXS", "peso": 13.7, "area": 3.83, "diametro": 2.875, "espesor": 0.552, "ix": 2.78, "iy": 2.78, "r": 0.854, "sx": 1.94, "zx": 2.91, "j": 5.56}, {"designacion": "Pipe3STD", "peso": 7.58, "area": 2.07, "diametro": 3.5, "espesor": 0.216, "ix": 2.85, "iy": 2.85, "r": 1.17, "sx": 1.63, "zx": 2.19, "j": 5.69}, {"designacion": "Pipe3XS", "peso": 10.3, "area": 2.83, "diametro": 3.5, "espesor": 0.3, "ix": 3.7, "iy": 3.7, "r": 1.14, "sx": 2.11, "zx": 2.91, "j": 7.4}, {"designacion": "Pipe3XXS", "peso": 18.6, "area": 5.17, "diametro": 3.5, "espesor": 0.6, "ix": 5.79, "iy": 5.79, "r": 1.06, "sx": 3.31, "zx": 4.89, "j": 11.6}, {"designacion": "Pipe3-1/2STD", "peso": 9.12, "area": 2.5, "diametro": 4.0, "espesor": 0.226, "ix": 4.52, "iy": 4.52, "r": 1.34, "sx": 2.26, "zx": 3.03, "j": 9.04}, {"designacion": "Pipe3-1/2XS", "peso": 12.5, "area": 3.43, "diametro": 4.0, "espesor": 0.318, "ix": 5.94, "iy": 5.94, "r": 1.31, "sx": 2.97, "zx": 4.07, "j": 11.9}, {"designacion": "Pipe4STD", "peso": 10.8, "area": 2.96, "diametro": 4.5, "espesor": 0.237, "ix": 6.82, "iy": 6.82, "r": 1.51, "sx": 3.03, "zx": 4.05, "j": 13.6}, {"designacion": "Pipe4XS", "peso": 15.0, "area": 4.14, "diametro": 4.5, "espesor": 0.337, "ix": 9.12, "iy": 9.12, "r": 1.48, "sx": 4.05, "zx": 5.53, "j": 18.2}, {"designacion": "Pipe4XXS", "peso": 27.6, "area": 7.66, "diametro": 4.5, "espesor": 0.674, "ix": 14.7, "iy": 14.7, "r": 1.39, "sx": 6.53, "zx": 9.5, "j": 29.4}, {"designacion": "Pipe5STD", "peso": 14.6, "area": 4.01, "diametro": 5.563, "espesor": 0.258, "ix": 14.3, "iy": 14.3, "r": 1.88, "sx": 5.14, "zx": 6.83, "j": 28.6}, {"designacion": "Pipe5XS", "peso": 20.8, "area": 5.73, "diametro": 5.563, "espesor": 0.375, "ix": 19.5, "iy": 19.5, "r": 1.85, "sx": 7.02, "zx": 9.5, "j": 39.0}, {"designacion": "Pipe5XXS", "peso": 38.6, "area": 10.7, "diametro": 5.563, "espesor": 0.75, "ix": 32.2, "iy": 32.2, "r": 1.74, "sx": 11.6, "zx": 16.7, "j": 64.4}, {"designacion": "Pipe6STD", "peso": 19.0, "area": 5.2, "diametro": 6.625, "espesor": 0.28, "ix": 26.5, "iy": 26.5, "r": 2.25, "sx": 7.99, "zx": 10.6, "j": 52.9}, {"designacion": "Pipe6XS", "peso": 28.6, "area": 7.83, "diametro": 6.625, "espesor": 0.432, "ix": 38.3, "iy": 38.3, "r": 2.2, "sx": 11.6, "zx": 15.6, "j": 76.6}, {"designacion": "Pipe6XXS", "peso": 53.2, "area": 14.7, "diametro": 6.625, "espesor": 0.864, "ix": 63.5, "iy": 63.5, "r": 2.08, "sx": 19.2, "zx": 27.4, "j": 127.0}, {"designacion": "Pipe8STD", "peso": 28.6, "area": 7.85, "diametro": 8.625, "espesor": 0.322, "ix": 68.1, "iy": 68.1, "r": 2.95, "sx": 15.8, "zx": 20.8, "j": 136.0}, {"designacion": "Pipe8XS", "peso": 43.4, "area": 11.9, "diametro": 8.625, "espesor": 0.5, "ix": 100.0, "iy": 100.0, "r": 2.89, "sx": 23.1, "zx": 31.0, "j": 199.0}, {"designacion": "Pipe8XXS", "peso": 72.5, "area": 20.0, "diametro": 8.625, "espesor": 0.875, "ix": 154.0, "iy": 154.0, "r": 2.78, "sx": 35.8, "zx": 49.9, "j": 308.0}, {"designacion": "Pipe10STD", "peso": 40.5, "area": 11.5, "diametro": 10.75, "espesor": 0.365, "ix": 151.0, "iy": 151.0, "r": 3.68, "sx": 28.1, "zx": 36.9, "j": 302.0}, {"designacion": "Pipe10XS", "peso": 54.8, "area": 15.1, "diametro": 10.75, "espesor": 0.5, "ix": 199.0, "iy": 199.0, "r": 3.64, "sx": 37.0, "zx": 49.2, "j": 398.0}, {"designacion": "Pipe10XXS", "peso": 104.0, "area": 28.8, "diametro": 10.75, "espesor": 1.0, "ix": 354.0, "iy": 354.0, "r": 3.51, "sx": 65.6, "zx": 90.9, "j": 709.0}, {"designacion": "Pipe12STD", "peso": 49.6, "area": 13.7, "diametro": 12.75, "espesor": 0.375, "ix": 262.0, "iy": 262.0, "r": 4.39, "sx": 41.0, "zx": 53.7, "j": 523.0}, {"designacion": "Pipe12XS", "peso": 65.5, "area": 17.5, "diametro": 12.75, "espesor": 0.5, "ix": 339.0, "iy": 339.0, "r": 4.35, "sx": 53.2, "zx": 70.2, "j": 678.0}, {"designacion": "Pipe12XXS", "peso": 126.0, "area": 35.4, "diametro": 12.75, "espesor": 1.0, "ix": 625.0, "iy": 625.0, "r": 4.2, "sx": 97.6, "zx": 134.0, "j": 1250.0}, {"designacion": "Pipe14STD", "peso": 54.6, "area": 15.0, "diametro": 14.0, "espesor": 0.375, "ix": 350.0, "iy": 350.0, "r": 4.83, "sx": 50.0, "zx": 65.2, "j": 700.0}, {"designacion": "Pipe14XS", "peso": 72.2, "area": 19.2, "diametro": 14.0, "espesor": 0.5, "ix": 440.0, "iy": 440.0, "r": 4.79, "sx": 62.9, "zx": 82.7, "j": 880.0}, {"designacion": "Pipe16STD", "peso": 62.6, "area": 17.2, "diametro": 16.0, "espesor": 0.375, "ix": 527.0, "iy": 527.0, "r": 5.53, "sx": 65.9, "zx": 85.7, "j": 1050.0}, {"designacion": "Pipe16XS", "peso": 82.9, "area": 22.0, "diametro": 16.0, "espesor": 0.5, "ix": 665.0, "iy": 665.0, "r": 5.5, "sx": 83.1, "zx": 109.0, "j": 1330.0}, {"designacion": "Pipe18STD", "peso": 70.7, "area": 19.4, "diametro": 18.0, "espesor": 0.375, "ix": 756.0, "iy": 756.0, "r": 6.24, "sx": 84.0, "zx": 109.0, "j": 1510.0}, {"designacion": "Pipe18XS", "peso": 93.5, "area": 24.8, "diametro": 18.0, "espesor": 0.5, "ix": 956.0, "iy": 956.0, "r": 6.21, "sx": 106.0, "zx": 139.0, "j": 1910.0}, {"designacion": "Pipe20STD", "peso": 78.7, "area": 21.6, "diametro": 20.0, "espesor": 0.375, "ix": 1040.0, "iy": 1040.0, "r": 6.95, "sx": 104.0, "zx": 135.0, "j": 2090.0}, {"designacion": "Pipe20XS", "peso": 104.0, "area": 27.6, "diametro": 20.0, "espesor": 0.5, "ix": 1320.0, "iy": 1320.0, "r": 6.91, "sx": 132.0, "zx": 172.0, "j": 2640.0}, {"designacion": "Pipe24STD", "peso": 94.7, "area": 26.0, "diametro": 24.0, "espesor": 0.375, "ix": 1820.0, "iy": 1820.0, "r": 8.36, "sx": 152.0, "zx": 196.0, "j": 3640.0}, {"designacion": "Pipe24XS", "peso": 126.0, "area": 33.3, "diametro": 24.0, "espesor": 0.5, "ix": 2310.0, "iy": 2310.0, "r": 8.33, "sx": 192.0, "zx": 250.0, "j": 4620.0}, {"designacion": "Pipe26STD", "peso": 103.0, "area": 28.2, "diametro": 26.0, "espesor": 0.375, "ix": 2320.0, "iy": 2320.0, "r": 9.07, "sx": 178.0, "zx": 230.0, "j": 4640.0}, {"designacion": "Pipe26XS", "peso": 136.0, "area": 36.1, "diametro": 26.0, "espesor": 0.5, "ix": 2950.0, "iy": 2950.0, "r": 9.03, "sx": 227.0, "zx": 294.0, "j": 5900.0}];
+const DEFAULT_AISC_C = [{"designacion": "C3X3.5", "peso": 3.5, "area": 1.09, "d": 3.0, "bf": 1.37, "tw": 0.132, "tf": 0.273, "x": 0.443, "ix": 1.57, "iy": 0.169, "rx": 1.2, "ry": 0.394}, {"designacion": "C3X4.1", "peso": 4.1, "area": 1.2, "d": 3.0, "bf": 1.41, "tw": 0.17, "tf": 0.273, "x": 0.437, "ix": 1.65, "iy": 0.191, "rx": 1.18, "ry": 0.398}, {"designacion": "C3X5", "peso": 5.0, "area": 1.47, "d": 3.0, "bf": 1.5, "tw": 0.258, "tf": 0.273, "x": 0.439, "ix": 1.85, "iy": 0.241, "rx": 1.12, "ry": 0.405}, {"designacion": "C3X6", "peso": 6.0, "area": 1.76, "d": 3.0, "bf": 1.6, "tw": 0.356, "tf": 0.273, "x": 0.455, "ix": 2.07, "iy": 0.3, "rx": 1.09, "ry": 0.413}, {"designacion": "C4X4.5", "peso": 4.5, "area": 1.34, "d": 4.0, "bf": 1.52, "tw": 0.125, "tf": 0.296, "x": 0.473, "ix": 3.53, "iy": 0.265, "rx": 1.62, "ry": 0.445}, {"designacion": "C4X5.4", "peso": 5.4, "area": 1.58, "d": 4.0, "bf": 1.58, "tw": 0.184, "tf": 0.296, "x": 0.457, "ix": 3.85, "iy": 0.312, "rx": 1.56, "ry": 0.444}, {"designacion": "C4X6.25", "peso": 6.25, "area": 1.84, "d": 4.0, "bf": 1.65, "tw": 0.247, "tf": 0.296, "x": 0.453, "ix": 4.19, "iy": 0.374, "rx": 1.51, "ry": 0.451}, {"designacion": "C4X7.25", "peso": 7.25, "area": 2.13, "d": 4.0, "bf": 1.72, "tw": 0.321, "tf": 0.296, "x": 0.459, "ix": 4.58, "iy": 0.425, "rx": 1.47, "ry": 0.447}, {"designacion": "C5X6.7", "peso": 6.7, "area": 1.97, "d": 5.0, "bf": 1.75, "tw": 0.19, "tf": 0.32, "x": 0.484, "ix": 7.48, "iy": 0.47, "rx": 1.95, "ry": 0.489}, {"designacion": "C5X9", "peso": 9.0, "area": 2.64, "d": 5.0, "bf": 1.89, "tw": 0.325, "tf": 0.32, "x": 0.478, "ix": 8.89, "iy": 0.624, "rx": 1.84, "ry": 0.486}, {"designacion": "C6X8.2", "peso": 8.2, "area": 2.39, "d": 6.0, "bf": 1.92, "tw": 0.2, "tf": 0.343, "x": 0.512, "ix": 13.1, "iy": 0.687, "rx": 2.34, "ry": 0.536}, {"designacion": "C6X10.5", "peso": 10.5, "area": 3.07, "d": 6.0, "bf": 2.03, "tw": 0.314, "tf": 0.343, "x": 0.5, "ix": 15.1, "iy": 0.86, "rx": 2.22, "ry": 0.529}, {"designacion": "C6X13", "peso": 13.0, "area": 3.82, "d": 6.0, "bf": 2.16, "tw": 0.437, "tf": 0.343, "x": 0.514, "ix": 17.3, "iy": 1.05, "rx": 2.13, "ry": 0.524}, {"designacion": "C7X9.8", "peso": 9.8, "area": 2.87, "d": 7.0, "bf": 2.09, "tw": 0.21, "tf": 0.366, "x": 0.541, "ix": 21.2, "iy": 0.957, "rx": 2.72, "ry": 0.578}, {"designacion": "C7X12.25", "peso": 12.25, "area": 3.59, "d": 7.0, "bf": 2.19, "tw": 0.314, "tf": 0.366, "x": 0.525, "ix": 24.2, "iy": 1.16, "rx": 2.59, "ry": 0.568}, {"designacion": "C7X14.75", "peso": 14.75, "area": 4.33, "d": 7.0, "bf": 2.3, "tw": 0.419, "tf": 0.366, "x": 0.532, "ix": 27.2, "iy": 1.37, "rx": 2.51, "ry": 0.561}, {"designacion": "C8X11.5", "peso": 11.5, "area": 3.37, "d": 8.0, "bf": 2.26, "tw": 0.22, "tf": 0.39, "x": 0.572, "ix": 32.5, "iy": 1.31, "rx": 3.11, "ry": 0.623}, {"designacion": "C8X13.75", "peso": 13.75, "area": 4.03, "d": 8.0, "bf": 2.34, "tw": 0.303, "tf": 0.39, "x": 0.554, "ix": 36.1, "iy": 1.52, "rx": 2.99, "ry": 0.613}, {"designacion": "C8X18.75", "peso": 18.75, "area": 5.51, "d": 8.0, "bf": 2.53, "tw": 0.487, "tf": 0.39, "x": 0.565, "ix": 43.9, "iy": 1.97, "rx": 2.82, "ry": 0.598}, {"designacion": "C9X13.4", "peso": 13.4, "area": 3.94, "d": 9.0, "bf": 2.43, "tw": 0.233, "tf": 0.413, "x": 0.601, "ix": 47.8, "iy": 1.75, "rx": 3.48, "ry": 0.666}, {"designacion": "C9X15", "peso": 15.0, "area": 4.4, "d": 9.0, "bf": 2.49, "tw": 0.285, "tf": 0.413, "x": 0.586, "ix": 51.0, "iy": 1.91, "rx": 3.4, "ry": 0.659}, {"designacion": "C9X20", "peso": 20.0, "area": 5.87, "d": 9.0, "bf": 2.65, "tw": 0.448, "tf": 0.413, "x": 0.583, "ix": 60.9, "iy": 2.41, "rx": 3.22, "ry": 0.64}, {"designacion": "C10X15.3", "peso": 15.3, "area": 4.48, "d": 10.0, "bf": 2.6, "tw": 0.24, "tf": 0.436, "x": 0.634, "ix": 67.3, "iy": 2.27, "rx": 3.88, "ry": 0.711}, {"designacion": "C10X20", "peso": 20.0, "area": 5.87, "d": 10.0, "bf": 2.74, "tw": 0.379, "tf": 0.436, "x": 0.606, "ix": 78.9, "iy": 2.8, "rx": 3.67, "ry": 0.69}, {"designacion": "C10X25", "peso": 25.0, "area": 7.35, "d": 10.0, "bf": 2.89, "tw": 0.526, "tf": 0.436, "x": 0.617, "ix": 91.1, "iy": 3.34, "rx": 3.52, "ry": 0.675}, {"designacion": "C10X30", "peso": 30.0, "area": 8.81, "d": 10.0, "bf": 3.03, "tw": 0.673, "tf": 0.436, "x": 0.649, "ix": 103.0, "iy": 3.93, "rx": 3.43, "ry": 0.668}, {"designacion": "C12X20.7", "peso": 20.7, "area": 6.08, "d": 12.0, "bf": 2.94, "tw": 0.282, "tf": 0.501, "x": 0.698, "ix": 129.0, "iy": 3.86, "rx": 4.61, "ry": 0.797}, {"designacion": "C12X25", "peso": 25.0, "area": 7.34, "d": 12.0, "bf": 3.05, "tw": 0.387, "tf": 0.501, "x": 0.674, "ix": 144.0, "iy": 4.45, "rx": 4.43, "ry": 0.779}, {"designacion": "C12X30", "peso": 30.0, "area": 8.81, "d": 12.0, "bf": 3.17, "tw": 0.51, "tf": 0.501, "x": 0.674, "ix": 162.0, "iy": 5.12, "rx": 4.29, "ry": 0.762}, {"designacion": "C15X33.9", "peso": 33.9, "area": 10.0, "d": 15.0, "bf": 3.4, "tw": 0.4, "tf": 0.65, "x": 0.788, "ix": 315.0, "iy": 8.07, "rx": 5.61, "ry": 0.901}, {"designacion": "C15X40", "peso": 40.0, "area": 11.8, "d": 15.0, "bf": 3.52, "tw": 0.52, "tf": 0.65, "x": 0.778, "ix": 348.0, "iy": 9.17, "rx": 5.43, "ry": 0.883}, {"designacion": "C15X50", "peso": 50.0, "area": 14.7, "d": 15.0, "bf": 3.72, "tw": 0.716, "tf": 0.65, "x": 0.799, "ix": 404.0, "iy": 11.0, "rx": 5.24, "ry": 0.865}];
+let profileCatalogs = { imca: {li: DEFAULT_IMCA_LI, ld: DEFAULT_IMCA_LD, oc: DEFAULT_IMCA_OC, os: DEFAULT_IMCA_OS, c: DEFAULT_IMCA_C}, aisc: {li: DEFAULT_AISC_LI, ld: DEFAULT_AISC_LD, oc: DEFAULT_AISC_OC, os: DEFAULT_AISC_OS, c: DEFAULT_AISC_C} };
 function loadProfileCatalogs() {
   try {
     const raw = localStorage.getItem(PROFILE_CATALOGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       profileCatalogs = {
-        imca: { li: parsed.imca?.li ?? DEFAULT_IMCA_LI, ld: parsed.imca?.ld ?? DEFAULT_IMCA_LD, oc: parsed.imca?.oc ?? DEFAULT_IMCA_OC, os: parsed.imca?.os ?? DEFAULT_IMCA_OS },
-        aisc: { li: parsed.aisc?.li ?? DEFAULT_AISC_LI, ld: parsed.aisc?.ld ?? DEFAULT_AISC_LD, oc: parsed.aisc?.oc ?? DEFAULT_AISC_OC, os: parsed.aisc?.os ?? DEFAULT_AISC_OS },
+        imca: { li: parsed.imca?.li ?? DEFAULT_IMCA_LI, ld: parsed.imca?.ld ?? DEFAULT_IMCA_LD, oc: parsed.imca?.oc ?? DEFAULT_IMCA_OC, os: parsed.imca?.os ?? DEFAULT_IMCA_OS, c: parsed.imca?.c ?? DEFAULT_IMCA_C },
+        aisc: { li: parsed.aisc?.li ?? DEFAULT_AISC_LI, ld: parsed.aisc?.ld ?? DEFAULT_AISC_LD, oc: parsed.aisc?.oc ?? DEFAULT_AISC_OC, os: parsed.aisc?.os ?? DEFAULT_AISC_OS, c: parsed.aisc?.c ?? DEFAULT_AISC_C },
       };
     }
   } catch { /* localStorage no disponible o dato corrupto — usar defaults */ }
@@ -3327,10 +3561,10 @@ function toggleUserProfile(cat, fam, i) {
   const idx = userProfiles.findIndex(u => u.designacion === row.designacion && u.origenCat === cat && u.origenFam === fam);
   if (idx !== -1) {
     userProfiles.splice(idx, 1);
-    showToast(`"${row.designacion}" quitado de USER.`);
+    showToast(`"${row.designacion}" quitado de Favoritos.`);
   } else {
     userProfiles.push({ ...row, origenCat: cat, origenFam: fam });
-    showToast(`"${row.designacion}" copiado a USER.`);
+    showToast(`"${row.designacion}" copiado a Favoritos.`);
   }
   saveUserProfiles();
   renderProfileCatalogPanel();
@@ -3402,7 +3636,7 @@ function renderProfileCatalogPanel() {
         oninput="profileCatalogs['${cat}']['${fam}'][${i}]['${k}']=${type==='number'?'+this.value||0':'this.value'}; saveProfileCatalogs();"></td>`).join('')}
       <td style="white-space:nowrap;">
         <button class="row-del" onclick="toggleUserProfile('${cat}','${fam}',${i})"
-          title="${inUser ? 'Quitar de USER' : 'Copiar a USER'}"
+          title="${inUser ? 'Quitar de Favoritos' : 'Copiar a Favoritos'}"
           style="color:${inUser ? '#FBBF24' : 'var(--txt-sec)'};">${inUser ? '★' : '☆'}</button>
         ${dbEditUnlocked ? `<button class="row-del" onclick="delProfileRow('${cat}','${fam}',${i})" title="Eliminar">✕</button>` : ''}
       </td>
@@ -3428,7 +3662,7 @@ function dbSwitchFamily(fam) {
 }
 
 // ── Modal Bases de Datos (Calidades funcional; IMCA/AISC con CRUD básico, familias LI/OC) ──
-const DB_TAB_KEYS = ['acero', 'cables', 'imca', 'aisc', 'user'];
+const DB_TAB_KEYS = ['acero', 'cables', 'aisc', 'imca', 'user'];
 let dbCatalog = 'imca', dbFamily = 'li';
 // Bases de Datos abre siempre BLOQUEADA (solo lectura) — el ícono 🔒/🔓 del encabezado
 // habilita la edición a propósito, para no permitir cambios accidentales al solo consultar.
@@ -3439,6 +3673,14 @@ function openDatabaseModal() {
   switchDatabaseTab('acero');
   document.getElementById('database-modal-overlay').classList.add('open');
 }
+// Header (#db-table-hdr-wrap) y body (#db-body-wrap) scrollean horizontal por separado
+// (el header no scrollea vertical) — se sincronizan para que las columnas no se desalineen.
+(function() {
+  const hdr = document.getElementById('db-table-hdr-wrap');
+  const body = document.getElementById('db-body-wrap');
+  if (!hdr || !body) return;
+  body.addEventListener('scroll', () => { hdr.scrollLeft = body.scrollLeft; });
+})();
 function closeDatabaseModal(e) {
   if (e && e.target !== document.getElementById('database-modal-overlay')) return;
   document.getElementById('database-modal-overlay').classList.remove('open');
@@ -3467,14 +3709,14 @@ function switchDatabaseTab(tab) {
 // Modo 1 (sin opts) — se abre desde el botón 📋 de un campo de perfil en el modal de
 // sección; escribe el resultado de vuelta en mt-<field> (designación) y mt-<field>Cal.
 // Modo 2 (con opts.onPick) — uso genérico desde cualquier otra parte de la app (ej.
-// Perfil Brazo en Editar Retenidas): opts = {currentValue, currentCal, onPick(val,cal)}.
+// el perfil del brazo en el modal Estabilizadores): opts = {currentValue, currentCal, onPick(val,cal)}.
 let pickerField = null, pickerOnPick = null, pickerCatalog = 'imca', pickerFamily = 'li', pickerSelected = null;
 // Encuentra en qué catálogo/familia vive una designación ya elegida — para reabrir el
 // picker exactamente donde se hizo la selección anterior, en vez de resetear a IMCA/LI.
 function _findProfileLocation(designacion) {
   if (!designacion) return null;
   if (userProfiles.some(r => r.designacion === designacion)) return {cat: 'user', fam: null};
-  for (const cat of ['imca','aisc']) {
+  for (const cat of ['aisc','imca']) {
     for (const fam of Object.keys(PROFILE_FAMILY_LABELS[cat])) {
       if (profileCatalogs[cat][fam].some(r => r.designacion === designacion)) return {cat, fam};
     }
@@ -3490,7 +3732,7 @@ function openProfilePicker(field, opts) {
   document.getElementById('pp-search').value = '';
   document.getElementById('pp-calidad').innerHTML = steelGradeOptions(currentCal);
   const loc = _findProfileLocation(currentValue);
-  pickerCatalog = loc ? loc.cat : 'imca';
+  pickerCatalog = loc ? loc.cat : 'aisc';
   pickerFamily  = loc ? loc.fam : 'li';
   document.getElementById('pp-tab-imca').classList.toggle('active', pickerCatalog==='imca');
   document.getElementById('pp-tab-aisc').classList.toggle('active', pickerCatalog==='aisc');
@@ -3522,6 +3764,8 @@ function pickerSwitchFamily(fam) {
 }
 // AISC guarda área/peso en in²/lb-ft — se convierte a cm²/kg-m solo para mostrar en el
 // picker (los datos originales del catálogo no se tocan). IMCA ya está en esas unidades.
+// Excepción: AISC familia "c" (Canal) viene de la tabla métrica del AISC Shapes Database
+// (designaciones tipo C380X74, ya en mm/kg-m) — se trata como IMCA, sin reconvertir.
 function _pickerMetric(r, cat, fam) {
   if (cat === 'imca') return { area: r.area, peso: r.peso, diametro: r.diametro ?? 0, espesor: r.espesor ?? 0 };
   // AISC: área in²→cm², peso lb/ft→kg/m, diámetro/espesor in→cm
@@ -4215,6 +4459,21 @@ function openRetenidasModal() {
       brazoLen:   prevCable[i]?.brazoLen ?? 1.5,
       brazoPerfil: prevCable[i]?.brazoPerfil ?? '-',
       brazoPerfilCal: prevCable[i]?.brazoPerfilCal ?? '-',
+      estabTipo:  prevCable[i]?.estabTipo ?? 'simple',
+      estabPuntalOn: prevCable[i]?.estabPuntalOn ?? false,
+      estabPuntalAltura: prevCable[i]?.estabPuntalAltura ?? 0,
+      estabPuntalPerfil: prevCable[i]?.estabPuntalPerfil ?? '-',
+      estabPuntalPerfilCal: prevCable[i]?.estabPuntalPerfilCal ?? '-',
+      estabPuntalHorizOn: prevCable[i]?.estabPuntalHorizOn ?? false,
+      estabPuntalHorizPerfil: prevCable[i]?.estabPuntalHorizPerfil ?? '-',
+      estabPuntalHorizPerfilCal: prevCable[i]?.estabPuntalHorizPerfilCal ?? '-',
+      estabTensorOn: prevCable[i]?.estabTensorOn ?? false,
+      estabTensorAltura: prevCable[i]?.estabTensorAltura ?? 0,
+      estabTensorPerfil: prevCable[i]?.estabTensorPerfil ?? '-',
+      estabTensorPerfilCal: prevCable[i]?.estabTensorPerfilCal ?? '-',
+      estabTensorHorizOn: prevCable[i]?.estabTensorHorizOn ?? false,
+      estabTensorHorizPerfil: prevCable[i]?.estabTensorHorizPerfil ?? '-',
+      estabTensorHorizPerfilCal: prevCable[i]?.estabTensorHorizPerfilCal ?? '-',
     };
   });
   // Anclajes por defecto: uno por pierna (azimut 0°/120°/240°), o lo que ya hubiera guardado
@@ -4247,10 +4506,8 @@ function renderRetTable() {
         <td><div class="ret-cable-cell" onclick="openNodesModal(${i})">${nodesLbl}</div></td>
         <td style="text-align:center;"><input type="checkbox" ${c.triangulo?'checked':''}
           onchange="guyCableData[${i}].triangulo = this.checked; renderRetTable();"></td>
-        <td><input type="number" step="0.1" min="0.1" style="width:70px;" value="${c.brazoLen}"
-          ${c.triangulo?'':'disabled'} oninput="guyCableData[${i}].brazoLen = +this.value || 1.5"></td>
         <td>${c.triangulo
-          ? `<div class="ret-cable-cell" onclick="openBrazoPerfilPicker(${i})">${c.brazoPerfil==='-'?'Seleccionar…':c.brazoPerfil}</div>`
+          ? `<button class="btn-cancel" style="padding:3px 12px;font-size:10px;" onclick="openEstabilizadorModal(${i})">Editar</button>`
           : `<div class="ret-cable-cell" style="opacity:.4;pointer-events:none;">—</div>`}</td>
         <td><button class="row-del" onclick="delLevelRow(${i})" title="Eliminar">✕</button></td>
       </tr>`;
@@ -4260,20 +4517,134 @@ function addLevelRow() {
   const h = +document.getElementById('height')?.value || 30;
   guyHeights.push(+(h/2).toFixed(1));
   guyCableData.push({diam: null, tensionPct: 10, conexion: 'Antorchada', nodes: _anchorRingIndices(1),
-    triangulo: false, brazoLen: 1.5, brazoPerfil: '-', brazoPerfilCal: '-'});
+    triangulo: false, brazoLen: 1.5, brazoPerfil: '-', brazoPerfilCal: '-',
+    estabTipo: 'simple',
+    estabPuntalOn: false, estabPuntalAltura: 0, estabPuntalPerfil: '-', estabPuntalPerfilCal: '-',
+    estabPuntalHorizOn: false, estabPuntalHorizPerfil: '-', estabPuntalHorizPerfilCal: '-',
+    estabTensorOn: false, estabTensorAltura: 0, estabTensorPerfil: '-', estabTensorPerfilCal: '-',
+    estabTensorHorizOn: false, estabTensorHorizPerfil: '-', estabTensorHorizPerfilCal: '-'});
   renderRetTable();
 }
-function openBrazoPerfilPicker(i) {
-  const c = guyCableData[i];
-  openProfilePicker('brazo'+i, {
-    currentValue: c.brazoPerfil === '-' ? null : c.brazoPerfil,
-    currentCal: c.brazoPerfilCal,
+// ── Modal: Estabilizadores (3 tipos: Simple / Puntal-Tensor / Cuadrado, por nivel) ──
+// Íconos placeholder — pendiente de reemplazar por los íconos reales que dé el usuario.
+const ESTAB_TIPOS = [
+  { key: 'simple',        label: 'Simple' },
+  { key: 'puntal-tensor', label: 'Puntal - Tensor' },
+  { key: 'cuadrado',      label: 'Cuadrado' },
+];
+function _estabTipoIconSVG(key) {
+  const legSvg = `<line x1="18" y1="42" x2="18" y2="6" stroke="#3B82F6" stroke-width="1.4"/>`;
+  const shapes = {
+    simple:        `<line x1="18" y1="20" x2="30" y2="10" stroke="#22C55E" stroke-width="1.2"/>`,
+    'puntal-tensor': `<line x1="18" y1="14" x2="30" y2="6" stroke="#22C55E" stroke-width="1.2"/><line x1="18" y1="28" x2="30" y2="20" stroke="#EF4444" stroke-width="1.2"/>`,
+    cuadrado:      `<rect x="20" y="6" width="10" height="10" fill="none" stroke="#22C55E" stroke-width="1.1"/><line x1="18" y1="14" x2="20" y2="11" stroke="#94A3B8" stroke-width="1"/>`,
+  };
+  return `<svg viewBox="0 0 36 48" width="30" height="40">${legSvg}${shapes[key] || ''}</svg>`;
+}
+let estabLevelIdx = null;
+function openEstabilizadorModal(i) {
+  estabLevelIdx = i;
+  if (!guyCableData[i].estabTipo) guyCableData[i].estabTipo = 'simple';
+  _buildEstabTipoGrid();
+  _renderEstabFields();
+  document.getElementById('estabilizador-modal-overlay').classList.add('open');
+}
+function _buildEstabTipoGrid() {
+  const c = guyCableData[estabLevelIdx];
+  const grid = document.getElementById('estab-tipo-grid');
+  grid.innerHTML = ESTAB_TIPOS.map(t => `
+    <div class="diag-icon-btn${c.estabTipo===t.key?' selected':''}" data-tipo="${t.key}" title="${t.label}">
+      ${_estabTipoIconSVG(t.key)}
+      <span>${t.label}</span>
+    </div>`).join('');
+  grid.querySelectorAll('.diag-icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      guyCableData[estabLevelIdx].estabTipo = btn.dataset.tipo;
+      grid.querySelectorAll('.diag-icon-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      _renderEstabFields();
+    });
+  });
+}
+function _renderEstabFields() {
+  const c = guyCableData[estabLevelIdx];
+  const isSimple = c.estabTipo === 'simple';
+  document.getElementById('estab-complex-fields').style.display = isSimple ? 'none' : '';
+  // Longitud del brazo y Perfil — compartidos por los 3 tipos: definen el vértice V que
+  // usan tanto el brazo simple como Puntal/Tensor.
+  const lenInput = document.getElementById('estab-brazoLen');
+  lenInput.value = c.brazoLen ?? 1.5;
+  lenInput.oninput = () => { guyCableData[estabLevelIdx].brazoLen = +lenInput.value || 1.5; };
+  _renderEstabPerfilCell();
+  if (isSimple) return;
+  const puntalChk = document.getElementById('estab-puntal-chk');
+  puntalChk.checked = !!c.estabPuntalOn;
+  puntalChk.onchange = () => { guyCableData[estabLevelIdx].estabPuntalOn = puntalChk.checked; _renderEstabFields(); };
+  document.getElementById('estab-puntal-perfil-wrap').style.display = c.estabPuntalOn ? '' : 'none';
+  if (c.estabPuntalOn) {
+    const puntalAlturaInput = document.getElementById('estab-puntal-altura');
+    puntalAlturaInput.value = c.estabPuntalAltura ?? 0;
+    // Puntal siempre hacia abajo de Vi — se fuerza negativo sin importar lo que escriba el usuario.
+    puntalAlturaInput.oninput = () => { guyCableData[estabLevelIdx].estabPuntalAltura = -Math.abs(+puntalAlturaInput.value || 0); };
+    _renderEstabPerfilCell('puntal');
+    const puntalHorizChk = document.getElementById('estab-puntal-horiz-chk');
+    puntalHorizChk.checked = !!c.estabPuntalHorizOn;
+    puntalHorizChk.onchange = () => { guyCableData[estabLevelIdx].estabPuntalHorizOn = puntalHorizChk.checked; _renderEstabFields(); };
+    document.getElementById('estab-puntal-horiz-wrap').style.display = c.estabPuntalHorizOn ? '' : 'none';
+    if (c.estabPuntalHorizOn) _renderEstabPerfilCell('puntalH');
+  }
+  const tensorChk = document.getElementById('estab-tensor-chk');
+  tensorChk.checked = !!c.estabTensorOn;
+  tensorChk.onchange = () => { guyCableData[estabLevelIdx].estabTensorOn = tensorChk.checked; _renderEstabFields(); };
+  document.getElementById('estab-tensor-perfil-wrap').style.display = c.estabTensorOn ? '' : 'none';
+  if (c.estabTensorOn) {
+    const tensorAlturaInput = document.getElementById('estab-tensor-altura');
+    tensorAlturaInput.value = c.estabTensorAltura ?? 0;
+    // Tensor siempre hacia arriba de Vi — se fuerza positivo sin importar lo que escriba el usuario.
+    tensorAlturaInput.oninput = () => { guyCableData[estabLevelIdx].estabTensorAltura = Math.abs(+tensorAlturaInput.value || 0); };
+    _renderEstabPerfilCell('tensor');
+    const tensorHorizChk = document.getElementById('estab-tensor-horiz-chk');
+    tensorHorizChk.checked = !!c.estabTensorHorizOn;
+    tensorHorizChk.onchange = () => { guyCableData[estabLevelIdx].estabTensorHorizOn = tensorHorizChk.checked; _renderEstabFields(); };
+    document.getElementById('estab-tensor-horiz-wrap').style.display = c.estabTensorHorizOn ? '' : 'none';
+    if (c.estabTensorHorizOn) _renderEstabPerfilCell('tensorH');
+  }
+}
+function _renderEstabPerfilCell(which) {
+  const c = guyCableData[estabLevelIdx];
+  const map = {
+    puntal:  ['estab-puntal-perfil-cell', 'estabPuntalPerfil'],
+    tensor:  ['estab-tensor-perfil-cell', 'estabTensorPerfil'],
+    puntalH: ['estab-puntal-horiz-perfil-cell', 'estabPuntalHorizPerfil'],
+    tensorH: ['estab-tensor-horiz-perfil-cell', 'estabTensorHorizPerfil'],
+  };
+  const [elId, key] = map[which] || ['estab-perfil-cell', 'brazoPerfil'];
+  document.getElementById(elId).textContent = (!c[key] || c[key] === '-') ? 'Seleccionar…' : c[key];
+}
+function openEstabPerfilPicker(which) {
+  const c = guyCableData[estabLevelIdx];
+  const keyMap = {
+    puntal:  ['estabPuntalPerfil', 'estabPuntalPerfilCal'],
+    tensor:  ['estabTensorPerfil', 'estabTensorPerfilCal'],
+    puntalH: ['estabPuntalHorizPerfil', 'estabPuntalHorizPerfilCal'],
+    tensorH: ['estabTensorHorizPerfil', 'estabTensorHorizPerfilCal'],
+  };
+  const [valKey, calKey] = keyMap[which] || ['brazoPerfil', 'brazoPerfilCal'];
+  const currentValue = c[valKey], currentCal = c[calKey];
+  openProfilePicker('brazo' + estabLevelIdx + (which || ''), {
+    currentValue: (!currentValue || currentValue === '-') ? null : currentValue,
+    currentCal,
     onPick: (val, cal) => {
-      guyCableData[i].brazoPerfil = val || '-';
-      guyCableData[i].brazoPerfilCal = cal;
-      renderRetTable();
+      guyCableData[estabLevelIdx][valKey] = val || '-';
+      guyCableData[estabLevelIdx][calKey] = cal;
+      _renderEstabPerfilCell(which);
     },
   });
+}
+function closeEstabilizadorModal(e) {
+  if (e && e.target !== document.getElementById('estabilizador-modal-overlay')) return;
+  document.getElementById('estabilizador-modal-overlay').classList.remove('open');
+  renderRetTable();
 }
 function delLevelRow(i) {
   guyHeights.splice(i, 1);
@@ -4523,11 +4894,11 @@ function nuevoProyecto() {
   document.getElementById('tower-name').textContent = 'TIPO DE ESTRUCTURA';
 }
 
-// Botón "Render" del toolbar — placeholder: activa la pestaña Render (vista extruida,
-// pendiente de implementar; ver discusión sobre datos de catálogo necesarios).
+// Botón "Render" del toolbar — la vista extruida (similar a STAAD.Pro) será una ventana
+// aparte (mismo patrón que openHelp(): window.open), NO una pestaña embebida en la
+// interfaz principal. Placeholder hasta implementar la extrusión real de perfiles.
 function openRenderTab() {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  document.getElementById('tab-render').classList.add('active');
+  showToast('Vista extruida (Render) — en desarrollo. Se abrirá en una ventana aparte.');
 }
 
 // Tab click
@@ -6475,6 +6846,22 @@ function getMemberProfile(m) {
     const cd = guyCableData[(m.guyLevel ?? 1) - 1];
     profile = (cd && cd.brazoPerfil && cd.brazoPerfil !== '-') ? cd.brazoPerfil : '—';
     calidadName = cd?.brazoPerfilCal || null;
+  } else if (m.type === 'puntal') {
+    const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+    profile = (cd && cd.estabPuntalPerfil && cd.estabPuntalPerfil !== '-') ? cd.estabPuntalPerfil : '—';
+    calidadName = cd?.estabPuntalPerfilCal || null;
+  } else if (m.type === 'tensor') {
+    const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+    profile = (cd && cd.estabTensorPerfil && cd.estabTensorPerfil !== '-') ? cd.estabTensorPerfil : '—';
+    calidadName = cd?.estabTensorPerfilCal || null;
+  } else if (m.type === 'horizPuntal') {
+    const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+    profile = (cd && cd.estabPuntalHorizPerfil && cd.estabPuntalHorizPerfil !== '-') ? cd.estabPuntalHorizPerfil : '—';
+    calidadName = cd?.estabPuntalHorizPerfilCal || null;
+  } else if (m.type === 'horizTensor') {
+    const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+    profile = (cd && cd.estabTensorHorizPerfil && cd.estabTensorHorizPerfil !== '-') ? cd.estabTensorHorizPerfil : '—';
+    calidadName = cd?.estabTensorHorizPerfilCal || null;
   } else if (sd) {
     if (m.type==='leg') { profile = (sd.M && sd.M!=='-') ? sd.M : '—'; calidadName = sd.MCal; }
     else if (m.type==='diagonal') {
@@ -6517,7 +6904,7 @@ function showMemberInfo(m, cx, cy) {
   const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
   const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
   const len = fmtNum(Math.sqrt(dx*dx+dy*dy+dz*dz));
-  const typeNames = {leg:'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', monothk:'PARED (ESPESOR)'};
+  const typeNames = {leg:'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', puntal:'PUNTAL', tensor:'TENSOR', horizPuntal:'HORIZONTAL PUNTAL', horizTensor:'HORIZONTAL TENSOR', monothk:'PARED (ESPESOR)'};
   document.getElementById('mi-type').textContent = typeNames[m.type] || m.type.toUpperCase();
   const { profile, calidadName, isCableCal, isPrincipal, sec } = getMemberProfile(m);
   const calidadText = isCableCal ? (calidadName || '—') : calLabelText(calidadName, false);
@@ -6549,7 +6936,7 @@ function showMemberInfo(m, cx, cy) {
 }
 
 function _profileId(m) {
-  const typeLetter  = {leg:'M', diagonal:'D', horizontal:'H', guy:'G', planbrace:'PB', hipbrace:'HB', stabarm:'BE', monothk:'ESP'}[m.type] || 'X';
+  const typeLetter  = {leg:'M', diagonal:'D', horizontal:'H', guy:'G', planbrace:'PB', hipbrace:'HB', stabarm:'BE', puntal:'PT', tensor:'TS', horizPuntal:'HP', horizTensor:'HT', monothk:'ESP'}[m.type] || 'X';
   const isSecondary = m.principal === false;
   // Numeración independiente: secundarios se cuentan aparte de los principales del mismo tipo+tramo
   const sameGroup = mm => mm.type === m.type && (m.sec != null ? mm.sec === m.sec : true)
