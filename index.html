@@ -216,10 +216,12 @@ body {
 }
 
 .icon-btn.active { color: var(--cyan); background: #0D2040; }
-/* Siempre flotante, vertical, anclado al lado derecho (al borde del panel si hay uno
-   abierto, o al borde de la ventana si no) — nunca vuelve al flujo horizontal del toolbar. */
+/* Siempre flotante, vertical, en la esquina superior derecha del VISOR (no de la ventana) —
+   se mueve por JS dentro de #viewer-wrap una sola vez al cargar (ver "wrap.appendChild"),
+   así "right/top" quedan relativos a ese contenedor, que ya se achica solo cuando el panel
+   derecho abre/cierra (son hermanos en el mismo flex row) — sin recalcular nada en JS. */
 .viewctl-group {
-  position: fixed; display: flex; flex-direction: column; gap: 2px;
+  position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 2px;
   background: var(--bg-bar); border: 1px solid var(--border); border-radius: 8px;
   padding: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.4); z-index: 40;
 }
@@ -1287,10 +1289,10 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <div class="tf-scroll">
       <div class="tf-sect">PROYECTO</div>
       <div class="tf-body">
+        <div class="tf-row"><span class="tf-lbl">ASSET NUMBER</span>
+          <input class="tf-input" type="text" id="s-assetnum" placeholder="N° de activo"></div>
         <div class="tf-row"><span class="tf-lbl">ASSET NAME</span>
           <input class="tf-input" type="text" id="s-asset" placeholder="ID del activo"></div>
-        <div class="tf-row"><span class="tf-lbl">SITE NAME</span>
-          <input class="tf-input" type="text" id="s-site" placeholder="Nombre del sitio"></div>
         <div class="tf-row"><span class="tf-lbl">PAÍS</span>
           <input class="tf-input" type="text" id="s-pais" placeholder="México"></div>
         <div class="tf-row"><span class="tf-lbl">INGENIERO RESPONSABLE</span>
@@ -1441,12 +1443,12 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
         <div class="sect-title">PROYECTO</div>
         <div class="sect-body" style="gap:8px;">
           <div class="frow">
-            <span class="flbl">Asset Name:</span>
-            <input class="ctrl-input" type="text" id="assetName" style="width:120px;" placeholder="—">
+            <span class="flbl">Asset Number:</span>
+            <input class="ctrl-input" type="text" id="assetNumber" style="width:120px;" placeholder="—">
           </div>
           <div class="frow">
-            <span class="flbl">Site Name:</span>
-            <input class="ctrl-input" type="text" id="siteName" style="width:120px;" placeholder="—">
+            <span class="flbl">Asset Name:</span>
+            <input class="ctrl-input" type="text" id="assetName" style="width:120px;" placeholder="—">
           </div>
           <div class="frow">
             <span class="flbl">País:</span>
@@ -2029,13 +2031,14 @@ let qtBridge = null;
 if (typeof qt !== 'undefined' && qt.webChannelTransport && typeof QWebChannel !== 'undefined') {
   new QWebChannel(qt.webChannelTransport, channel => {
     const bridge = channel.objects.bridge;
-    // Solo se activa en desarrollo — en el .exe compilado (Vo Bo) se queda en null y
-    // Guardar/Abrir usan el comportamiento de siempre (ver bridge.py: isDevMode()).
+    // Disponible en dev Y en el .exe — Guardar/Abrir usan el diálogo nativo de Python
+    // (QFileDialog) en ambos casos, así siempre se le pregunta al usuario en qué carpeta
+    // guardar, sin depender de showSaveFilePicker (soporte incierto dentro de QtWebEngine).
+    qtBridge = bridge;
     bridge.isDevMode(isDev => {
-      if (isDev) { qtBridge = bridge; }
       // El .exe compilado no muestra "Feedback" — esa encuesta es para quien prueba
       // el sitio publicado en GitHub Pages, no para el producto final de escritorio.
-      else { const fb = document.getElementById('feedback-btn'); if (fb) fb.remove(); }
+      if (!isDev) { const fb = document.getElementById('feedback-btn'); if (fb) fb.remove(); }
     });
   });
 }
@@ -2825,6 +2828,9 @@ function addMembers(nodes, members, lnodes, nLegs, nsec, patterns) {
 //  THREE.JS
 // ══════════════════════════════════════════════════════════════════
 const wrap = document.getElementById('viewer-wrap');
+// El grupo de zoom/orbit vivía en el tabbar (flotado por JS sobre el visor) — se mueve
+// aquí una sola vez para que su position:absolute quede relativa a #viewer-wrap.
+wrap.appendChild(document.getElementById('viewctl-group'));
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0A1628);
 const _BASE_FOG_DENSITY = 0.004;
@@ -2989,21 +2995,6 @@ function _applyDefaultLabels() {
   document.getElementById('vbtn-nodelabels').classList.toggle('active', nodeLabelsOn);
   document.getElementById('vbtn-profilelabels').classList.toggle('active', profileLabelsOn);
 }
-
-// Si hay un panel desplegado (rpanel), el grupo de zoom/orbit se mueve verticalmente a su
-// izquierda; si no hay ninguno, se queda en su lugar normal arriba a la derecha.
-function updateViewCtlPos() {
-  const group = document.getElementById('viewctl-group');
-  const panel = document.getElementById('rpanel');
-  const open = panel.classList.contains('visible');
-  const tabbarBottom = document.querySelector('.tabbar').getBoundingClientRect().bottom;
-  group.style.top = (tabbarBottom + 8) + 'px';
-  const rightEdge = open ? panel.getBoundingClientRect().left : window.innerWidth;
-  group.style.left = (rightEdge - group.offsetWidth - 8) + 'px';
-}
-window.addEventListener('resize', updateViewCtlPos);
-new MutationObserver(updateViewCtlPos).observe(document.getElementById('rpanel'), {attributes:true, attributeFilter:['class']});
-updateViewCtlPos();
 
 // El panel de vista previa abre/cierra en sincronía con el flyout "Nueva Torre" —
 // observer en vez de tocar cada lugar que hace .classList.add/remove/toggle('open').
@@ -3383,6 +3374,7 @@ function _setupAutosave() {
     if (!currentFileHandle || !projectGenerated) return;
     try {
       await _writeHandle(currentFileHandle);
+      _unsavedChanges = false;
       showToast('Autoguardado: ' + currentFileHandle.name, 'ok', 2000);
     } catch { /* handle revocado — se ignora, el usuario puede guardar manualmente */ }
   }, appSettings.autosaveMinutes * 60000);
@@ -3961,6 +3953,7 @@ let monoAperturas = [];  // apertura (m) de cada tramo recto — solo Monopolo E
 let guyCableData  = [];  // [{diam: nombre del cable seleccionado o null, tensionPct}] — paralelo a guyHeights por índice
 let guyAnchorData = [];  // [{elev, radio, azimut}] — uno o más puntos de anclaje (editable, no atado a #piernas)
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
+let _unsavedChanges = false;  // true tras cualquier edición; false al abrir/nuevo/guardar — usado al cerrar la app (.exe)
 
 // ── Catálogo de cables de retenida — ahora vive en Bases de Datos (editable);
 // este array es solo el default de fábrica si no hay nada guardado todavía.
@@ -4071,8 +4064,8 @@ function getConfig() {
     guyAnchorData:  guyAnchorData.slice(),
     guyPivot:       document.getElementById('guyPivot')?.checked ?? false,
     location:       projectLocation,
+    assetNumber:    document.getElementById('assetNumber').value,
     assetName:      document.getElementById('assetName').value,
-    siteName:       document.getElementById('siteName').value,
     pais:           document.getElementById('pais').value,
     ingResponsable: document.getElementById('ingResponsable').value,
     fechaCreacion:  document.getElementById('fechaCreacion').value,
@@ -4095,6 +4088,7 @@ const MAX_HISTORY = 50;
 
 function scheduleHistoryPush() {
   if (_isRestoringHistory || !projectGenerated) return;
+  _unsavedChanges = true;
   clearTimeout(_historyDebounce);
   _historyDebounce = setTimeout(pushHistory, 700);   // agrupa ediciones seguidas (ej. escribir un número) en un solo paso de undo
 }
@@ -4776,8 +4770,8 @@ function generateTowerFromSetup() {
   syncVal('shaftW',    's-shaftW');
   const guyPivotEl = document.getElementById('guyPivot');
   if (guyPivotEl) guyPivotEl.checked = document.getElementById('s-guyPivot')?.checked || false;
+  document.getElementById('assetNumber').value    = document.getElementById('s-assetnum').value;
   document.getElementById('assetName').value      = document.getElementById('s-asset').value;
-  document.getElementById('siteName').value       = document.getElementById('s-site').value;
   document.getElementById('pais').value           = document.getElementById('s-pais').value;
   document.getElementById('ingResponsable').value = document.getElementById('s-ing').value;
   document.getElementById('fechaCreacion').value  = document.getElementById('s-fecha').value;
@@ -4834,6 +4828,7 @@ function generateTowerFromSetup() {
 
   // Cerrar flyout, mostrar info panel
   projectGenerated = true;
+  _unsavedChanges = true;
   closeTorreFlyout();
   document.getElementById('rpanel').classList.add('visible');
   document.getElementById('rpanel-info').classList.add('visible');
@@ -4842,7 +4837,7 @@ function generateTowerFromSetup() {
   renderTower(generateTower(getConfig()));
   fitView();
   document.getElementById('status').textContent =
-    `Torre generada · ${document.getElementById('s-asset').value || '—'} · ${document.getElementById('s-site').value || '—'}`;
+    `Torre generada · ${document.getElementById('s-asset').value || '—'}`;
   resetHistory();
 }
 
@@ -4870,7 +4865,7 @@ function switchToTorre() {
 // ── Nuevo Proyecto ─────────────────────────────────────────────
 function nuevoProyecto() {
   document.getElementById('home-menu').classList.remove('open');
-  ['s-asset','s-site','s-pais','s-ing'].forEach(id => document.getElementById(id).value = '');
+  ['s-assetnum','s-asset','s-pais','s-ing'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
   document.getElementById('s-tipo').value   = 'triangular';
   document.getElementById('s-height').value = '30';
@@ -4886,6 +4881,8 @@ function nuevoProyecto() {
     towerGroup.remove(c);
   });
   projectGenerated = false;
+  _unsavedChanges = false;
+  currentFileHandle = null;
   document.getElementById('rpanel').classList.remove('visible');
   document.getElementById('rpanel-info').classList.remove('visible');
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
@@ -5056,7 +5053,7 @@ function takeScreenshot() {
   renderer.render(scene, camera);
   const dataUrl = renderer.domElement.toDataURL('image/png');
   const cfg = getConfig();
-  const base = (cfg.assetName || cfg.siteName || 'TSA').replace(/[^\w\-]+/g, '_');
+  const base = _assetFileBase(cfg);
   const a = document.createElement('a');
   a.href = dataUrl;
   a.download = `${base}_screenshot.png`;
@@ -5271,14 +5268,14 @@ function _renderReportHTML() {
     <div class="rp-cover">
       <div class="rp-cover-brand">TSA — TOWER STRUCTURAL ANALYSIS</div>
       <h1 class="rp-title">Reporte de Modelado Estructural</h1>
-      <div class="rp-sub">${cfg.siteName || cfg.assetName || 'Proyecto sin nombre'}</div>
+      <div class="rp-sub">${[cfg.assetNumber, cfg.assetName].filter(Boolean).join(' ') || 'Proyecto sin nombre'}</div>
       ${img ? `<img class="rp-cover-img" src="${img}" alt="Vista de la torre">` : ''}
     </div>
 
     <h2 class="rp-h2">Datos generales del proyecto</h2>
     <table class="rp-table">
       <tbody>
-        <tr><th>Asset Name</th><td>${cfg.assetName || '—'}</td><th>Site Name</th><td>${cfg.siteName || '—'}</td></tr>
+        <tr><th>Asset Number</th><td>${cfg.assetNumber || '—'}</td><th>Asset Name</th><td>${cfg.assetName || '—'}</td></tr>
         <tr><th>País</th><td>${cfg.pais || '—'}</td><th>Ingeniero responsable</th><td>${cfg.ingResponsable || '—'}</td></tr>
         <tr><th>Fecha de creación</th><td>${fmtDate(cfg.fechaCreacion) || '—'}</td><th>Tipo de estructura</th><td>${REPORT_TYPE_LABELS[cfg.type] || cfg.type}</td></tr>
         <tr><th>Ubicación</th><td colspan="3">${cfg.location ? `${cfg.location.lat.toFixed(6)}, ${cfg.location.lng.toFixed(6)}` : '—'}</td></tr>
@@ -5334,7 +5331,7 @@ function exportSTAAD() {
   const tower = cfg.type === 'monopole' ? genMonopoleAxis(cfg) : generateTower(cfg);
   const split = _splitCrossingDiagonals(tower.nodes, tower.members);
   const {nodes, members} = _dedupeNodes(split.nodes, split.members);
-  const title = (cfg.assetName || cfg.siteName || 'TORRE').replace(/\s+/g,'_');
+  const title = _assetFileBase(cfg).replace(/\s+/g,'_');
 
   // Unidades activas en TSA
   const isIMP = document.getElementById('imp-btn')?.classList.contains('active');
@@ -5358,7 +5355,7 @@ function exportSTAAD() {
 
 
   let out = '';
-  out += `STAAD SPACE ${_staadUpper(cfg.assetName)}-${_staadUpper(cfg.siteName)}\n`;
+  out += `STAAD SPACE ${_staadUpper(cfg.assetNumber)}-${_staadUpper(cfg.assetName)}\n`;
   out += `START JOB INFORMATION\n`;
   out += `ENGINEER DATE ${_staadDate(cfg.fechaCreacion)}\n`;
   out += `ENGINEER NAME ${_staadUpper(cfg.ingResponsable)}\n`;
@@ -5383,23 +5380,29 @@ function exportSTAAD() {
 
 // ── Guardar proyecto ───────────────────────────────────────────
 // ── Guardar proyecto ───────────────────────────────────────────
+// Devuelve true/false según si el guardado terminó bien — usado por triggerSaveForClose()
+// (cierre del .exe) para saber si ya es seguro cerrar la ventana.
 async function saveProject() {
   document.getElementById('home-menu').classList.remove('open');
   if (currentFileHandle?.__native) {
-    qtBridge.writeProjectFile(currentFileHandle.path, _projectJSON(), resStr => {
-      const res = JSON.parse(resStr);
-      document.getElementById('status').textContent = res.ok ? `Guardado: ${currentFileHandle.name}` : 'Error al guardar.';
+    return new Promise(resolve => {
+      qtBridge.writeProjectFile(currentFileHandle.path, _projectJSON(), resStr => {
+        const res = JSON.parse(resStr);
+        document.getElementById('status').textContent = res.ok ? `Guardado: ${currentFileHandle.name}` : 'Error al guardar.';
+        if (res.ok) _unsavedChanges = false;
+        resolve(!!res.ok);
+      });
     });
-    return;
   }
   if (currentFileHandle) {
     try {
       await _writeHandle(currentFileHandle);
       document.getElementById('status').textContent = `Guardado: ${currentFileHandle.name}`;
-      return;
+      _unsavedChanges = false;
+      return true;
     } catch { /* handle revocado — pedir ruta nueva */ }
   }
-  await saveProjectAs();
+  return await saveProjectAs();
 }
 
 // ── Recordar la carpeta de proyectos cuando TSA.html se abre directo en el navegador ──
@@ -5454,42 +5457,57 @@ async function _ensureProjectDirHandle() {
   } catch { return null; }
 }
 
+// Nombre sugerido para Guardar/Exportar: "<Asset Number> <Asset Name>" — cae a "TSA" si
+// ambos campos están vacíos (proyecto sin datos de PROYECTO aún).
+function _assetFileBase(cfg) {
+  const combo = [cfg.assetNumber, cfg.assetName].filter(v => v && v.trim()).join(' ').trim();
+  return (combo || 'TSA').replace(/[^\w\- ]+/g, '_');
+}
 async function saveProjectAs() {
   document.getElementById('home-menu').classList.remove('open');
+  const suggestedBase = currentFileHandle?.name?.replace(/\.tsa$/i, '') || _assetFileBase(getConfig());
   if (qtBridge) {
-    const suggested = currentFileHandle?.name || 'proyecto_tsa.TSA';
-    qtBridge.saveProjectDialog(_projectJSON(), suggested, resStr => {
-      const res = JSON.parse(resStr);
-      if (res.cancelled) return;
-      if (res.error) { document.getElementById('status').textContent = 'Error al guardar.'; return; }
-      currentFileHandle = { __native: true, path: res.path, name: res.filename };
-      document.getElementById('status').textContent = `Guardado: ${res.filename}`;
+    const suggested = currentFileHandle?.name || `${suggestedBase}.TSA`;
+    return new Promise(resolve => {
+      qtBridge.saveProjectDialog(_projectJSON(), suggested, resStr => {
+        const res = JSON.parse(resStr);
+        if (res.cancelled) { resolve(false); return; }
+        if (res.error) { document.getElementById('status').textContent = 'Error al guardar.'; resolve(false); return; }
+        currentFileHandle = { __native: true, path: res.path, name: res.filename };
+        document.getElementById('status').textContent = `Guardado: ${res.filename}`;
+        _unsavedChanges = false;
+        resolve(true);
+      });
     });
-    return;
   }
   if (window.showSaveFilePicker) {
     try {
       const dirHandle = await _ensureProjectDirHandle();
       const handle = await window.showSaveFilePicker({
-        suggestedName: currentFileHandle ? currentFileHandle.name : 'proyecto_tsa.TSA',
+        suggestedName: currentFileHandle ? currentFileHandle.name : `${suggestedBase}.TSA`,
         types: [{ description: 'TSA Project', accept: { 'application/json': ['.TSA', '.tsa'] } }],
         ...(dirHandle ? { startIn: dirHandle } : {}),
       });
       await _writeHandle(handle);
       currentFileHandle = handle;
       document.getElementById('status').textContent = `Guardado: ${handle.name}`;
+      _unsavedChanges = false;
+      return true;
     } catch (e) {
       if (e.name !== 'AbortError')
         document.getElementById('status').textContent = 'Error al guardar.';
+      return false;
     }
   } else {
     // Fallback navegadores sin File System Access API
     const blob = new Blob([_projectJSON()], {type: 'application/json'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = 'proyecto_tsa.TSA'; a.click();
+    a.href = url; a.download = currentFileHandle?.name || `${suggestedBase}.TSA`; a.click();
     URL.revokeObjectURL(url);
     document.getElementById('status').textContent = 'Proyecto guardado.';
+    _unsavedChanges = false;
+    return true;
   }
 }
 
@@ -5499,6 +5517,15 @@ async function _writeHandle(handle) {
   const writable = await handle.createWritable();
   await writable.write(_projectJSON());
   await writable.close();
+}
+
+// ── Cierre del .exe: Python (closeEvent) llama estas dos funciones vía
+// page().runJavaScript() para preguntar "¿Guardar cambios?" antes de cerrar la ventana.
+function hasUnsavedChanges() {
+  return _unsavedChanges;
+}
+async function triggerSaveForClose() {
+  return await saveProject();
 }
 
 // ── Abrir proyecto ─────────────────────────────────────────────
@@ -5586,13 +5613,14 @@ function loadProjectData(cfg, filename) {
     if (cfg.type === 'guyed') ensureGuyHeights();
     projectLocation = cfg.location && typeof cfg.location.lat === 'number' ? cfg.location : null;
     updateLocationThumb();
+    set('assetNumber',    cfg.assetNumber);
     set('assetName',      cfg.assetName);
-    set('siteName',       cfg.siteName);
     set('pais',           cfg.pais);
     set('ingResponsable', cfg.ingResponsable);
     set('fechaCreacion',  cfg.fechaCreacion);
     _updateFechaFmt();
     projectGenerated = true;
+    _unsavedChanges = false;
     const rsetup = document.getElementById('rpanel-setup');
     if (rsetup) rsetup.style.display = 'none';
     document.getElementById('rpanel-info').classList.add('visible');
