@@ -451,7 +451,7 @@ body {
   background: #0A1628;
   min-width: 0;
 }
-#viewer-wrap canvas { display: block; }
+#viewer-wrap canvas { display: block; width: 100%; height: 100%; }
 
 #v-overlay {
   position: absolute;
@@ -3028,37 +3028,60 @@ function _exitZoomWindow() {
   renderer.domElement.style.cursor = '';
   controls.enabled = true;
 }
+// Las coordenadas se miden SIEMPRE contra renderer.domElement (el canvas), no contra
+// #viewer-wrap — el canvas no tiene por qué medir lo mismo que su contenedor (no hay CSS
+// que fuerce su tamaño a 100%, sobre todo con DPI escalado en laptops), y es justo la
+// referencia que ya usa, sin problema, la selección de miembros por click. El recuadro
+// visual se cuelga de #viewer-wrap (el canvas no puede tener hijos), así que su posición
+// se corrige sumando el desfase entre las esquinas de ambos elementos.
+function _canvasToWrapOffset() {
+  // offsetLeft/offsetTop (relativo al ancestro posicionado más cercano = wrap) en vez de
+  // restar dos getBoundingClientRect() — bajo zoom fraccionario cada rect puede redondear
+  // a un píxel distinto por separado, y la resta no cancela limpio (desfase "constante").
+  return { dx: renderer.domElement.offsetLeft, dy: renderer.domElement.offsetTop };
+}
 renderer.domElement.addEventListener('pointerdown', e => {
   if (!_zoomWinActive) return;
-  _zoomWinStart = {x: e.clientX, y: e.clientY};
+  const cr = renderer.domElement.getBoundingClientRect();
+  _zoomWinStart = {x: e.clientX - cr.left, y: e.clientY - cr.top};
   _zoomWinBox = document.createElement('div');
-  _zoomWinBox.style.cssText = 'position:fixed;border:1px dashed #00D4FF;background:rgba(0,212,255,.12);pointer-events:none;z-index:500;';
-  document.body.appendChild(_zoomWinBox);
+  _zoomWinBox.style.cssText = 'position:absolute;border:1px dashed #00D4FF;background:rgba(0,212,255,.12);pointer-events:none;z-index:500;';
+  wrap.appendChild(_zoomWinBox);
 });
 renderer.domElement.addEventListener('pointermove', e => {
   if (!_zoomWinActive || !_zoomWinStart) return;
-  const x = Math.min(_zoomWinStart.x, e.clientX), y = Math.min(_zoomWinStart.y, e.clientY);
-  const w = Math.abs(e.clientX - _zoomWinStart.x), h = Math.abs(e.clientY - _zoomWinStart.y);
-  _zoomWinBox.style.left = x+'px'; _zoomWinBox.style.top = y+'px';
-  _zoomWinBox.style.width = w+'px'; _zoomWinBox.style.height = h+'px';
+  const cr = renderer.domElement.getBoundingClientRect();
+  const ex = e.clientX - cr.left, ey = e.clientY - cr.top;
+  const { dx, dy } = _canvasToWrapOffset();
+  const x = Math.min(_zoomWinStart.x, ex) + dx, y = Math.min(_zoomWinStart.y, ey) + dy;
+  const w = Math.abs(ex - _zoomWinStart.x), h = Math.abs(ey - _zoomWinStart.y);
+  // Los valores leídos (getBoundingClientRect/offsetLeft) ya vienen en px "reales" bajo el
+  // zoom CSS auto-ajustado — pero al ESCRIBIRLOS de vuelta en style.left/top/width/height
+  // de un elemento dentro de ese mismo árbol con zoom, el navegador los vuelve a escalar
+  // por el factor de zoom (quedan más chicos y corridos hacia el origen). Se compensa
+  // dividiendo entre el zoom actual antes de asignarlos.
+  const z = parseFloat(document.documentElement.style.zoom) || 1;
+  _zoomWinBox.style.left = (x/z)+'px'; _zoomWinBox.style.top = (y/z)+'px';
+  _zoomWinBox.style.width = (w/z)+'px'; _zoomWinBox.style.height = (h/z)+'px';
 });
 renderer.domElement.addEventListener('pointerup', e => {
   if (!_zoomWinActive || !_zoomWinStart) return;
-  const w = Math.abs(e.clientX - _zoomWinStart.x), h = Math.abs(e.clientY - _zoomWinStart.y);
+  const cr = renderer.domElement.getBoundingClientRect();
+  const ex = e.clientX - cr.left, ey = e.clientY - cr.top;
+  const w = Math.abs(ex - _zoomWinStart.x), h = Math.abs(ey - _zoomWinStart.y);
   if (w > 5 && h > 5) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    const cx = (_zoomWinStart.x + e.clientX) / 2, cy = (_zoomWinStart.y + e.clientY) / 2;
-    const ndc = new THREE.Vector2(((cx-rect.left)/rect.width)*2-1, -((cy-rect.top)/rect.height)*2+1);
+    const cx = (_zoomWinStart.x + ex) / 2, cy = (_zoomWinStart.y + ey) / 2;
+    const ndc = new THREE.Vector2((cx/cr.width)*2-1, -(cy/cr.height)*2+1);
     _raycaster.setFromCamera(ndc, camera);
     const dist = camera.position.distanceTo(controls.target);
     const newTarget = _raycaster.ray.at(dist, new THREE.Vector3());
-    const factor = Math.max(w/rect.width, h/rect.height, 0.05);
+    const factor = Math.max(w/cr.width, h/cr.height, 0.05);
     const dir = camera.position.clone().sub(controls.target).normalize();
     controls.target.copy(newTarget);
     camera.position.copy(newTarget).addScaledVector(dir, dist*factor);
     controls.update();
   }
-  document.body.removeChild(_zoomWinBox);
+  wrap.removeChild(_zoomWinBox);
   _zoomWinBox = null; _zoomWinStart = null;
   _exitZoomWindow();
 });
