@@ -316,6 +316,12 @@ body {
   padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
   transform: translate(-50%, -50%);
 }
+.staad-id-label {
+  position: absolute;
+  color: #00D4FF; font-size: 9px; font-weight: 700; background: rgba(10,22,40,.75);
+  padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
+  transform: translate(-50%, -50%);
+}
 
 /* ── Main content ───────────────────────────────────────────── */
 .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
@@ -1170,6 +1176,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button class="icon-btn" id="vbtn-zoomwin" onclick="startZoomWindow()">⛶<span class="icon-tip">Zoom Window</span></button>
       <button class="icon-btn" id="vbtn-orbit"   onclick="toggleAutoOrbit()">&#8635;<span class="icon-tip">Orbitar</span></button>
       <button class="icon-btn" id="vbtn-nodelabels" onclick="toggleNodeLabels()">🏷<span class="icon-tip">Nodos</span></button>
+      <button class="icon-btn" id="vbtn-staadlabels" onclick="toggleStaadLabels()">#<span class="icon-tip">Barras</span></button>
       <button class="icon-btn" id="vbtn-profilelabels" onclick="toggleProfileLabels()">𝐃<span class="icon-tip">Perfiles</span></button>
       <button class="icon-btn" id="vbtn-screenshot" onclick="takeScreenshot()">📷<span class="icon-tip">Screenshot</span></button>
     </div>
@@ -2861,7 +2868,9 @@ labelRenderer.domElement.style.pointerEvents = 'none';
 wrap.appendChild(labelRenderer.domElement);
 let nodeLabelsOn = false;
 let profileLabelsOn = false;
+let staadLabelsOn = false;
 const profileLabelsGroup = new THREE.Group();
+const staadLabelsGroup = new THREE.Group();
 const nodeLabelsGroup = new THREE.Group();
 
 // Grids — rebuilt by buildGrid()
@@ -2988,6 +2997,38 @@ function toggleProfileLabels() {
   profileLabelsOn = !profileLabelsOn;
   document.getElementById('vbtn-profilelabels').classList.toggle('active', profileLabelsOn);
   if (profileLabelsOn) _buildProfileLabels(); else _clearProfileLabels();
+}
+
+// ── Etiquetas de número de barra STAAD (botón "Barras STAAD") — para verificar a
+// ojo, contra el .std exportado, que los GROUP DEFINITION (_SEC1_M, etc.) agrupan los
+// miembros correctos. Recalcula con el MISMO pipeline que exportSTAAD() (genera +
+// _splitCrossingDiagonals + _dedupeNodes) en vez de reusar _towerData.members, porque
+// ese split/dedupe puede cambiar la cantidad/orden de miembros respecto al visor.
+function _clearStaadLabels() {
+  staadLabelsGroup.children.slice().forEach(c => staadLabelsGroup.remove(c));
+}
+function _buildStaadLabels() {
+  _clearStaadLabels();
+  if (!_towerData || !projectGenerated) return;
+  const cfg = getConfig();
+  const tower = cfg.type === 'monopole' ? genMonopoleAxis(cfg) : generateTower(cfg);
+  const split = _splitCrossingDiagonals(tower.nodes, tower.members);
+  const {nodes, members} = _dedupeNodes(split.nodes, split.members);
+  const { newId } = _staadMemberRenumber(nodes, members);
+  members.forEach((m, i) => {
+    const ni = nodes[m.ni], nj = nodes[m.nj];
+    const div = document.createElement('div');
+    div.className = 'staad-id-label';
+    div.textContent = String(newId[i]);
+    const obj = new THREE.CSS2DObject(div);
+    obj.position.set((ni.x+nj.x)/2, (ni.y+nj.y)/2, (ni.z+nj.z)/2);
+    staadLabelsGroup.add(obj);
+  });
+}
+function toggleStaadLabels() {
+  staadLabelsOn = !staadLabelsOn;
+  document.getElementById('vbtn-staadlabels').classList.toggle('active', staadLabelsOn);
+  if (staadLabelsOn) _buildStaadLabels(); else _clearStaadLabels();
 }
 // Aplica el estado inicial de las etiquetas (Configuración → Visualización 3D) al
 // generar una torre nueva o cargar un proyecto — renderTower() construye las que aplique.
@@ -3151,6 +3192,7 @@ const towerGroup = new THREE.Group();
 scene.add(towerGroup);
 scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
+scene.add(staadLabelsGroup);
 
 // Piernas/anillos/guys/brazos son configurables (menú Configuración) — se leen de
 // appSettings en cada render para reflejar cambios sin recargar.
@@ -3261,6 +3303,7 @@ function renderTower(data) {
   _towerData = data;
   if (nodeLabelsOn) _buildNodeLabels();
   if (profileLabelsOn) _buildProfileLabels();
+  if (staadLabelsOn) _buildStaadLabels();
 }
 
 // ── Dual grid ─────────────────────────────────────────────────────────
@@ -3324,7 +3367,7 @@ function resizeRenderer() {
   axisCamera.lookAt(0,0,0);
   axisRenderer.render(axisScene, axisCamera);
   updateAxisLabels();
-  if (nodeLabelsOn || profileLabelsOn) labelRenderer.render(scene, camera);
+  if (nodeLabelsOn || profileLabelsOn || staadLabelsOn) labelRenderer.render(scene, camera);
 })();
 
 new ResizeObserver(resizeRenderer).observe(wrap);
@@ -5471,6 +5514,93 @@ function _renderReportHTML() {
   `;
 }
 
+// ── Monopolo: propiedades de sección para MEMBER PROPERTY PRISMATIC ─────────────
+// Aproximación de ingeniería (polígono regular de pared delgada / tubo circular
+// exacto) — validar contra cálculo certificado antes de usar en diseño real.
+function _monopoleSectionRadius(cfg, sec, zStart, zEnd, zInc) {
+  const isInc = sec < cfg.nInc;
+  const apFijo = secData[sec]?.monoAp;
+  if (!isInc && apFijo != null) return apFijo / 2;
+  const r0 = cfg.baseW / 2, r1 = cfg.topW / 2;
+  const taperR = z => { const t = zInc > 0 ? Math.min(z / zInc, 1) : 1; return r0 + (r1 - r0) * t; };
+  // Radio promedio del tramo (start/end) — exacto si el ahusado es lineal, como aquí.
+  return (taperR(zStart) + taperR(zEnd)) / 2;
+}
+function _monopolePrismaticProps(sd, r) {
+  if (!sd || !r) return null;
+  const tmm = parseFloat(sd.monoThk);
+  if (!tmm || tmm <= 0) return null;
+  const t = tmm / 1000;             // mm -> m
+  const sides = +sd.monoSides || 24;
+  if (sides >= 24) {
+    // Redondo: tubo de pared gruesa EXACTO (no aproximación de pared delgada).
+    const Ro = r, Ri = Math.max(0, r - t);
+    const A = Math.PI * (Ro*Ro - Ri*Ri);
+    const I = Math.PI/4 * (Ro**4 - Ri**4);
+    return { A, Iz: I, Iy: I };
+  }
+  // Polígono regular de n lados, pared delgada (aproximación válida para n>=8).
+  const n = sides;
+  const s = 2 * r * Math.sin(Math.PI / n);
+  const A = n * t * s;
+  const I = Math.PI * r*r*r * t;
+  return { A, Iz: I, Iy: I };
+}
+
+// Comprime una lista de IDs (miembro o nodo) al formato "TO" de STAAD — ej. [1,2,3,4,5,8,9]
+// -> "1 TO 5 8 9" — para que MEMBER PROPERTY/SUPPORTS no se vuelvan líneas gigantes en
+// torres con muchos miembros del mismo perfil.
+function _staadIdRanges(ids) {
+  if (!ids.length) return '';
+  const sorted = [...ids].sort((a, b) => a - b);
+  const parts = [];
+  let start = sorted[0], prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i];
+    if (cur !== prev + 1) {
+      parts.push(start === prev ? `${start}` : `${start} TO ${prev}`);
+      start = cur;
+    }
+    prev = cur;
+  }
+  return parts.join(' ');
+}
+
+// Prioridad de numeración por categoría — orden dado explícitamente por el usuario
+// (2026-06-22): Montantes < Diagonales principales < Horizontales principales <
+// Retenidas < Elementos secundarios < Hip Bracing < Plan Bracing < Espesor monopolo.
+// Los miembros del estabilizador triangular (stabarm/puntal/tensor/horizPuntal/
+// horizTensor) se agrupan junto con Retenidas (mismo sistema de vientos) — no se dio
+// una regla aparte para ellos, ajustar si el usuario la da más adelante.
+function _staadTypePriority(m) {
+  if (m.type === 'leg') return 0;
+  if (m.type === 'diagonal' && m.principal !== false) return 1;
+  if (m.type === 'horizontal' && m.principal !== false) return 2;
+  if (m.type === 'guy' || ['stabarm','puntal','tensor','horizPuntal','horizTensor'].includes(m.type)) return 3;
+  if ((m.type === 'diagonal' || m.type === 'horizontal') && m.principal === false) return 4;
+  if (m.type === 'hipbrace') return 5;
+  if (m.type === 'planbrace') return 6;
+  if (m.type === 'monothk') return 7;
+  return 8;
+}
+// Renumera TODAS las barras: primero por prioridad de categoría (arriba), y dentro de
+// la misma categoría, de abajo hacia arriba (elevación promedio de sus 2 nodos,
+// ascendente) — pedido explícito del usuario (2026-06-22). Devuelve
+// newId[índiceOriginal] = nuevo ID STAAD (1-based) y order = índices originales ya
+// ordenados (para escribir MEMBER INCIDENCES en orden ascendente de ID).
+function _staadMemberRenumber(nodes, members) {
+  const order = members.map((_, i) => i).sort((a, b) => {
+    const pa = _staadTypePriority(members[a]), pb = _staadTypePriority(members[b]);
+    if (pa !== pb) return pa - pb;
+    const za = (nodes[members[a].ni].z + nodes[members[a].nj].z) / 2;
+    const zb = (nodes[members[b].ni].z + nodes[members[b].nj].z) / 2;
+    return za - zb;
+  });
+  const newId = new Array(members.length);
+  order.forEach((origIdx, pos) => { newId[origIdx] = pos + 1; });
+  return { order, newId };
+}
+
 function exportSTAAD() {
   document.getElementById('export-menu').classList.remove('open');
   if (!projectGenerated) {
@@ -5523,8 +5653,105 @@ function exportSTAAD() {
   out += `JOINT COORDINATES\n`;
   nodes.forEach((_, i) => { out += `${i+1} ${sx(i)} ${sy(i)} ${sz(i)}\n`; });
 
+  const { order: memberOrder, newId: memberNewId } = _staadMemberRenumber(nodes, members);
   out += `MEMBER INCIDENCES\n`;
-  members.forEach((m, i) => { out += `${i+1} ${m.ni+1} ${m.nj+1}\n`; });
+  memberOrder.forEach(origIdx => {
+    const m = members[origIdx];
+    out += `${memberNewId[origIdx]} ${m.ni+1} ${m.nj+1}\n`;
+  });
+
+  // ── GROUP DEFINITION — montantes (piernas) agrupados por sección, _SECi_M, con
+  // TODAS sus bahías incluidas (m.sec ya es índice de sección, no de bahía). Reglas
+  // dadas paso a paso por el usuario (2026-06-22) — ver memoria feedback_tsa_staad_groups.
+  const montanteGroups = {};   // sec (0-based) -> [ids]
+  members.forEach((m, i) => {
+    if (m.type === 'leg') (montanteGroups[m.sec] = montanteGroups[m.sec] || []).push(memberNewId[i]);
+  });
+  const montanteSecs = Object.keys(montanteGroups).map(Number).sort((a, b) => a - b);
+  if (montanteSecs.length) {
+    out += `START GROUP DEFINITION\n`;
+    out += `MEMBER\n`;
+    montanteSecs.forEach(sec => {
+      out += `_SEC${sec+1}_M ${_staadIdRanges(montanteGroups[sec])}\n`;
+    });
+    out += `END GROUP DEFINITION\n`;
+  }
+
+  // ── MEMBER PROPERTY (catálogo AISC/IMCA vía getMemberProfile, o PRISMATIC para el
+  // eje del monopolo) + MEMBER TENSION (cables de retenida) ──────────────────────
+  const profileGroups = {};   // perfil normalizado -> [ids]
+  const monoGroups = {};      // "A_Iz_Iy" -> {props, ids}
+  const cableTensionIds = [];
+  const nTotMono = cfg.nInc + cfg.nStr;
+  const zIncMono = (cfg.type === 'monopole' && cfg.nInc > 0)
+    ? Array.from({length: cfg.nInc}, (_, i) => +secData[i]?.h || (cfg.height / nTotMono)).reduce((a,b) => a+b, 0)
+    : 0;
+  members.forEach((m, i) => {
+    const id = memberNewId[i];
+    if (m.type === 'guy') { cableTensionIds.push(id); return; }
+    // stabarm/puntal/tensor/horizPuntal/horizTensor (miembros del estabilizador de
+    // arriostradas) todavía no tienen un cálculo de propiedades propio — quedan sin
+    // MEMBER PROPERTY por ahora, igual que un perfil no capturado.
+    if (['stabarm','puntal','tensor','horizPuntal','horizTensor'].includes(m.type)) return;
+    if (cfg.type === 'monopole' && m.type === 'leg') {
+      const sd = secData[m.sec];
+      const zStart = Math.min(nodes[m.ni].z, nodes[m.nj].z);
+      const zEnd   = Math.max(nodes[m.ni].z, nodes[m.nj].z);
+      const r = _monopoleSectionRadius(cfg, m.sec, zStart, zEnd, zIncMono);
+      const props = _monopolePrismaticProps(sd, r);
+      if (!props) return;
+      const key = `${props.A.toFixed(6)}_${props.Iz.toFixed(8)}_${props.Iy.toFixed(8)}`;
+      (monoGroups[key] = monoGroups[key] || {props, ids: []}).ids.push(id);
+      return;
+    }
+    const gp = getMemberProfile(m);
+    if (!gp.profile || gp.profile === '—' || gp.isCableCal) return;
+    const key = _staadUpper(gp.profile);
+    (profileGroups[key] = profileGroups[key] || []).push(id);
+  });
+  if (Object.keys(profileGroups).length || Object.keys(monoGroups).length) {
+    out += `MEMBER PROPERTY AMERICAN\n`;
+    Object.entries(profileGroups).forEach(([profile, ids]) => {
+      out += `${_staadIdRanges(ids)} TABLE ST ${profile}\n`;
+    });
+    Object.values(monoGroups).forEach(({props, ids}) => {
+      out += `${_staadIdRanges(ids)} PRISMATIC AX ${props.A.toFixed(6)} IZ ${props.Iz.toFixed(8)} IY ${props.Iy.toFixed(8)}\n`;
+    });
+  }
+  if (cableTensionIds.length) {
+    out += `MEMBER TENSION\n${_staadIdRanges(cableTensionIds)}\n`;
+  }
+
+  // ── CONSTANTS — propiedades del acero ya calculadas arriba (steelE/steelDens) ───
+  out += `CONSTANTS\n`;
+  out += `E ${steelE} ALL\n`;
+  out += `DENSITY ${steelDens} ALL\n`;
+  out += `POISSON 0.3 ALL\n`;
+
+  // ── SUPPORTS — base (PINNED autosoportada/guyed, FIXED monopolo) + anclajes de
+  // retenida (FIXED). Nodos detectados por tipo de miembro, no por índice, para que
+  // sobreviva cualquier renumeración de _dedupeNodes()/_splitCrossingDiagonals().
+  const structuralTypes = new Set(['leg','diagonal','horizontal','planbrace','hipbrace','monothk']);
+  const structuralNodeIds = new Set();
+  members.forEach(m => { if (structuralTypes.has(m.type)) { structuralNodeIds.add(m.ni); structuralNodeIds.add(m.nj); } });
+  const guyNodeIds = new Set();
+  members.forEach(m => { if (m.type === 'guy') { guyNodeIds.add(m.ni); guyNodeIds.add(m.nj); } });
+  // Anclaje = nodo de un cable que NUNCA aparece en un miembro estructural (la pierna
+  // sí aparece en ambos, así que queda excluida automáticamente).
+  const anchorNodeIds = [...guyNodeIds].filter(id => !structuralNodeIds.has(id));
+  const minZ = nodes.length ? Math.min(...nodes.map(n => n.z)) : 0;
+  const baseNodeIds = [];
+  nodes.forEach((n, i) => { if (Math.abs(n.z - minZ) < 1e-6 && structuralNodeIds.has(i)) baseNodeIds.push(i); });
+  if (baseNodeIds.length || anchorNodeIds.length) {
+    out += `SUPPORTS\n`;
+    if (baseNodeIds.length) {
+      const supportType = cfg.type === 'monopole' ? 'FIXED' : 'PINNED';
+      out += `${_staadIdRanges(baseNodeIds.map(i => i+1))} ${supportType}\n`;
+    }
+    if (anchorNodeIds.length) {
+      out += `${_staadIdRanges(anchorNodeIds.map(i => i+1))} FIXED\n`;
+    }
+  }
 
   out += `FINISH\n`;
 
