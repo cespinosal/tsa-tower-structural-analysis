@@ -1845,6 +1845,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button class="db-tab" id="db-tab-aisc" onclick="switchDatabaseTab('aisc')">Perfiles AISC</button>
       <button class="db-tab" id="db-tab-imca" onclick="switchDatabaseTab('imca')">Perfiles IMCA</button>
       <button class="db-tab" id="db-tab-user" onclick="switchDatabaseTab('user')">Favoritos 🌟</button>
+      <button class="db-tab" id="db-tab-sectionbuilder" onclick="switchDatabaseTab('sectionbuilder')">SectionBuilder</button>
     </div>
     <div id="db-subtabs" style="display:flex;gap:6px;padding:10px 14px 0;"></div>
     <div id="db-table-hdr-wrap"><div id="db-table-hdr"></div></div>
@@ -1865,6 +1866,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button class="db-tab" id="pp-tab-aisc" onclick="pickerSwitchCatalog('aisc')">Perfiles AISC</button>
       <button class="db-tab active" id="pp-tab-imca" onclick="pickerSwitchCatalog('imca')">Perfiles IMCA</button>
       <button class="db-tab" id="pp-tab-user" onclick="pickerSwitchCatalog('user')">Favoritos 🌟</button>
+      <button class="db-tab" id="pp-tab-sectionbuilder" onclick="pickerSwitchCatalog('sectionbuilder')">SectionBuilder</button>
     </div>
     <div class="sec-modal-body" style="padding:14px;">
       <div id="pp-subtabs" style="display:flex;gap:6px;margin-bottom:10px;"></div>
@@ -3622,6 +3624,122 @@ function renderUserCatalogTable() {
     </div>`;
 }
 
+// ── SECTIONBUILDER — perfiles compuestos importados desde SectionBuilder (JSON con
+// {designacion, area, peso, ix, iy, rx, ry, j, family}). Catálogo propio, separado de
+// Favoritos — aquí se ven TODAS las propiedades de sección, no solo área/peso.
+const SB_PROFILES_KEY = 'tsa_sectionbuilder_profiles_v1';
+let sectionBuilderProfiles = [];
+function loadSectionBuilderProfiles() {
+  try {
+    const raw = localStorage.getItem(SB_PROFILES_KEY);
+    if (raw) sectionBuilderProfiles = JSON.parse(raw);
+  } catch { /* localStorage no disponible o dato corrupto */ }
+}
+function saveSectionBuilderProfiles() {
+  try { localStorage.setItem(SB_PROFILES_KEY, JSON.stringify(sectionBuilderProfiles)); } catch {}
+}
+function delSectionBuilderProfile(i) {
+  sectionBuilderProfiles.splice(i, 1);
+  saveSectionBuilderProfiles();
+  renderSectionBuilderTable();
+}
+function importSectionBuilderProfile() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(reader.result); }
+      catch { showToast('Archivo JSON inválido.'); return; }
+      if (!data.designacion || typeof data.area !== 'number' || typeof data.peso !== 'number') {
+        showToast('El JSON no tiene el formato esperado (designacion/area/peso).');
+        return;
+      }
+      let targetIdx = sectionBuilderProfiles.findIndex(r => r.designacion === data.designacion);
+      let accion = targetIdx !== -1 ? 'actualizado' : 'importado';
+
+      if (targetIdx !== -1) {
+        // Mismo nombre — pregunta simple de reemplazo (regla ya existente).
+        if (!confirm(`"${data.designacion}" ya está cargado en SectionBuilder. ¿Reemplazarlo con este archivo?`)) return;
+      } else {
+        // Nombre distinto, pero ¿las propiedades son IDÉNTICAS a un perfil ya cargado?
+        // Probablemente el mismo perfil exportado con otro nombre — preguntar qué hacer
+        // en vez de meter un duplicado silencioso con propiedades repetidas.
+        const sameFields = ['area','peso','ix','iy','rx','ry','j','family'];
+        const propsIdx = sectionBuilderProfiles.findIndex(r =>
+          sameFields.every(k => (r[k] ?? null) === (data[k] ?? null))
+        );
+        if (propsIdx !== -1) {
+          const reemplazar = confirm(
+            `"${data.designacion}" tiene las mismas propiedades que el perfil ya cargado ` +
+            `"${sectionBuilderProfiles[propsIdx].designacion}".\n\n` +
+            `Aceptar = reemplazar ese perfil con este (usando el nombre nuevo).\n` +
+            `Cancelar = importarlo aparte, con otro nombre.`
+          );
+          if (reemplazar) {
+            targetIdx = propsIdx;
+            accion = 'actualizado';
+          } else {
+            const nuevoNombre = prompt('Nuevo nombre para este perfil:', data.designacion);
+            if (!nuevoNombre || !nuevoNombre.trim()) return;
+            data = { ...data, designacion: nuevoNombre.trim() };
+          }
+        }
+      }
+
+      const nuevo = {
+        designacion: data.designacion, area: data.area, peso: data.peso,
+        ix: data.ix ?? null, iy: data.iy ?? null, rx: data.rx ?? null, ry: data.ry ?? null,
+        j: data.j ?? null, family: data.family || 'compuesto',
+        // Puntos del contorno (cm, centrados en el centroide) — todavía no se usan para
+        // nada en TSA, se guardan para cuando se implemente la extrusión 3D del perfil.
+        contornos: Array.isArray(data.contornos) ? data.contornos : null,
+      };
+      if (targetIdx !== -1) sectionBuilderProfiles[targetIdx] = nuevo;
+      else sectionBuilderProfiles.push(nuevo);
+      saveSectionBuilderProfiles();
+      renderSectionBuilderTable();
+      showToast(`"${data.designacion}" ${accion} desde SectionBuilder.`);
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+function renderSectionBuilderTable() {
+  document.getElementById('db-subtabs').innerHTML = '';
+  const dis = dbEditUnlocked ? '' : 'disabled';
+  const labels = ['Designación', 'Familia', 'Peso (kg/m)', 'Área (cm²)', 'Ix (cm⁴)', 'Iy (cm⁴)', 'rx (cm)', 'ry (cm)', 'J (cm⁴)'];
+  const fmt = v => (v === null || v === undefined) ? '—' : v;
+  const rows = sectionBuilderProfiles.map((row, i) => `
+    <tr>
+      <td><input type="text" value="${row.designacion}" ${dis} oninput="sectionBuilderProfiles[${i}].designacion=this.value; saveSectionBuilderProfiles();"></td>
+      <td><input type="text" value="${row.family}" disabled></td>
+      <td><input type="text" value="${fmt(row.peso)}" disabled></td>
+      <td><input type="text" value="${fmt(row.area)}" disabled></td>
+      <td><input type="text" value="${fmt(row.ix)}" disabled></td>
+      <td><input type="text" value="${fmt(row.iy)}" disabled></td>
+      <td><input type="text" value="${fmt(row.rx)}" disabled></td>
+      <td><input type="text" value="${fmt(row.ry)}" disabled></td>
+      <td><input type="text" value="${fmt(row.j)}" disabled></td>
+      <td>${dbEditUnlocked ? `<button class="row-del" onclick="delSectionBuilderProfile(${i})" title="Eliminar">✕</button>` : ''}</td>
+    </tr>`).join('');
+  document.getElementById('db-table-hdr').innerHTML = `
+    <table class="ret-table db-table">${_dbColgroup(labels.length)}
+      <thead><tr>${labels.map(l=>`<th>${l}</th>`).join('')}<th></th></tr></thead>
+    </table>`;
+  const importBtn = `<button class="btn" style="margin-top:10px;" onclick="importSectionBuilderProfile()">📥 Importar perfil (JSON de SectionBuilder)</button>`;
+  document.getElementById('db-content').innerHTML = (sectionBuilderProfiles.length ? `
+    <table class="ret-table db-table">${_dbColgroup(labels.length)}
+      <tbody>${rows}</tbody>
+    </table>` : `
+    <div class="db-placeholder" style="padding:30px 0;">
+      <span style="font-size:10px;">Todavía no importas ningún perfil compuesto de SectionBuilder.</span>
+    </div>`) + importBtn;
+}
+
 function addProfileRow(cat, fam) {
   const blank = {}; PROFILE_CATALOG_DEFS[cat][fam].fields.forEach(([k,,type]) => blank[k] = type==='number' ? 0 : 'Nuevo perfil');
   profileCatalogs[cat][fam].push(blank);
@@ -3677,7 +3795,7 @@ function dbSwitchFamily(fam) {
 }
 
 // ── Modal Bases de Datos (Calidades funcional; IMCA/AISC con CRUD básico, familias LI/OC) ──
-const DB_TAB_KEYS = ['acero', 'cables', 'aisc', 'imca', 'user'];
+const DB_TAB_KEYS = ['acero', 'cables', 'aisc', 'imca', 'user', 'sectionbuilder'];
 let dbCatalog = 'imca', dbFamily = 'li';
 // Bases de Datos abre siempre BLOQUEADA (solo lectura) — el ícono 🔒/🔓 del encabezado
 // habilita la edición a propósito, para no permitir cambios accidentales al solo consultar.
@@ -3708,6 +3826,7 @@ function toggleDbEditLock() {
   if (dbActiveTab === 'acero') renderSteelGradesTable();
   else if (dbActiveTab === 'cables') renderCableCatalogTable();
   else if (dbActiveTab === 'user') renderUserCatalogTable();
+  else if (dbActiveTab === 'sectionbuilder') renderSectionBuilderTable();
   else renderProfileCatalogPanel();
 }
 function switchDatabaseTab(tab) {
@@ -3716,6 +3835,7 @@ function switchDatabaseTab(tab) {
   if (tab === 'acero')  { document.getElementById('db-subtabs').innerHTML = ''; renderSteelGradesTable(); return; }
   if (tab === 'cables') { dbCableCalidad = 'HS'; renderCableCatalogTable(); return; }
   if (tab === 'user')   { renderUserCatalogTable(); return; }
+  if (tab === 'sectionbuilder') { renderSectionBuilderTable(); return; }
   dbCatalog = tab; dbFamily = 'li';
   renderProfileCatalogPanel();
 }
@@ -3731,6 +3851,7 @@ let pickerField = null, pickerOnPick = null, pickerCatalog = 'imca', pickerFamil
 function _findProfileLocation(designacion) {
   if (!designacion) return null;
   if (userProfiles.some(r => r.designacion === designacion)) return {cat: 'user', fam: null};
+  if (sectionBuilderProfiles.some(r => r.designacion === designacion)) return {cat: 'sectionbuilder', fam: null};
   for (const cat of ['aisc','imca']) {
     for (const fam of Object.keys(PROFILE_FAMILY_LABELS[cat])) {
       if (profileCatalogs[cat][fam].some(r => r.designacion === designacion)) return {cat, fam};
@@ -3752,7 +3873,8 @@ function openProfilePicker(field, opts) {
   document.getElementById('pp-tab-imca').classList.toggle('active', pickerCatalog==='imca');
   document.getElementById('pp-tab-aisc').classList.toggle('active', pickerCatalog==='aisc');
   document.getElementById('pp-tab-user').classList.toggle('active', pickerCatalog==='user');
-  document.getElementById('pp-subtabs').innerHTML = pickerCatalog==='user' ? '' : profileFamilyTabsHtml(pickerCatalog, pickerFamily, 'pickerSwitchFamily');
+  document.getElementById('pp-tab-sectionbuilder').classList.toggle('active', pickerCatalog==='sectionbuilder');
+  document.getElementById('pp-subtabs').innerHTML = (pickerCatalog==='user' || pickerCatalog==='sectionbuilder') ? '' : profileFamilyTabsHtml(pickerCatalog, pickerFamily, 'pickerSwitchFamily');
   // El modal debe quedar visible ANTES de renderizar la lista — si no, el contenedor
   // todavía tiene display:none (sin layout) y scrollIntoView() no puede hacer nada.
   document.getElementById('profile-picker-overlay').classList.add('open');
@@ -3768,8 +3890,9 @@ function pickerSwitchCatalog(cat) {
   document.getElementById('pp-tab-imca').classList.toggle('active', cat==='imca');
   document.getElementById('pp-tab-aisc').classList.toggle('active', cat==='aisc');
   document.getElementById('pp-tab-user').classList.toggle('active', cat==='user');
-  // USER es una lista plana (mezcla LI/LD/OC/OS de origen) — sin sub-pestañas de familia.
-  document.getElementById('pp-subtabs').innerHTML = cat==='user' ? '' : profileFamilyTabsHtml(pickerCatalog, pickerFamily, 'pickerSwitchFamily');
+  document.getElementById('pp-tab-sectionbuilder').classList.toggle('active', cat==='sectionbuilder');
+  // USER y SECTIONBUILDER son listas planas (sin sub-pestañas de familia).
+  document.getElementById('pp-subtabs').innerHTML = (cat==='user' || cat==='sectionbuilder') ? '' : profileFamilyTabsHtml(pickerCatalog, pickerFamily, 'pickerSwitchFamily');
   renderProfilePickerList();
 }
 function pickerSwitchFamily(fam) {
@@ -3782,7 +3905,9 @@ function pickerSwitchFamily(fam) {
 // Excepción: AISC familia "c" (Canal) viene de la tabla métrica del AISC Shapes Database
 // (designaciones tipo C380X74, ya en mm/kg-m) — se trata como IMCA, sin reconvertir.
 function _pickerMetric(r, cat, fam) {
-  if (cat === 'imca') return { area: r.area, peso: r.peso, diametro: r.diametro ?? 0, espesor: r.espesor ?? 0 };
+  // 'compuesto' = perfil importado desde SectionBuilder (JSON) — ya viene en cm²/kg-m
+  // (misma convención que IMCA), sin nada que convertir.
+  if (cat === 'imca' || cat === 'compuesto') return { area: r.area, peso: r.peso, diametro: r.diametro ?? 0, espesor: r.espesor ?? 0 };
   // AISC: área in²→cm², peso lb/ft→kg/m, diámetro/espesor in→cm
   return {
     area: r.area * 6.4516, peso: r.peso * 1.488164,
@@ -3795,6 +3920,9 @@ function _profileWeightPerMeter(designacion) {
   if (!designacion || designacion === '-' || designacion === '—') return null;
   const loc = _findProfileLocation(designacion);
   if (!loc) return null;
+  if (loc.cat === 'sectionbuilder') {
+    return sectionBuilderProfiles.find(r => r.designacion === designacion)?.peso ?? null;
+  }
   const source = loc.cat === 'user' ? userProfiles : profileCatalogs[loc.cat][loc.fam];
   const row = source.find(r => r.designacion === designacion);
   if (!row) return null;
@@ -3803,11 +3931,13 @@ function _profileWeightPerMeter(designacion) {
 }
 function renderProfilePickerList() {
   const isUser = pickerCatalog === 'user';
-  const isOC = !isUser && pickerFamily === 'oc';
-  const isOS = !isUser && pickerFamily === 'os';
+  const isSB = pickerCatalog === 'sectionbuilder';
+  const isFlat = isUser || isSB;
+  const isOC = !isFlat && pickerFamily === 'oc';
+  const isOS = !isFlat && pickerFamily === 'os';
   document.getElementById('pp-list-hdr').innerHTML = `
     <div class="pp-row pp-row-hdr">
-      <span>Designación${isUser ? ' (origen)' : ''}</span>
+      <span>Designación${isFlat ? ' (origen)' : ''}</span>
       <span class="pp-row-metrics">
         <span>Área (cm²)</span><span>Peso (kg/m)</span>
         ${isOC ? '<span>Diámetro (cm)</span><span>Espesor (cm)</span>' : ''}
@@ -3815,18 +3945,22 @@ function renderProfilePickerList() {
       </span>
     </div>`;
   const q = document.getElementById('pp-search').value.trim().toLowerCase();
-  const source = isUser ? userProfiles : profileCatalogs[pickerCatalog][pickerFamily];
+  const source = isUser ? userProfiles : isSB ? sectionBuilderProfiles : profileCatalogs[pickerCatalog][pickerFamily];
   const rows = source.filter(r => !q || r.designacion.toLowerCase().includes(q));
   const list = document.getElementById('pp-list');
   if (!rows.length) {
     list.innerHTML = `<div class="db-placeholder" style="padding:20px 0;">
-      <span style="font-size:10px;">${isUser ? 'Todavía no copias ningún perfil aquí — usa el botón ★ en Perfiles IMCA/AISC.' : 'Sin perfiles capturados todavía en esta familia — agrégalos desde Bases de Datos.'}</span>
+      <span style="font-size:10px;">${isUser ? 'Todavía no copias ningún perfil aquí — usa el botón ★ en Perfiles IMCA/AISC.' : isSB ? 'Todavía no importas ningún perfil compuesto de SectionBuilder.' : 'Sin perfiles capturados todavía en esta familia — agrégalos desde Bases de Datos.'}</span>
     </div>`;
     return;
   }
   list.innerHTML = rows.map(r => {
-    const m = isUser ? _pickerMetric(r, r.origenCat, r.origenFam) : _pickerMetric(r, pickerCatalog, pickerFamily);
-    const label = isUser ? `${r.designacion} <span style="color:var(--txt-sec);font-size:9px;">(${r.origenCat.toUpperCase()} · ${r.origenFam.toUpperCase()})</span>` : r.designacion;
+    const m = isUser ? _pickerMetric(r, r.origenCat, r.origenFam) : isSB ? _pickerMetric(r, 'compuesto', null) : _pickerMetric(r, pickerCatalog, pickerFamily);
+    const label = isUser
+      ? `${r.designacion} <span style="color:var(--txt-sec);font-size:9px;">(${r.origenCat.toUpperCase()} · ${r.origenFam.toUpperCase()})</span>`
+      : isSB
+      ? `${r.designacion} <span style="color:var(--txt-sec);font-size:9px;">(SECTIONBUILDER · ${(r.family||'').toUpperCase()})</span>`
+      : r.designacion;
     return `
     <div class="pp-row${r.designacion===pickerSelected?' selected':''}" onclick="pickerSelectRow('${r.designacion}')">
       <span>${label}</span>
@@ -6847,6 +6981,7 @@ loadSteelGrades();
 loadProfileCatalogs();
 loadCableCatalog();
 loadUserProfiles();
+loadSectionBuilderProfiles();
 setupKeyboardShortcuts();
 
 // ── Member pick / highlight / info ────────────────────────────────────────────
