@@ -3645,7 +3645,7 @@ function delSectionBuilderProfile(i) {
 }
 function importSectionBuilderProfile() {
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
+  input.type = 'file'; input.accept = '.tsax,.json';
   input.onchange = () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -3730,7 +3730,7 @@ function renderSectionBuilderTable() {
     <table class="ret-table db-table">${_dbColgroup(labels.length)}
       <thead><tr>${labels.map(l=>`<th>${l}</th>`).join('')}<th></th></tr></thead>
     </table>`;
-  const importBtn = `<button class="btn" style="margin-top:10px;" onclick="importSectionBuilderProfile()">📥 Importar perfil (JSON de SectionBuilder)</button>`;
+  const importBtn = `<button class="btn" style="margin-top:10px;" onclick="importSectionBuilderProfile()">📥 Importar perfil (tsax de SectionBuilder)</button>`;
   document.getElementById('db-content').innerHTML = (sectionBuilderProfiles.length ? `
     <table class="ret-table db-table">${_dbColgroup(labels.length)}
       <tbody>${rows}</tbody>
