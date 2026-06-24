@@ -3499,6 +3499,15 @@ function updateTowerNameLabel() {
 }
 
 function renderTower(data) {
+  // Corta diagonales que se cruzan geométricamente (X simple, etc.) en un nodo
+  // compartido real — mismo criterio que ya usa el export STAAD (_splitCrossingDiagonals),
+  // ahora también aquí para que el visor, las tablas Nodos/Barras y la selección por clic
+  // vean el cruce como una unión real (nodo nuevo + cada diagonal partida en 2). Solo
+  // AGREGA nodos/miembros, nunca renumera los existentes — nodeOverrides sigue siendo
+  // válido por índice; memberOverrides puede desalinearse si aparece un cruce nuevo,
+  // mismo límite ya aceptado para esa función avanzada.
+  const _split = _splitCrossingDiagonals(data.nodes, data.members);
+  data = { ...data, nodes: _split.nodes, members: _split.members };
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
     c.material && c.material.dispose();
@@ -5536,8 +5545,11 @@ function _closestPtSegSeg(p1, p2, p3, p4) {
 // divide en 4 segmentos agregando el nodo de intersección — solo para el archivo STAAD.
 function _splitCrossingDiagonals(nodes, members) {
   const outNodes   = nodes.map(n => ({...n}));
-  const outMembers = [];
   const removed    = new Set();
+  // origIdx -> [seg1, seg2] — se guarda por posición original para reemplazar IN PLACE
+  // (ver abajo) en vez de mandar todos los cruces al frente del arreglo; así un miembro
+  // que no participa en ningún cruce conserva un índice más parecido al original.
+  const replacement = new Map();
   const diagIdxs    = [];
   members.forEach((m, i) => { if (m.type === 'diagonal') diagIdxs.push(i); });
   const TOL_SQ   = 1e-6;   // ~1mm
@@ -5558,15 +5570,25 @@ function _splitCrossingDiagonals(nodes, members) {
       const ip = {x:(r.c1.x+r.c2.x)/2, y:(r.c1.y+r.c2.y)/2, z:(r.c1.z+r.c2.z)/2};
       const newIdx = outNodes.length;
       outNodes.push(ip);
-      outMembers.push({ni:ma.ni, nj:newIdx, type:'diagonal', sec:ma.sec});
-      outMembers.push({ni:newIdx, nj:ma.nj, type:'diagonal', sec:ma.sec});
-      outMembers.push({ni:mb.ni, nj:newIdx, type:'diagonal', sec:mb.sec});
-      outMembers.push({ni:newIdx, nj:mb.nj, type:'diagonal', sec:mb.sec});
+      // principal se preserva — antes se perdía aquí, y una diagonal SECUNDARIA que
+      // cruzara quedaba clasificada como principal (afectaba color/perfil/grupo).
+      replacement.set(ia, [
+        {ni:ma.ni, nj:newIdx, type:'diagonal', sec:ma.sec, principal:ma.principal},
+        {ni:newIdx, nj:ma.nj, type:'diagonal', sec:ma.sec, principal:ma.principal},
+      ]);
+      replacement.set(ib, [
+        {ni:mb.ni, nj:newIdx, type:'diagonal', sec:mb.sec, principal:mb.principal},
+        {ni:newIdx, nj:mb.nj, type:'diagonal', sec:mb.sec, principal:mb.principal},
+      ]);
       removed.add(ia); removed.add(ib);
       break;
     }
   }
-  members.forEach((m, i) => { if (!removed.has(i)) outMembers.push(m); });
+  const outMembers = [];
+  members.forEach((m, i) => {
+    if (replacement.has(i)) outMembers.push(...replacement.get(i));
+    else outMembers.push(m);
+  });
   return { nodes: outNodes, members: outMembers };
 }
 
