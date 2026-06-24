@@ -6723,6 +6723,9 @@ function _doExportSTAAD() {
   // paso a paso — ver memoria feedback_tsa_staad_groups. Se omite la línea de un tipo si
   // esa sección/nivel no lo genera.
   if (memberSecs.length || memberLevels.length) {
+    out += `*//////////////////////////////////////////////////////////////////\n`;
+    out += `***** GRUPOS *****\n`;
+    out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `START GROUP DEFINITION\n`;
     out += `MEMBER\n`;
     memberSecs.forEach(sec => {
@@ -6775,6 +6778,9 @@ function _doExportSTAAD() {
     (profileGroups[key] = profileGroups[key] || []).push(id);
   });
   if (Object.keys(profileGroups).length || Object.keys(monoGroups).length) {
+    out += `*//////////////////////////////////////////////////////////////////\n`;
+    out += `***** PERFILES *****\n`;
+    out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `MEMBER PROPERTY AMERICAN\n`;
     Object.entries(profileGroups).forEach(([profile, ids]) => {
       out += `${_staadIdRanges(ids)} TABLE ST ${profile}\n`;
@@ -6788,6 +6794,9 @@ function _doExportSTAAD() {
   }
 
   // ── CONSTANTS — propiedades del acero ya calculadas arriba (steelE/steelDens) ───
+  out += `*//////////////////////////////////////////////////////////////////\n`;
+  out += `***** CONSTANTES *****\n`;
+  out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `CONSTANTS\n`;
   out += `E ${steelE} ALL\n`;
   out += `DENSITY ${steelDens} ALL\n`;
@@ -6799,6 +6808,9 @@ function _doExportSTAAD() {
   const pinnedIds = supportNodes.filter(s => s.type === 'PINNED').map(s => nodeNewId[s.idx]);
   const fixedIds  = supportNodes.filter(s => s.type === 'FIXED').map(s => nodeNewId[s.idx]);
   if (pinnedIds.length || fixedIds.length) {
+    out += `*//////////////////////////////////////////////////////////////////\n`;
+    out += `***** APOYOS *****\n`;
+    out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `SUPPORTS\n`;
     if (pinnedIds.length) out += `${_staadIdRanges(pinnedIds)} PINNED\n`;
     if (fixedIds.length)  out += `${_staadIdRanges(fixedIds)} FIXED\n`;
