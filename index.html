@@ -3209,21 +3209,21 @@ function toggleProfileLabels() {
   if (profileLabelsOn) _buildProfileLabels(); else _clearProfileLabels();
 }
 
-// ── Etiquetas de número de barra STAAD (botón "Barras STAAD") — para verificar a
-// ojo, contra el .std exportado, que los GROUP DEFINITION (_SEC1_M, etc.) agrupan los
-// miembros correctos. Recalcula con el MISMO pipeline que exportSTAAD() (genera +
-// _splitCrossingDiagonals + _dedupeNodes) en vez de reusar _towerData.members, porque
-// ese split/dedupe puede cambiar la cantidad/orden de miembros respecto al visor.
+// ── Etiquetas de número de barra (botón "Barras") — mismo número que ve el usuario en
+// la tabla Barras (_tablaBarrasRows), por eso usa _towerData.nodes/members DIRECTO con
+// _staadMemberRenumber, sin regenerar ni pasar por split/dedupe. Antes recalculaba con el
+// mismo pipeline que exportSTAAD() (split+dedupe) para "verificar a ojo contra el .std",
+// pero el .std ahora numera por miles por sección (_exportMemberRenumber, exclusivo del
+// export) — ese propósito ya no aplica, y dejarlo así solo hacía que el número del visor
+// no coincidiera con el de la tabla (mismo miembro, dos números distintos), que es lo que
+// el usuario reportó. Ahora ambos coinciden siempre.
 function _clearStaadLabels() {
   staadLabelsGroup.children.slice().forEach(c => staadLabelsGroup.remove(c));
 }
 function _buildStaadLabels() {
   _clearStaadLabels();
   if (!_towerData || !projectGenerated) return;
-  const cfg = getConfig();
-  const tower = cfg.type === 'monopole' ? genMonopoleAxis(cfg) : generateTower(cfg);
-  const split = _splitCrossingDiagonals(tower.nodes, tower.members);
-  const {nodes, members} = _dedupeNodes(split.nodes, split.members);
+  const { nodes, members } = _towerData;
   const { newId } = _staadMemberRenumber(nodes, members);
   members.forEach((m, i) => {
     const ni = nodes[m.ni], nj = nodes[m.nj];
@@ -5952,16 +5952,18 @@ function _staadIdRanges(ids) {
 
 // Empaqueta strings ya formateados (ej. "id x y z" de un nodo, "id ni nj" de una barra) en
 // líneas de máximo 79 caracteres (cuentan los espacios, igual que INPUT WIDTH 79), varios
-// por línea — y NO uno por línea como antes. Si agregar el siguiente no entra en la línea
-// actual, la línea se cierra con " -" (continuación STAAD) y el siguiente arranca línea
-// nueva; la ÚLTIMA línea del bloque no lleva "-". Pedido explícito del usuario (2026-06-24).
-function _staadWrapGroups(groups, maxLen = 79) {
+// por línea — y NO uno por línea como antes. `sep` es lo que va ENTRE grupos dentro de la
+// misma línea (espacio para nodos, ";" para barras); `lineEnd` es lo que va al final de
+// cada línea que SÍ continúa (nada para nodos, ";" para barras — ya no "-" de
+// continuación STAAD, pedido explícito del usuario 2026-06-24). La ÚLTIMA línea del
+// bloque nunca lleva `lineEnd`.
+function _staadWrapGroups(groups, maxLen = 79, sep = ' ', lineEnd = '') {
   if (!groups.length) return '';
   const lines = [];
   let cur = groups[0];
   for (let i = 1; i < groups.length; i++) {
-    const candidate = `${cur} ${groups[i]}`;
-    if (candidate.length + 2 > maxLen) {   // +2 reserva el " -" por si esta línea continúa
+    const candidate = `${cur}${sep}${groups[i]}`;
+    if (candidate.length + lineEnd.length > maxLen) {
       lines.push(cur);
       cur = groups[i];
     } else {
@@ -5969,7 +5971,7 @@ function _staadWrapGroups(groups, maxLen = 79) {
     }
   }
   lines.push(cur);
-  return lines.map((l, i) => i < lines.length - 1 ? `${l} -` : l).join('\n') + '\n';
+  return lines.map((l, i) => i < lines.length - 1 ? `${l}${lineEnd}` : l).join('\n') + '\n';
 }
 
 // Prioridad de numeración por categoría — orden dado explícitamente por el usuario
@@ -6711,7 +6713,7 @@ function _doExportSTAAD() {
   out += _staadWrapGroups(memberOrder.map(origIdx => {
     const m = members[origIdx];
     return `${memberNewId[origIdx]} ${nodeNewId[m.ni]} ${nodeNewId[m.nj]}`;
-  }));
+  }), 79, ';', ';');
 
   // ── GROUP DEFINITION — un bloque por sección (comentario *SECCION i) con Montantes/
   // Diagonales/Horizontales/Plan Bracing/Hip Bracing, y un bloque por NIVEL de retenida
