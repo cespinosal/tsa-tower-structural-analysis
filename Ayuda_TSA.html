@@ -145,11 +145,18 @@
     <h4>Visualización</h4>
     <a href="#visor3d">Visor 3D</a>
     <a href="#inspeccion">Inspección de miembros</a>
+    <a href="#aislar-tramo">Aislar tramo</a>
+
+    <h4>Tablas interactivas</h4>
+    <a href="#tablas">Nodos / Barras / Retenidas</a>
+    <a href="#apoyos">Apoyos</a>
+    <a href="#revisiones">Hoja de Revisiones</a>
 
     <h4>Proyecto</h4>
     <a href="#guardar-abrir">Guardar / abrir proyecto</a>
     <a href="#unidades">Unidades</a>
     <a href="#exportar">Exportar a STAAD.Pro</a>
+    <a href="#exportar-dxf">Exportar a DXF</a>
     <a href="#configuracion">Configuración</a>
     <a href="#atajos">Atajos de teclado</a>
 
@@ -177,6 +184,7 @@
       <a href="#secciones"><div class="qn-title">📐 Secciones y tramos</div><div class="qn-desc">Editar geometría y arriostramiento por tramo</div></a>
       <a href="#bases-datos"><div class="qn-title">🗄 Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
       <a href="#visor3d"><div class="qn-title">🖥 Visor 3D</div><div class="qn-desc">Navegación, nodos, inspección de miembros</div></a>
+      <a href="#tablas"><div class="qn-title">⊞ Tablas</div><div class="qn-desc">Nodos, Barras, Retenidas, Apoyos editables</div></a>
       <a href="#feedback"><div class="qn-title">💬 Dar feedback</div><div class="qn-desc">Manda tu opinión directo desde la app</div></a>
     </div>
 
@@ -265,9 +273,9 @@
       </tbody>
     </table>
     <p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">
-      * Las condiciones de apoyo son la regla que usará el exportador/análisis interno; hoy la geometría
-      ya las contempla conceptualmente, pero el bloque <code>SUPPORTS</code> del export STAAD todavía está
-      en desarrollo (ver <a href="#pendientes" style="color:var(--cyan)">Funciones en desarrollo</a>).
+      * Estas condiciones de apoyo se detectan automáticamente y se ven en el visor 3D y la tabla
+      <a href="#apoyos" style="color:var(--cyan)">Apoyos</a> (editable ahí mismo) — y son las mismas que
+      se escriben en el bloque <code>SUPPORTS</code> del export STAAD.
     </p>
 
     <!-- ───────────────────────────────────────── -->
@@ -275,7 +283,8 @@
     <p>
       Toda torre se divide en <b>secciones</b> (o <b>tramos</b>, en Monopolo) apiladas verticalmente.
       En el panel derecho, dentro de "DETALLE POR SECCIÓN" / "DETALLE POR TRAMO", cada tarjeta resume
-      una sección; el botón <b>✎ editar</b> abre el modal completo.
+      una sección; los botones de su encabezado son solo ícono (pasa el mouse encima para ver el nombre):
+      <b>👁</b> aísla esa sección en el visor 3D, <b>✎</b> abre el modal completo de edición.
     </p>
     <div class="diagram-card" style="max-width:420px;">
       <img src="img/ayuda_secciones_detalle.jpg" alt="Modal de detalle por sección/tramo">
@@ -300,6 +309,15 @@
       <img src="img/ayuda_secciones_perfil_picker.jpg" alt="Campo de perfil con calidad de acero asignada">
       <div class="dc-label">Perfil + calidad de acero en la misma caja</div>
     </div>
+
+    <h3 id="aislar-tramo">Aislar tramo</h3>
+    <p>
+      El botón <b>👁</b> de cada tarjeta de sección oculta el resto de la torre en el visor 3D y deja
+      visible únicamente esa sección (montantes, diagonales y horizontales de TODAS sus bahías), con
+      zoom automático a esa geometría. Vuelve a pulsarlo (ahora con tooltip "Mostrar torre completa")
+      para regresar a la vista normal. Es solo una ayuda visual: las tablas, el export y los cálculos
+      siempre usan la torre completa, sin importar si hay un tramo aislado en pantalla.
+    </p>
 
     <h3 id="bracing">Patrones de arriostramiento</h3>
     <p>
@@ -441,27 +459,107 @@
     <table>
       <thead><tr><th>Control</th><th>Función</th></tr></thead>
       <tbody>
-        <tr><td>Arrastrar (clic izq.)</td><td>Orbitar la cámara</td></tr>
+        <tr><td>Arrastrar (clic derecho)</td><td>Orbitar la cámara</td></tr>
+        <tr><td>Arrastrar (clic central/rueda)</td><td>Desplazar (pan) la vista</td></tr>
         <tr><td>Rueda del mouse</td><td>Zoom</td></tr>
+        <tr><td>Flechas del teclado</td><td>Rotar la cámara (↑/↓ invertidas a propósito respecto a orbitar con mouse)</td></tr>
         <tr><td>⊕ / ⊖</td><td>Zoom in / out</td></tr>
         <tr><td>⛶ Zoom Window</td><td>Acercar a un área rectangular</td></tr>
+        <tr><td>⤢ Ajustar pantalla</td><td>Encuadra toda la geometría visible (respeta un tramo aislado, si hay uno activo)</td></tr>
         <tr><td>↻ Orbitar</td><td>Rotación automática de la cámara</td></tr>
         <tr><td>🏷 Nodos</td><td>Muestra el número de cada nodo; pasa el mouse encima para ver sus coordenadas (x/y/z)</td></tr>
+        <tr><td>Barras</td><td>Muestra el ID de barra (numeración STAAD) sobre cada miembro, para verificar el modelo contra el .std exportado</td></tr>
         <tr><td>𝐃 Perfiles</td><td>Mostrar/ocultar etiquetas de perfil sobre cada miembro</td></tr>
+        <tr><td>⏚ Apoyos</td><td>Muestra el ícono de apoyo (articulado/empotrado) en cada nodo de soporte; mientras está activo, la malla del grid se oculta para no encimarse con los íconos</td></tr>
         <tr><td>⚙ Configuración de malla</td><td>Tamaño, divisiones, grosor y desvanecido del grid</td></tr>
       </tbody>
     </table>
+    <p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">
+      Los íconos de Apoyos distinguen <b style="display:inline">PINNED</b> (triángulo verde, articulado)
+      de <b style="display:inline">FIXED</b> (línea con achurado, empotrado) y respetan la profundidad
+      real del visor: un cable o una barra que pase delante de un apoyo lo oculta correctamente.
+    </p>
 
     <h3 id="inspeccion">Inspección de miembros</h3>
     <p>
       Haz clic sobre cualquier pierna, diagonal u horizontal en el visor 3D para resaltarlo y abrir un
       panel con su tramo, categoría, <b>perfil y calidad asignados</b>, longitud, nodos extremos e ID del
       perfil. En vientos de retenida muestra la calidad del cable (HS/EHS) en vez de una calidad de acero.
+      Si tienes abierta la tabla <a href="#tablas" style="color:var(--cyan)">Barras o Retenidas</a>,
+      el clic también resalta la fila correspondiente en esa tabla (selección cruzada visor → tabla).
     </p>
     <div class="diagram-card" style="max-width:420px;">
       <img src="img/ayuda_inspeccion_miembro.png" alt="Panel de inspección de miembro seleccionado">
       <div class="dc-label">Panel de inspección de miembro</div>
     </div>
+
+    <hr>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="tablas">Tablas: Nodos / Barras / Retenidas</h2>
+    <p>
+      El menú <b>⊞ Tablas ▾</b> de la barra del visor abre paneles flotantes y arrastrables
+      (no bloquean la vista — puedes moverlos y seguir viendo los cambios en tiempo real en el 3D)
+      con el listado completo de <b>Nodos</b>, <b>Barras</b> y, solo en torres arriostradas,
+      <b>Retenidas</b>. Las tres tablas comparten:
+    </p>
+    <ul>
+      <li><b>🔒/🔓 Bloqueo de edición</b> — igual que Bases de Datos, abren bloqueadas por default; el
+        ícono del encabezado habilita editar, y se vuelve a bloquear al cerrar y reabrir.</li>
+      <li><b>Clic en una fila</b> — resalta (color fijo, sin parpadear) el nodo/barra en el visor 3D y
+        hace zoom visual a su posición. Seleccionar otra fila, cerrar la tabla o hacer clic en el canvas
+        quita el resaltado.</li>
+      <li><b>Selección cruzada</b> — también funciona al revés: clic en un nodo o miembro del visor
+        resalta la fila correspondiente en la tabla, si está abierta.</li>
+    </ul>
+    <h3>Nodos</h3>
+    <p>
+      Numeración igual a la usada en el export STAAD. Con edición habilitada, X/Y/Z son editables
+      manualmente (sin flechas de incremento) — mover un nodo así es un ajuste puntual avanzado: si
+      después regeneras la torre con parámetros distintos (otra altura, otro número de secciones), el
+      ajuste puede dejar de corresponder al mismo nodo físico.
+    </p>
+    <h3>Barras</h3>
+    <p>
+      Numeración tipo STAAD (prioridad por categoría: montantes, diagonales/horizontales principales,
+      retenidas, elementos secundarios, hip bracing, plan bracing, espesor de monopolo). Con edición
+      habilitada puedes cambiar el <b>Perfil</b> (abre el mismo buscador de perfil + calidad de siempre)
+      y también los nodos <b>Nodo A / Nodo B</b> de cada barra (captura manual del número de nodo
+      destino) — mismo criterio y misma limitación que mover un nodo: es un ajuste por índice, no a
+      prueba de cualquier regeneración estructural.
+    </p>
+    <h3>Retenidas</h3>
+    <p>
+      Solo visible en torres arriostradas. Lista únicamente los cables tipo retenida (vientos, brazos del
+      triángulo estabilizador, retenida media); Perfil/Material de los cables sigue editándose desde
+      Bases de Datos → Retenidas (usan un dato estructurado de diámetro, no un texto simple), así que
+      aquí esas dos columnas son de solo lectura.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="apoyos">Apoyos</h2>
+    <p>
+      La tabla <b>Apoyos</b> (mismo menú ⊞ Tablas ▾) lista cada nodo de soporte con su tipo —
+      <b>PINNED</b> (articulado) o <b>FIXED</b> (empotrado) — detectado automáticamente según el tipo de
+      torre y los miembros conectados a cada nodo. Es la MISMA lógica que usa el export STAAD para el
+      bloque <code>SUPPORTS</code>, así que tabla, íconos del visor 3D y archivo exportado siempre
+      coinciden.
+    </p>
+    <p>
+      El tipo de apoyo es <b>editable</b> directamente en la tabla (selector PINNED/FIXED por fila); el
+      cambio se refleja también en el .std exportado. Los vértices del triángulo estabilizador (cuando
+      está activo) NO se listan como apoyo — son parte de la armadura de retenidas, no anclajes reales
+      al terreno.
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="revisiones">Hoja de Revisiones</h2>
+    <p>
+      La tabla <b>Hoja de Revisiones</b> (menú ⊞ Tablas ▾) muestra el historial de cambios del programa
+      con el formato de un bloque de título de ingeniería (logo, "Tower Structural Analysis", número de
+      revisión). Es de <b>solo lectura</b> — no tiene botones de agregar ni eliminar fila; el historial se
+      actualiza directamente con el equipo de desarrollo.
+    </p>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="guardar-abrir">Guardar / abrir proyecto</h2>
@@ -484,19 +582,46 @@
     <h2 id="exportar">Exportar a STAAD.Pro</h2>
     <p>
       Desde el botón <b>Exportar</b> de la barra superior, "STAAD.Pro (.std)" genera un archivo de texto
-      con <code>JOINT COORDINATES</code> y <code>MEMBER INCIDENCES</code> listo para abrir en STAAD.Pro.
+      listo para abrir en STAAD.Pro, con:
     </p>
     <ul>
+      <li><code>JOINT COORDINATES</code> y <code>MEMBER INCIDENCES</code> — nodos y barras renumerados
+        con el mismo criterio que usan las <a href="#tablas" style="color:var(--cyan)">tablas Nodos/Barras</a>
+        del visor (por categoría y elevación, anclajes de retenida primero en torres arriostradas).</li>
+      <li><code>MEMBER PROPERTY</code> — perfil de catálogo (AISC/IMCA) por miembro, o <code>PRISMATIC</code>
+        con área e inercia calculadas para los tramos de Monopolo.</li>
+      <li><code>CONSTANTS</code> — módulo elástico y densidad del acero.</li>
+      <li><code>SUPPORTS</code> — <code>PINNED</code>/<code>FIXED</code> por nodo, igual que la
+        <a href="#apoyos" style="color:var(--cyan)">tabla Apoyos</a> (incluye cualquier cambio manual
+        de tipo de apoyo hecho ahí).</li>
+      <li><code>START GROUP DEFINITION</code> — agrupa los montantes de cada sección
+        (<code>_SEC1_M</code>, <code>_SEC2_M</code>, …) para que el .std sea legible.</li>
       <li>Para torres en celosía (autosoportada/arriostrada), se exporta la geometría 3D completa
-        (piernas, diagonales, horizontales, vientos).</li>
-      <li>Para <b>Monopolo</b>, se exporta únicamente el <b>eje central</b>: un nodo por límite de tramo
-        y una barra por tramo — no la malla completa del polígono, que es solo para visualización.</li>
+        (piernas, diagonales, horizontales, vientos). Para <b>Monopolo</b>, solo el <b>eje central</b>
+        (un nodo por límite de tramo, una barra por tramo) — no la malla del polígono, que es solo
+        visualización.</li>
     </ul>
     <div class="callout info">
       <b>En desarrollo</b>
-      Los bloques <code>MEMBER PROPERTY</code>, <code>CONSTANTS</code> y <code>SUPPORTS</code> todavía no
-      se incluyen en el archivo exportado — por ahora el .std contiene solo geometría pura.
+      Las cargas de viento (<code>MEMBER LOAD</code>/<code>JOINT LOAD</code>) todavía no están en el
+      export. El <code>GROUP DEFINITION</code> por sección/nivel ya cubre montantes, diagonales,
+      horizontales, plan bracing, hip bracing y retenidas/estabilizador — solo falta el anillo
+      horizontal que cierra puntales/tensores del estabilizador.
     </div>
+
+    <!-- ───────────────────────────────────────── -->
+    <h2 id="exportar-dxf">Exportar a DXF (AutoCAD)</h2>
+    <p>
+      Desde el botón <b>Exportar</b> de la barra superior, "DXF (.dxf)" genera un dibujo de líneas
+      (<code>LINE</code>) con la geometría 3D <b>completa</b> de la torre — a diferencia del export
+      STAAD, en Monopolo aquí sí se exporta el polígono/anillos reales, no solo el eje, porque un DXF
+      es un dibujo, no un modelo de análisis.
+    </p>
+    <p>
+      Usa la convención de ejes estándar de AutoCAD (WCS): X y Y horizontales, Z vertical (hacia
+      arriba) — exactamente la misma convención que usa TSA internamente, así que las coordenadas se
+      exportan directo, sin necesidad de remapear ejes (a diferencia de STAAD, que usa Y como vertical).
+    </p>
 
     <!-- ───────────────────────────────────────── -->
     <h2 id="configuracion">Configuración</h2>
@@ -511,12 +636,17 @@
     <table>
       <thead><tr><th>Atajo</th><th>Acción</th></tr></thead>
       <tbody>
-        <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Guardar proyecto</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>G</kbd></td><td>Guardar proyecto</td></tr>
         <tr><td><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>Nuevo proyecto</td></tr>
         <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer</td></tr>
         <tr><td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td><td>Rehacer</td></tr>
         <tr><td><kbd>F</kbd></td><td>Ajustar vista a la torre</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Cerrar panel de selección</td></tr>
+        <tr><td><kbd>Shift</kbd> + <kbd>N</kbd></td><td>Mostrar/ocultar números de Nodos</td></tr>
+        <tr><td><kbd>Shift</kbd> + <kbd>B</kbd></td><td>Mostrar/ocultar Barras (numeración STAAD)</td></tr>
+        <tr><td><kbd>Shift</kbd> + <kbd>X</kbd></td><td>Mostrar/ocultar etiquetas de Perfiles</td></tr>
+        <tr><td><kbd>Shift</kbd> + <kbd>S</kbd></td><td>Mostrar/ocultar Apoyos</td></tr>
+        <tr><td>Flechas ↑ ↓ ← →</td><td>Rotar la cámara (con el visor enfocado, sin estar escribiendo en un campo)</td></tr>
       </tbody>
     </table>
     <p style="font-size:11.5px;color:var(--txt-sec);">La personalización de atajos aún no está disponible.</p>
@@ -529,6 +659,8 @@
       El botón <b>💬 Feedback</b> de la barra superior abre una encuesta corta (tipo de torre probada,
       facilidad de uso, qué te gustó, qué te confundió, qué agregarías). Al dar clic en "Enviar", la
       respuesta se manda automáticamente — no necesitas abrir tu cliente de correo ni escribir nada aparte.
+      Hay un check opcional para dejar tu correo si quieres recibir avisos de actualizaciones importantes
+      (disponible solo en la versión web publicada, no en la app de escritorio).
     </p>
 
     <!-- ───────────────────────────────────────── -->
@@ -551,8 +683,8 @@
         <tr><td>Pestañas FEM / Códigos / Cargas Viento / Antenas / Escaleras / Plataformas</td><td><span class="badge soon">Placeholder</span></td></tr>
         <tr><td>Ícono de barra lateral: Análisis / Optimización</td><td><span class="badge soon">Placeholder</span></td></tr>
         <tr><td>Conversión real de unidades MKS ↔ IMP</td><td><span class="badge soon">Planeado</span></td></tr>
-        <tr><td>Export STAAD: MEMBER PROPERTY / CONSTANTS / SUPPORTS</td><td><span class="badge soon">Planeado</span></td></tr>
-        <tr><td>Export DXF</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Export STAAD: cargas de viento (MEMBER LOAD / JOINT LOAD)</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Export STAAD: GROUP DEFINITION de horizontal/tensor de puntales y tensores del estabilizador</td><td><span class="badge soon">Planeado</span></td></tr>
       </tbody>
     </table>
 

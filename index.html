@@ -676,6 +676,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   padding: 10px 14px 12px;
   border-bottom: 1px solid #111c28;
 }
+.sec-card-isolated { background: rgba(0,212,255,.08); box-shadow: inset 3px 0 0 var(--cyan); }
 .sec-card-hdr {
   display: flex; align-items: center; gap: 4px; margin-bottom: 8px;
   flex-wrap: nowrap; overflow: hidden;
@@ -704,10 +705,11 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 }
 .sec-edit-btn {
   margin-left: auto; background: none; border: 1px solid #1b3150;
-  color: #94a3b8; border-radius: 4px; padding: 1px 6px;
-  font-size: 9px; cursor: pointer; line-height: 1.6;
+  color: #94a3b8; border-radius: 4px; padding: 1px 7px;
+  font-size: 11px; cursor: pointer; line-height: 1.6;
 }
 .sec-edit-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.sec-edit-btn-active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.12); }
 
 /* Secciones modal */
 .sec-modal-overlay {
@@ -716,6 +718,18 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   align-items: center; justify-content: center;
 }
 .sec-modal-overlay.open { display: flex; }
+/* Panel flotante (no modal) — sin fondo oscuro, no bloquea el canvas detrás. Alineado
+   a la derecha por default; se mueve libremente al arrastrar desde su encabezado
+   (ver _makeDraggable). z-index menor al de los modales reales para que, si se abre
+   el buscador de perfiles desde aquí, quede encima sin problema. */
+.tabla-panel {
+  display: none; position: fixed; top: 90px; right: 20px; z-index: 150;
+  background: #0D1E35; border: 1px solid #1E3A5F;
+  border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.7);
+  max-height: 70vh; flex-direction: column;
+}
+.tabla-panel.open { display: flex; }
+.tabla-panel-hdr { cursor: move; user-select: none; }
 .sec-modal {
   background: #0D1E35; border: 1px solid #1E3A5F;
   border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.7);
@@ -726,7 +740,8 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   padding: 12px 16px; border-bottom: 1px solid #1E3A5F; flex-shrink: 0;
 }
 .sec-modal-hdr span { font-size: 12px; font-weight: 700; color: var(--txt); letter-spacing: .5px; }
-.sec-modal-hdr button { background: none; border: none; color: var(--txt-dim); font-size: 16px; cursor: pointer; }
+.sec-modal-hdr button { background: none; border: none; color: var(--txt-sec); font-size: 16px; cursor: pointer; }
+.sec-modal-hdr button:hover { color: var(--txt); }
 .sec-modal-body { overflow-y: auto; flex: 1; padding: 0; }
 .sec-modal-body::-webkit-scrollbar { width: 4px; }
 .sec-modal-body::-webkit-scrollbar-thumb { background: #263545; border-radius: 2px; }
@@ -850,6 +865,8 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
 #db-body-wrap { overflow-x: auto; }
 .ret-table td { padding: 4px 8px; border-bottom: 1px solid #111c28; overflow: hidden; }
 .ret-table tbody tr:hover { background: #0e2236; }
+.ret-row-clickable { cursor: pointer; }
+.ret-row-selected, .ret-row-selected:hover { background: rgba(0,212,255,.20) !important; }
 .ret-table input[type=number] { width: 90px; }
 /* Tablas de Bases de Datos con muchas columnas (ej. Canal, 13 columnas): el ancho fijo de
    90px por input desborda la celda y el texto se monta con la columna siguiente — aquí se
@@ -858,6 +875,29 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   width: 100%; min-width: 0; box-sizing: border-box; padding: 2px 4px; font-size: 10.5px;
 }
 .ret-table input:disabled { opacity: .55; cursor: default; }
+/* Tablas Nodos/Barras/Retenidas (paneles flotantes) — más compactas que las de Bases
+   de Datos, menos espacio entre filas. */
+.tabla-panel .ret-table td { padding: 1px 6px; border-bottom: 1px solid var(--border); }
+.tabla-panel .ret-table th { border-bottom: 1px solid var(--border); }
+.tabla-panel .ret-table input[type=number], .tabla-panel .ret-table input[type=text] {
+  padding: 1px 4px; border: 1px solid var(--border);
+}
+/* Captura siempre manual (escrita) — sin flechas de incremento/decremento. */
+.tabla-panel .ret-table input[type=number] { -moz-appearance: textfield; }
+.tabla-panel .ret-table input[type=number]::-webkit-outer-spin-button,
+.tabla-panel .ret-table input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+/* Botón "Perfil" (Barras) con la misma apariencia que un input deshabilitado de
+   Nodos/Retenidas — sigue siendo clickeable cuando la tabla está desbloqueada, pero
+   visualmente debe verse igual de consistente que las otras dos tablas. */
+.tabla-panel .ret-table .btn {
+  padding: 1px 4px !important; border: 1px solid var(--border) !important;
+  background: #0E2238 !important; color: var(--txt) !important;
+  font-size: 10.5px !important; border-radius: 3px; height: auto !important;
+  line-height: normal;
+}
+.tabla-panel .ret-table .btn:disabled { opacity: .55; background: transparent !important; }
 .ret-cable-cell {
   cursor: pointer; color: var(--cyan); padding: 4px 8px;
   border: 1px solid transparent; border-radius: 4px;
@@ -876,6 +916,14 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   cursor: pointer; font-weight: 600;
 }
 .btn-add-row:hover { background: #152340; }
+.rev-titleblock { width: 100%; border-collapse: collapse; border: 1px solid var(--border); }
+.rev-titleblock td { border: 1px solid var(--border); padding: 6px 10px; }
+.rev-titleblock .rev-logo { text-align: center; width: 60px; padding: 4px 8px; }
+.rev-logo-box { width: 34px; height: 34px; margin: 0 auto; overflow: hidden; }
+.rev-logo-box svg { display: block; width: 34px; height: 34px; }
+.rev-titleblock .rev-title { font-weight: 700; text-align: center; font-size: 13px; }
+.rev-titleblock .rev-subtitle { font-weight: 600; text-align: center; font-size: 11px; color: var(--txt-sec); }
+.rev-titleblock .rev-rev { text-align: center; font-size: 10px; width: 60px; }
 
 /* ── Export dropdown ────────────────────────────────────── */
 .export-dd { position: relative; display: inline-block; }
@@ -1086,6 +1134,10 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   // Dentro de la app de escritorio (QWebEngineView, dev o .exe) ya hay un splash nativo
   // de Python — este splash HTML es solo para abrir TSA.html directo en un navegador.
   if (typeof qt !== 'undefined' && qt.webChannelTransport) { overlay.remove(); return; }
+  // TSA.html es el archivo de PRUEBA (mismo contenido que index.html, antes de
+  // publicar) — se salta el splash aquí para no perder tiempo en cada prueba rápida.
+  // Solo se ve completo en el sitio publicado (index.html en GitHub Pages).
+  if (/TSA\.html$/i.test(location.pathname)) { overlay.remove(); return; }
   const phrases = ['Cargando bases de datos...', 'Cargando ejemplos...', 'Cargando interfaz de usuario...'];
   const totalMs = 5000;
   const slot = totalMs / phrases.length;
@@ -1151,10 +1203,19 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
     <div class="export-menu" id="export-menu">
       <button class="export-menu-item" onclick="exportSTAAD()">STAAD.Pro &nbsp;(.std)</button>
       <div class="export-menu-sep"></div>
-      <button class="export-menu-item" disabled title="Próximamente">DXF &nbsp;(.dxf)</button>
+      <button class="export-menu-item" onclick="exportDXF()">DXF &nbsp;(.dxf)</button>
     </div>
   </div>
-  <button class="btn">Compartir</button>
+  <div class="export-dd">
+    <button class="btn" onclick="toggleTablaMenu(event)">⊞ Tablas ▾</button>
+    <div class="export-menu" id="tabla-menu">
+      <button class="export-menu-item" onclick="openTablaNodos()">Nodos</button>
+      <button class="export-menu-item" onclick="openTablaBarras()">Barras</button>
+      <button class="export-menu-item" id="tabla-menu-retenidas" onclick="openTablaRetenidas()" style="display:none;">Retenidas</button>
+      <button class="export-menu-item" onclick="openTablaApoyos()">Apoyos</button>
+      <button class="export-menu-item" onclick="openTablaRevisiones()">Hoja de Revisiones</button>
+    </div>
+  </div>
   <button class="btn" id="feedback-btn" onclick="openFeedbackModal()" style="color:var(--cyan);border-color:var(--cyan);">💬 Feedback</button>
   <button class="btn" onclick="openHelp()">Ayuda</button>
 </div>
@@ -1169,15 +1230,16 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   <button class="tab">⬡ &nbsp;Plataformas</button>
   <div class="tabbar-end">
     <button class="icon-btn">📈<span class="icon-tip">Gráficas</span></button>
-    <button class="icon-btn">⊞<span class="icon-tip">Tabla</span></button>
     <div class="viewctl-group" id="viewctl-group">
       <button class="icon-btn" id="vbtn-zoomin"  onclick="zoomIn()">⊕<span class="icon-tip">Zoom In</span></button>
       <button class="icon-btn" id="vbtn-zoomout" onclick="zoomOut()">⊖<span class="icon-tip">Zoom Out</span></button>
       <button class="icon-btn" id="vbtn-zoomwin" onclick="startZoomWindow()">⛶<span class="icon-tip">Zoom Window</span></button>
+      <button class="icon-btn" id="vbtn-fitview" onclick="fitView()">⤢<span class="icon-tip">Ajustar pantalla</span></button>
       <button class="icon-btn" id="vbtn-orbit"   onclick="toggleAutoOrbit()">&#8635;<span class="icon-tip">Orbitar</span></button>
       <button class="icon-btn" id="vbtn-nodelabels" onclick="toggleNodeLabels()">🏷<span class="icon-tip">Nodos</span></button>
       <button class="icon-btn" id="vbtn-staadlabels" onclick="toggleStaadLabels()">#<span class="icon-tip">Barras</span></button>
       <button class="icon-btn" id="vbtn-profilelabels" onclick="toggleProfileLabels()">𝐃<span class="icon-tip">Perfiles</span></button>
+      <button class="icon-btn" id="vbtn-apoyoslabels" onclick="toggleApoyosLabels()">⏚<span class="icon-tip">Apoyos</span></button>
       <button class="icon-btn" id="vbtn-screenshot" onclick="takeScreenshot()">📷<span class="icon-tip">Screenshot</span></button>
     </div>
     <button class="icon-btn" id="grid-cfg-btn" onclick="toggleGridPanel(event)">⚙<span class="icon-tip">Configuración de malla</span></button>
@@ -1628,7 +1690,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <div class="sect-title" style="margin:0 0 8px;padding:0;">RETENIDAS</div>
       <table class="ret-table">
         <thead><tr>
-          <th>Nivel en Torre (m)</th><th>Cable</th><th>Tensión Inicial (%)</th><th>Conexión</th><th>Nodos conectados</th><th>Triángulo Est.</th><th>Editar Estabilizador</th><th style="width:26px;"></th>
+          <th>Nivel en Torre (m)</th><th>Cable</th><th>Tensión Inicial (%)</th><th>Conexión</th><th>Nodos conectados</th><th>Triángulo Estabilizador</th><th>Retenida Media</th><th>Editar Estabilizador</th><th style="width:26px;"></th>
         </tr></thead>
         <tbody id="ret-table-body"></tbody>
       </table>
@@ -1810,8 +1872,15 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
         <label class="sm-lbl">¿Qué le agregarías o cambiarías?</label>
         <textarea class="sm-inp" id="fb-agregaria" rows="4" style="resize:vertical;"></textarea>
       </div>
-      <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
-        Al dar clic en "Enviar", se abrirá tu programa de correo con estas respuestas ya redactadas — solo falta que tú le des clic a Enviar.
+      <div class="sm-field" style="margin-bottom:4px;">
+        <label class="sm-chk-row">
+          <input type="checkbox" id="fb-quiere-correo" onchange="document.getElementById('fb-correo-wrap').style.display = this.checked ? '' : 'none';">
+          <span class="sm-chk-lbl">Quiero recibir actualizaciones importantes de TSA por correo</span>
+        </label>
+      </div>
+      <div class="sm-field" id="fb-correo-wrap" style="margin-bottom:4px;display:none;">
+        <label class="sm-lbl">Correo</label>
+        <input class="sm-inp" type="email" id="fb-correo" placeholder="tu@correo.com">
       </div>
     </div>
     <div class="sec-modal-ftr">
@@ -1984,8 +2053,28 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
   </div>
 </div>
 
+<!-- ── Aviso de perfil/calidad faltante antes de exportar a STAAD ─────────── -->
+<div class="tabla-panel" id="export-warning-overlay" style="width:380px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>ATENCIÓN</span>
+    <button onclick="cancelExportWarning()">✕</button>
+  </div>
+  <div class="sec-modal-body" style="padding:14px;">
+    <p style="margin:0;color:var(--txt);font-size:13px;" id="export-warning-message">
+      Uno o más elementos no cuentan con Perfilería o Calidad de acero.
+    </p>
+    <p style="margin:8px 0 0;color:var(--txt-sec);font-size:11.5px;" id="export-warning-count"></p>
+    <div class="sec-modal-ftr" style="padding:14px 0 0;margin:0;">
+      <button class="btn-cancel" onclick="cancelExportWarning()" id="export-warning-cancel-btn">Cancelar</button>
+      <button class="btn-apply" onclick="confirmExportAnyway()" id="export-warning-confirm-btn">Exportar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal editor de secciones ─────────────────────────────── -->
-<div class="sec-modal-overlay" id="sec-modal-overlay" onclick="closeSecModal(event)">
+<!-- Sin onclick en el overlay: no se cierra al tocar el fondo (perdía los datos ya
+     capturados de la sección) — solo con ✕ / Cancelar / Aplicar. -->
+<div class="sec-modal-overlay" id="sec-modal-overlay">
   <div class="sec-modal" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span id="sec-modal-title">EDITOR DE SECCIÓN</span>
@@ -1997,6 +2086,61 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button class="btn-apply"  onclick="applySecModal()">Aplicar</button>
     </div>
   </div>
+</div>
+
+<!-- ── Paneles flotantes (NO modal): Tabla → Nodos / Barras / Retenidas — sin fondo
+     oscuro, alineados a la derecha, arrastrables por el encabezado, para que el
+     usuario vea los cambios en el visor 3D en tiempo real mientras edita. ──────── -->
+<div class="tabla-panel" id="tabla-nodos-overlay" style="width:480px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>NODOS</span>
+    <span style="display:flex;gap:10px;align-items:center;">
+      <button id="tabla-nodos-lock-btn" onclick="toggleTablaNodosLock()" title="Habilitar edición"
+        style="background:none;border:none;color:var(--txt-sec);font-size:14px;cursor:pointer;">🔒</button>
+      <button onclick="closeTablaNodos()">✕</button>
+    </span>
+  </div>
+  <div class="sec-modal-body" id="tabla-nodos-body" style="padding:0 14px 14px;"></div>
+</div>
+
+<div class="tabla-panel" id="tabla-barras-overlay" style="width:640px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>BARRAS</span>
+    <span style="display:flex;gap:10px;align-items:center;">
+      <button id="tabla-barras-lock-btn" onclick="toggleTablaBarrasLock()" title="Habilitar edición"
+        style="background:none;border:none;color:var(--txt-sec);font-size:14px;cursor:pointer;">🔒</button>
+      <button onclick="closeTablaBarras()">✕</button>
+    </span>
+  </div>
+  <div class="sec-modal-body" id="tabla-barras-body" style="padding:0 14px 14px;"></div>
+</div>
+
+<div class="tabla-panel" id="tabla-retenidas-overlay" style="width:640px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>RETENIDAS</span>
+    <span style="display:flex;gap:10px;align-items:center;">
+      <button id="tabla-retenidas-lock-btn" onclick="toggleTablaRetenidasLock()" title="Habilitar edición"
+        style="background:none;border:none;color:var(--txt-sec);font-size:14px;cursor:pointer;">🔒</button>
+      <button onclick="closeTablaRetenidas()">✕</button>
+    </span>
+  </div>
+  <div class="sec-modal-body" id="tabla-retenidas-body" style="padding:0 14px 14px;"></div>
+</div>
+
+<div class="tabla-panel" id="tabla-apoyos-overlay" style="width:380px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>APOYOS</span>
+    <button onclick="closeTablaApoyos()">✕</button>
+  </div>
+  <div class="sec-modal-body" id="tabla-apoyos-body" style="padding:0 14px 14px;"></div>
+</div>
+
+<div class="tabla-panel" id="tabla-revisiones-overlay" style="width:760px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>HOJA DE REVISIONES</span>
+    <button onclick="closeTablaRevisiones()">✕</button>
+  </div>
+  <div class="sec-modal-body" id="tabla-revisiones-body" style="padding:0 14px 14px;"></div>
 </div>
 
 <!-- ── Modal de ubicación (Leaflet + OpenStreetMap) ─────────────── -->
@@ -2381,6 +2525,11 @@ function genGuyed(cfg) {
         const k = nearestLeg(anchorDefsAll[ai].azimut);
         members.push({ni:vIds[k],       nj:aid, type:'guy', guyLevel:g});   // vértice derecho
         members.push({ni:vIds[(k+2)%3], nj:aid, type:'guy', guyLevel:g});   // vértice izquierdo
+        // Retenida media — cable ADICIONAL del mismo anclaje directo al montante (no a
+        // un vértice), entre las dos anteriores — solo disponible con Triángulo
+        // Estabilizador activo (de ahí que con ambos un nivel llegue a 9 retenidas:
+        // 3 anclajes × (2 a vértices + 1 al montante)).
+        if (cd.retenidaMedia) members.push({ni:lnodes[gLv][k], nj:aid, type:'guy', guyLevel:g});
       });
     } else {
       useNodes.forEach(ai => {
@@ -2415,9 +2564,11 @@ function addPlanBracing(nodes, members, sec, pattern, corners, isTop) {
       ((m.ni===c && m.nj===nb) || (m.ni===nb && m.nj===c)));
     const mid = _midNode(nodes, c, nb);
     if (idx !== -1) {
+      // Preservar isTop del miembro original — si no, el anillo perdía la marca de
+      // TOP/BAY exactamente al tener Plan Bracing activo (se partía en 2 sin copiarla).
       members.splice(idx, 1,
-        {ni:c, nj:mid, type:'horizontal', sec, principal:true},
-        {ni:mid, nj:nb, type:'horizontal', sec, principal:true});
+        {ni:c, nj:mid, type:'horizontal', sec, principal:true, isTop},
+        {ni:mid, nj:nb, type:'horizontal', sec, principal:true, isTop});
     }
     return mid;
   });
@@ -2528,7 +2679,10 @@ function addHipBracing(nodes, members, sec, option, hipPtsByFace, nLegs) {
 function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopBay=true) {
   // principal=true por defecto; se marca false para elementos secundarios (bracing auxiliar)
   const d = (a,b,principal=true) => members.push({ni:a, nj:b, type:'diagonal',   sec, principal});
-  const h = (a,b,principal=true) => members.push({ni:a, nj:b, type:'horizontal', sec, principal});
+  // isTop: true si esta horizontal está en el tope DE LA SECCIÓN (última bahía, isTopBay
+  // del llamador), false si es entre bahías — usado solo por el export STAAD (_SECi_HT/
+  // _SECi_HB), no cambia nada del visor 3D ni de getMemberProfile().
+  const h = (a,b,principal=true) => members.push({ni:a, nj:b, type:'horizontal', sec, principal, isTop: isTopBay});
   const lerp = (a,b,t) => {
     const na=nodes[a], nb=nodes[b];
     return addRawNode(nodes, na.x+(nb.x-na.x)*t, na.y+(nb.y-na.y)*t, na.z+(nb.z-na.z)*t);
@@ -2869,13 +3023,16 @@ wrap.appendChild(labelRenderer.domElement);
 let nodeLabelsOn = false;
 let profileLabelsOn = false;
 let staadLabelsOn = false;
+let apoyosLabelsOn = false;
 const profileLabelsGroup = new THREE.Group();
 const staadLabelsGroup = new THREE.Group();
 const nodeLabelsGroup = new THREE.Group();
+const apoyosLabelsGroup = new THREE.Group();
 
 // Grids — rebuilt by buildGrid()
 let primaryGrid = null;
 let secondaryGrid = null;
+let _gridZ = 0;
 let _towerData = null;   // datos del último renderTower (nodes, members)
 let _hlMesh    = null;   // LineSegments del elemento seleccionado
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -2887,7 +3044,40 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.target.set(0,0,15);
+// Pan se mueve del clic derecho (default de OrbitControls) al botón central
+// sostenido. Clic izquierdo ya NO rota (queda libre para la selección de miembros,
+// sin interferir con el arrastre) — rotar ahora es solo con clic derecho o con las
+// flechas del teclado (ver _rotateCameraBy más abajo).
+controls.mouseButtons = {
+  LEFT: undefined,
+  MIDDLE: THREE.MOUSE.PAN,
+  RIGHT: THREE.MOUSE.ROTATE,
+};
 controls.update();
+
+// ── Rotación con flechas del teclado — replica el mismo cálculo (esférico, alineado
+// al up-vector de la cámara, que aquí es Z) que usa OrbitControls al arrastrar con el
+// mouse, para que se sienta igual sin importar que la torre use Z como "arriba".
+const _rotQuat = new THREE.Quaternion().setFromUnitVectors(camera.up, new THREE.Vector3(0, 1, 0));
+const _rotQuatInverse = _rotQuat.clone().invert();
+const ARROW_ROTATE_STEP = 0.05; // radianes por pulsación
+function _rotateCameraBy(deltaTheta, deltaPhi) {
+  const offset = camera.position.clone().sub(controls.target).applyQuaternion(_rotQuat);
+  const spherical = new THREE.Spherical().setFromVector3(offset);
+  spherical.theta -= deltaTheta;
+  spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi - deltaPhi));
+  offset.setFromSpherical(spherical).applyQuaternion(_rotQuatInverse);
+  camera.position.copy(controls.target).add(offset);
+  controls.update();
+}
+window.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.key === 'ArrowLeft')  { _rotateCameraBy(-ARROW_ROTATE_STEP, 0); e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { _rotateCameraBy(ARROW_ROTATE_STEP, 0); e.preventDefault(); }
+  else if (e.key === 'ArrowUp')    { _rotateCameraBy(0, -ARROW_ROTATE_STEP); e.preventDefault(); }
+  else if (e.key === 'ArrowDown')  { _rotateCameraBy(0, ARROW_ROTATE_STEP); e.preventDefault(); }
+});
 
 controls.saveState();
 
@@ -2897,7 +3087,7 @@ _raycaster.params.Line.threshold = 0.02;
 let _mouseDownPos = {x:0, y:0};
 // OrbitControls (three r128) usa Pointer Events y hace preventDefault en pointerdown,
 // lo que suprime los mousedown/mouseup sintéticos sobre el canvas — por eso se usan pointer events aquí.
-renderer.domElement.addEventListener('pointerdown', e => { _mouseDownPos = {x:e.clientX, y:e.clientY}; });
+renderer.domElement.addEventListener('pointerdown', e => { _mouseDownPos = {x:e.clientX, y:e.clientY}; _stopBlink(); });
 renderer.domElement.addEventListener('pointerup',   e => {
   if (!_towerData) { showToast('Genere la torre antes de seleccionar elementos.'); return; }
   if (Math.abs(e.clientX - _mouseDownPos.x) > 5 || Math.abs(e.clientY - _mouseDownPos.y) > 5) return;
@@ -2941,6 +3131,16 @@ function fitView() {
   scene.fog.density = _BASE_FOG_DENSITY * _BASE_FOG_DIST / dist;
 }
 
+// Aislar/restaurar un tramo desde su tarjeta en DETALLE POR SECCIÓN. refresh() vuelve a
+// dibujar solo ese tramo (ver filtro en renderTower), y fitView() reusa towerBounds()
+// — que mide directamente lo que HAY en towerGroup — así que encuadra automático solo
+// la geometría visible, sin cálculo de bounding box aparte.
+function toggleAislarTramo(i) {
+  aislarTramoSec = (aislarTramoSec === i) ? null : i;
+  refresh();
+  fitView();
+  buildSectionRows(secData.length);
+}
 function toggleAutoOrbit() {
   controls.autoRotate = !controls.autoRotate;
   controls.autoRotateSpeed = appSettings.orbitSpeed;
@@ -2954,17 +3154,27 @@ function _clearNodeLabels() {
 function _buildNodeLabels() {
   _clearNodeLabels();
   if (!_towerData) return;
+  const { newId } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
   _towerData.nodes.forEach((n, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'node-marker';
     const num = document.createElement('div');
     num.className = 'node-num';
-    num.textContent = String(i+1);
+    num.textContent = String(newId[i]);
     const tip = document.createElement('div');
     tip.className = 'node-coords-tip';
     tip.innerHTML = `<span>x: ${n.x.toFixed(2)}</span><span>y: ${n.y.toFixed(2)}</span><span>z: ${n.z.toFixed(2)}</span>`;
     wrap.appendChild(num);
     wrap.appendChild(tip);
+    // Selección inversa: clic en el marcador resalta el nodo (fijo, sin parpadear) y,
+    // si la tabla Nodos o Apoyos está abierta, también resalta su fila.
+    wrap.style.cursor = 'pointer';
+    wrap.onclick = ev => {
+      ev.stopPropagation();
+      blinkNodeAt(i);
+      _highlightRowIfOpen('tabla-nodos-overlay', i);
+      _highlightRowIfOpen('tabla-apoyos-overlay', i);
+    };
     const obj = new THREE.CSS2DObject(wrap);
     obj.position.set(n.x, n.y, n.z);
     nodeLabelsGroup.add(obj);
@@ -3029,6 +3239,68 @@ function toggleStaadLabels() {
   staadLabelsOn = !staadLabelsOn;
   document.getElementById('vbtn-staadlabels').classList.toggle('active', staadLabelsOn);
   if (staadLabelsOn) _buildStaadLabels(); else _clearStaadLabels();
+}
+
+// ── Etiquetas de Apoyos (botón "Apoyos") — marca con PINNED/FIXED los nodos de soporte,
+// mismo criterio que SUPPORTS en exportSTAAD (_computeSupportNodes).
+// Sprites de WebGL (no CSS2D) — un CSS2DObject SIEMPRE se dibuja por encima de toda la
+// geometría 3D (no respeta el depth buffer), por eso los íconos se veían encimados con
+// las barras/retenidas que en realidad estaban más cerca de la cámara. Un THREE.Sprite
+// normal sí respeta el depth test, así que una barra/cable que pase delante lo oculta.
+const _supportIconTextures = {};
+function _getSupportIconTexture(type) {
+  if (_supportIconTextures[type]) return _supportIconTextures[type];
+  // Resolución 2x + trazo doble (negro grueso de fondo, color delgado encima) para que
+  // el ícono no se "difumine" contra el grid/fondo del visor a cualquier distancia.
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.lineCap = 'round';
+  const draw = (segments, color) => {
+    ctx.lineWidth = 16; ctx.strokeStyle = '#06121f';
+    segments.forEach(([x1,y1,x2,y2]) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); });
+    ctx.lineWidth = 10; ctx.strokeStyle = color;
+    segments.forEach(([x1,y1,x2,y2]) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); });
+  };
+  if (type === 'FIXED') {
+    draw([[12,32,116,32],[12,32,32,68],[44,32,64,68],[76,32,96,68],[100,32,120,68]], '#86EFAC');
+  } else {
+    draw([[64,8,8,100],[8,100,120,100],[120,100,64,8],[0,116,128,116],[8,116,24,100],[44,116,60,100],[68,116,84,100],[104,116,120,100]], '#86EFAC');
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return _supportIconTextures[type] = tex;
+}
+function _clearApoyosLabels() {
+  apoyosLabelsGroup.children.slice().forEach(c => { c.material?.dispose(); apoyosLabelsGroup.remove(c); });
+}
+function _buildApoyosLabels() {
+  _clearApoyosLabels();
+  if (!_towerData || !projectGenerated) return;
+  const supports = _computeSupportNodes(getConfig(), _towerData.nodes, _towerData.members);
+  const maxH = Math.max(1, ...(_towerData.nodes.map(p => p.z)));
+  const s = Math.max(0.3, maxH * 0.025);
+  supports.forEach(({idx, type}) => {
+    const n = _towerData.nodes[idx];
+    const mat = new THREE.SpriteMaterial({ map: _getSupportIconTexture(type), transparent: true, depthTest: true, depthWrite: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(s, s, 1);
+    sprite.position.set(n.x, n.y, n.z - s*0.45);
+    apoyosLabelsGroup.add(sprite);
+  });
+}
+// Apagar el grid mientras se ven los Apoyos — en vez de intentar "tapar" el grid bajo
+// cada ícono (frágil: dos sprites casi a la misma profundidad compiten por el depth
+// test), simplemente se oculta toda la malla; vuelve a aparecer al desactivar Apoyos.
+function toggleApoyosLabels() {
+  apoyosLabelsOn = !apoyosLabelsOn;
+  document.getElementById('vbtn-apoyoslabels').classList.toggle('active', apoyosLabelsOn);
+  if (primaryGrid) primaryGrid.visible = !apoyosLabelsOn;
+  if (secondaryGrid) secondaryGrid.visible = !apoyosLabelsOn;
+  if (apoyosLabelsOn) _buildApoyosLabels(); else _clearApoyosLabels();
 }
 // Aplica el estado inicial de las etiquetas (Configuración → Visualización 3D) al
 // generar una torre nueva o cargar un proyecto — renderTower() construye las que aplique.
@@ -3130,16 +3402,26 @@ renderer.domElement.addEventListener('pointerup', e => {
 });
 
 
-// OrbitControls usa el botón medio para su propio DOLLY y hace preventDefault en
-// pointerdown, lo que suprime el click/auxclick sintético — por eso el doble clic de
-// botón medio se detecta aquí directamente sobre pointerdown (igual que la selección
-// de elementos), no con auxclick.
+// OrbitControls usa el botón medio para PAN y hace preventDefault en pointerdown, lo
+// que suprime el click/auxclick sintético — por eso el doble clic de botón medio se
+// detecta aquí directamente sobre pointerdown (igual que la selección de elementos),
+// no con auxclick.
 let _lastMid = 0;
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.button !== 1) return;
   const now = Date.now();
   if (now - _lastMid < 350) { fitView(); _lastMid = 0; }
   else { _lastMid = now; }
+});
+
+// Cursor de "manita sosteniendo" mientras se arrastra con el botón central (pan) —
+// pointerup en window, no en el canvas, para no quedarse pegado si el mouse sale del
+// visor durante el arrastre.
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.button === 1) renderer.domElement.style.cursor = 'grabbing';
+});
+window.addEventListener('pointerup', e => {
+  if (e.button === 1) renderer.domElement.style.cursor = '';
 });
 
 // ── Axis indicator — renderer dedicado ────────────────────────
@@ -3193,6 +3475,7 @@ scene.add(towerGroup);
 scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
+scene.add(apoyosLabelsGroup);
 
 // Piernas/anillos/guys/brazos son configurables (menú Configuración) — se leen de
 // appSettings en cada render para reflejar cambios sin recargar.
@@ -3226,9 +3509,15 @@ function renderTower(data) {
 
   // Agrupa piernas/diagonales por (tipo, paridad de tramo); horizontales y guys por tipo
   // Diagonales/horizontales secundarias (bracing auxiliar de los patrones K) van en su propio batch para colorearlas distinto
+  // Aislar tramo (DETALLE POR SECCIÓN → 👁): filtra solo lo que se DIBUJA — _towerData
+  // sigue completo abajo, para que tablas/export no se vean afectados por la vista aislada.
+  // _idx se asigna ANTES de filtrar, sobre el array completo — si no, con un tramo
+  // aislado el índice quedaría relativo al subconjunto filtrado, no al original, y
+  // rompería la correspondencia con las filas de las tablas (data-idx).
+  data.members.forEach((m, i) => { m._idx = i; });
+  const membersToDraw = aislarTramoSec !== null ? data.members.filter(m => m.sec === aislarTramoSec) : data.members;
   const batches = {};
-  data.members.forEach((m, i) => {
-    m._idx = i;
+  membersToDraw.forEach(m => {
     const alternate = (m.type==='leg' || m.type==='diagonal' || m.type==='horizontal') && m.sec!=null;
     const isSecondary = (m.type==='diagonal' || m.type==='horizontal') && m.principal===false;
     const key = alternate ? `${m.type}_${m.sec%2}${isSecondary?'_s':''}`
@@ -3304,6 +3593,7 @@ function renderTower(data) {
   if (nodeLabelsOn) _buildNodeLabels();
   if (profileLabelsOn) _buildProfileLabels();
   if (staadLabelsOn) _buildStaadLabels();
+  if (apoyosLabelsOn) _buildApoyosLabels();
 }
 
 // ── Dual grid ─────────────────────────────────────────────────────────
@@ -3318,8 +3608,15 @@ function buildGrid(totalSize, primaryDivs, thickness, subDivs) {
 
   // Secondary grid — thin, subdivided (regular GridHelper for performance)
   const totalDivs = primaryDivs * subDivs;
+  // El grid se baja una fracción imperceptible bajo z=0 — los nodos de la base (y los
+  // íconos de Apoyos) viven exactamente en z=0, y al estar el grid en el MISMO plano
+  // se produce z-fighting (compiten por encima/debajo según el píxel, se ven "encimados"
+  // con las líneas del ícono). Bajándolo, el grid queda claramente detrás siempre.
+  const gridZ = -Math.max(0.02, totalSize * 0.0006);
+  _gridZ = gridZ;  // expuesto para el "parche" que tapa el grid bajo los íconos de Apoyos
   secondaryGrid = new THREE.GridHelper(totalSize, totalDivs, 0x1E3A5F, 0x1E3A5F);
   secondaryGrid.rotation.x = -Math.PI / 2;   // Z-up: plano XY en vez de XZ
+  secondaryGrid.position.z = gridZ;
   secondaryGrid.material.opacity = 0.45;
   secondaryGrid.material.transparent = true;
   scene.add(secondaryGrid);
@@ -3330,8 +3627,8 @@ function buildGrid(totalSize, primaryDivs, thickness, subDivs) {
   const positions = [];
   for (let i = 0; i <= primaryDivs; i++) {
     const v = -half + i * step;
-    positions.push(-half, v, 0,  half, v, 0);   // lines along X
-    positions.push(v, -half, 0,  v, half, 0);    // lines along Y
+    positions.push(-half, v, gridZ,  half, v, gridZ);   // lines along X
+    positions.push(v, -half, gridZ,  v, half, gridZ);    // lines along Y
   }
   const geo = new THREE.LineSegmentsGeometry();
   geo.setPositions(positions);
@@ -3344,6 +3641,8 @@ function buildGrid(totalSize, primaryDivs, thickness, subDivs) {
   });
   primaryGrid = new THREE.LineSegments2(geo, mat);
   scene.add(primaryGrid);
+  // Si Apoyos ya estaba activo, el grid recién creado debe seguir oculto.
+  if (apoyosLabelsOn) { primaryGrid.visible = false; secondaryGrid.visible = false; }
 }
 
 function resizeRenderer() {
@@ -4040,7 +4339,9 @@ function pickerConfirm() {
 // usuario abra su cliente de correo.
 const FEEDBACK_FORMSPREE_URL = 'https://formspree.io/f/mbdvrbno';
 function openFeedbackModal() {
-  ['fb-gusto','fb-confuso','fb-agregaria'].forEach(id => document.getElementById(id).value = '');
+  ['fb-gusto','fb-confuso','fb-agregaria','fb-correo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fb-quiere-correo').checked = false;
+  document.getElementById('fb-correo-wrap').style.display = 'none';
   document.getElementById('feedback-modal-overlay').classList.add('open');
 }
 function closeFeedbackModal(e) {
@@ -4053,6 +4354,8 @@ async function submitFeedback() {
   const gusto      = document.getElementById('fb-gusto').value.trim() || '(sin comentario)';
   const confuso    = document.getElementById('fb-confuso').value.trim() || '(sin comentario)';
   const agregaria  = document.getElementById('fb-agregaria').value.trim() || '(sin comentario)';
+  const quiereCorreo = document.getElementById('fb-quiere-correo').checked;
+  const correo     = document.getElementById('fb-correo').value.trim();
   const btn = document.querySelector('#feedback-modal-overlay .btn-apply');
   btn.disabled = true; btn.textContent = 'Enviando…';
   try {
@@ -4063,6 +4366,10 @@ async function submitFeedback() {
     fd.append('Qué le gustó más', gusto);
     fd.append('Qué le confundió / no funcionó', confuso);
     fd.append('Qué agregaría o cambiaría', agregaria);
+    if (quiereCorreo && correo) {
+      fd.append('Quiere actualizaciones por correo', 'Sí');
+      fd.append('Correo', correo);
+    }
     const res = await fetch(FEEDBACK_FORMSPREE_URL, { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd });
     if (res.ok) {
       showToast('¡Gracias! Tu feedback fue enviado.', 'ok');
@@ -4135,11 +4442,15 @@ function setupKeyboardShortcuts() {
   document.addEventListener('keydown', e => {
     const tag = (e.target.tagName || '').toLowerCase();
     const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
-    if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'g') { e.preventDefault(); saveProject(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === 'n') { e.preventDefault(); nuevoProyecto(); return; }
     if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undoAction(); return; }
     if (e.ctrlKey && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redoAction(); return; }
     if (typing) return;
+    if (e.shiftKey && e.key.toLowerCase() === 'n') { e.preventDefault(); toggleNodeLabels(); return; }
+    if (e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleStaadLabels(); return; }
+    if (e.shiftKey && e.key.toLowerCase() === 'x') { e.preventDefault(); toggleProfileLabels(); return; }
+    if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); toggleApoyosLabels(); return; }
     if (e.key === 'f' || e.key === 'F') { fitView(); }
     else if (e.key === 'Escape') { closeMemberInfo(); }
   });
@@ -4147,6 +4458,10 @@ function setupKeyboardShortcuts() {
 
 // ── Estado del proyecto ────────────────────────────────────────
 let projectGenerated = false;
+// Aislar tramo (DETALLE POR SECCIÓN → 👁): null = se ve la torre completa; un número =
+// índice de sección que se está mostrando aislada (el resto se oculta del visor, pero
+// _towerData/tablas/export siguen completos — es solo una ayuda visual).
+let aislarTramoSec = null;
 let secData = [];  // [{h, diag, perfil}] — una entrada por tramo
 let guyHeights = [];  // altura (m) de cada nivel de retenidas — solo Arriostrada
 let monoAperturas = [];  // apertura (m) de cada tramo recto — solo Monopolo Escalonado/Combinado
@@ -4154,6 +4469,27 @@ let guyCableData  = [];  // [{diam: nombre del cable seleccionado o null, tensio
 let guyAnchorData = [];  // [{elev, radio, azimut}] — uno o más puntos de anclaje (editable, no atado a #piernas)
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
 let _unsavedChanges = false;  // true tras cualquier edición; false al abrir/nuevo/guardar — usado al cerrar la app (.exe)
+// Override manual de posición de nodo, vía tabla Nodos — {idx: {x,y,z}}. Se reaplica
+// encima de la geometría generada (ver refresh()) cada vez que se regenera la torre;
+// si cambia el tipo/Nº de secciones, los índices pueden dejar de corresponder al mismo
+// nodo físico — es una función avanzada, no a prueba de cualquier reestructuración.
+let nodeOverrides = {};
+function _applyNodeOverrides(nodes) {
+  Object.keys(nodeOverrides).forEach(idx => {
+    const n = nodes[+idx], ov = nodeOverrides[idx];
+    if (n && ov) { n.x = ov.x; n.y = ov.y; n.z = ov.z; }
+  });
+}
+// Override manual de extremos de barra, vía tablas Barras/Retenidas — {idx: {ni, nj}}.
+// Mismo criterio y misma limitación que nodeOverrides: por índice de miembro, se
+// reaplica en cada regeneración, no a prueba de cambios estructurales (bahías, tipo).
+let memberOverrides = {};
+function _applyMemberOverrides(members) {
+  Object.keys(memberOverrides).forEach(idx => {
+    const m = members[+idx], ov = memberOverrides[idx];
+    if (m && ov) { if (ov.ni != null) m.ni = ov.ni; if (ov.nj != null) m.nj = ov.nj; }
+  });
+}
 
 // ── Catálogo de cables de retenida — ahora vive en Bases de Datos (editable);
 // este array es solo el default de fábrica si no hay nada guardado todavía.
@@ -4270,11 +4606,20 @@ function getConfig() {
     ingResponsable: document.getElementById('ingResponsable').value,
     fechaCreacion:  document.getElementById('fechaCreacion').value,
     secData:        secData.slice(),
+    nodeOverrides:  JSON.parse(JSON.stringify(nodeOverrides)),
+    memberOverrides: JSON.parse(JSON.stringify(memberOverrides)),
+    supportOverrides: JSON.parse(JSON.stringify(supportOverrides)),
+    revisionData:   JSON.parse(JSON.stringify(revisionData)),
   };
 }
 
 function refresh() {
-  if (projectGenerated) renderTower(generateTower(getConfig()));
+  if (projectGenerated) {
+    const data = generateTower(getConfig());
+    _applyNodeOverrides(data.nodes);
+    _applyMemberOverrides(data.members);
+    renderTower(data);
+  }
   scheduleHistoryPush();
 }
 
@@ -4650,6 +4995,7 @@ function openRetenidasModal() {
       conexion:   prevCable[i]?.conexion ?? 'Antorchada',
       nodes:      prevCable[i]?.nodes ?? _anchorRingIndices(1),
       triangulo:  prevCable[i]?.triangulo ?? false,
+      retenidaMedia: prevCable[i]?.retenidaMedia ?? false,
       brazoLen:   prevCable[i]?.brazoLen ?? 1.5,
       brazoPerfil: prevCable[i]?.brazoPerfil ?? '-',
       brazoPerfilCal: prevCable[i]?.brazoPerfilCal ?? '-',
@@ -4699,7 +5045,10 @@ function renderRetTable() {
         <td><select style="width:150px;" onchange="guyCableData[${i}].conexion = this.value">${conexionOpts}</select></td>
         <td><div class="ret-cable-cell" onclick="openNodesModal(${i})">${nodesLbl}</div></td>
         <td style="text-align:center;"><input type="checkbox" ${c.triangulo?'checked':''}
-          onchange="guyCableData[${i}].triangulo = this.checked; renderRetTable();"></td>
+          onchange="guyCableData[${i}].triangulo = this.checked; if (!this.checked) guyCableData[${i}].retenidaMedia = false; renderRetTable();"></td>
+        <td style="text-align:center;"><input type="checkbox" ${c.retenidaMedia?'checked':''} ${c.triangulo?'':'disabled'}
+          title="${c.triangulo?'':'Solo disponible con Triángulo Estabilizador activo'}"
+          onchange="guyCableData[${i}].retenidaMedia = this.checked; renderRetTable();"></td>
         <td>${c.triangulo
           ? `<button class="btn-cancel" style="padding:3px 12px;font-size:10px;" onclick="openEstabilizadorModal(${i})">Editar</button>`
           : `<div class="ret-cable-cell" style="opacity:.4;pointer-events:none;">—</div>`}</td>
@@ -4711,7 +5060,7 @@ function addLevelRow() {
   const h = +document.getElementById('height')?.value || 30;
   guyHeights.push(+(h/2).toFixed(1));
   guyCableData.push({diam: null, tensionPct: 10, conexion: 'Antorchada', nodes: _anchorRingIndices(1),
-    triangulo: false, brazoLen: 1.5, brazoPerfil: '-', brazoPerfilCal: '-',
+    triangulo: false, retenidaMedia: false, brazoLen: 1.5, brazoPerfil: '-', brazoPerfilCal: '-',
     estabTipo: 'simple',
     estabPuntalOn: false, estabPuntalAltura: 0, estabPuntalPerfil: '-', estabPuntalPerfilCal: '-',
     estabPuntalHorizOn: false, estabPuntalHorizPerfil: '-', estabPuntalHorizPerfilCal: '-',
@@ -4948,6 +5297,10 @@ function selectDiam(diamIdx) {
 
 // ── Generar Torre desde el setup ───────────────────────────────
 function generateTowerFromSetup() {
+  nodeOverrides = {};  // torre nueva — cualquier override manual previo ya no aplica
+  memberOverrides = {};
+  supportOverrides = {};
+  aislarTramoSec = null;
   // Mapear tipo de estructura a ttype
   const tipoMap = {
     triangular: 'triangular', square: 'square',
@@ -5034,7 +5387,7 @@ function generateTowerFromSetup() {
   document.getElementById('rpanel-info').classList.add('visible');
 
   _applyDefaultLabels();
-  renderTower(generateTower(getConfig()));
+  renderTower(generateTower(getConfig()));  // sin overrides — torre recién generada
   fitView();
   document.getElementById('status').textContent =
     `Torre generada · ${document.getElementById('s-asset').value || '—'}`;
@@ -5065,6 +5418,11 @@ function switchToTorre() {
 // ── Nuevo Proyecto ─────────────────────────────────────────────
 function nuevoProyecto() {
   document.getElementById('home-menu').classList.remove('open');
+  nodeOverrides = {};
+  memberOverrides = {};
+  supportOverrides = {};
+  revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
+  aislarTramoSec = null;
   ['s-assetnum','s-asset','s-pais','s-ing'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
   document.getElementById('s-tipo').value   = 'triangular';
@@ -5121,10 +5479,13 @@ function toggleHomeMenu(e) {
   if (e) e.stopPropagation();
   document.getElementById('home-menu').classList.toggle('open');
 }
+// torre-flyout NO se cierra con clic afuera — perdía los datos ya capturados si el
+// usuario tocaba cualquier otra parte de la app sin querer cerrarlo. Solo se cierra
+// con su botón ✕ (closeTorreFlyout) o al generar la torre con éxito.
 document.addEventListener('click', () => {
   document.getElementById('home-menu').classList.remove('open');
-  document.getElementById('torre-flyout').classList.remove('open');
   document.getElementById('export-menu')?.classList.remove('open');
+  document.getElementById('tabla-menu')?.classList.remove('open');
   closeLocationPopover();
 });
 document.getElementById('home-menu').addEventListener('click', e => e.stopPropagation());
@@ -5134,6 +5495,11 @@ document.getElementById('location-popover').addEventListener('click', e => e.sto
 function toggleExportDD(e) {
   e.stopPropagation();
   document.getElementById('export-menu').classList.toggle('open');
+}
+function toggleTablaMenu(e) {
+  e.stopPropagation();
+  document.getElementById('tabla-menu-retenidas').style.display = getConfig().type === 'guyed' ? '' : 'none';
+  document.getElementById('tabla-menu').classList.toggle('open');
 }
 
 // ── Exportar STAAD.Pro ─────────────────────────────────────────
@@ -5235,11 +5601,29 @@ function _staadUpper(str) {
 }
 
 function _staadDate(iso) {
-  if (!iso) return '';
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // Si no hay fecha capturada, ENGINEER DATE quedaba vacío ("ENGINEER DATE" sin nada
+  // después) — STAAD.Pro tronaba al abrir ese .std. Como red de seguridad (además del
+  // aviso de "Faltan datos del proyecto" antes de exportar), si sigue vacía se usa la
+  // fecha de hoy en vez de dejar la línea inválida.
+  if (!iso) {
+    const t = new Date();
+    return `${String(t.getDate()).padStart(2,'0')}-${months[t.getMonth()]}-${String(t.getFullYear()).slice(-2)}`;
+  }
   const [y, m, d] = iso.split('-');
   if (!y || !m || !d) return iso;
   return `${d}-${months[+m - 1]}-${y.slice(-2)}`;
+}
+// Campos del panel PROYECTO usados en el .std (STAAD SPACE / JOB INFORMATION) — si
+// faltan, pueden generar un archivo inválido al abrirlo en STAAD.Pro (en particular la
+// Fecha: ENGINEER DATE quedaba vacío). Pedido explícito del usuario (2026-06-24):
+// verificar que el panel esté lleno antes de exportar.
+function _findMissingProjectInfo() {
+  const cfg = getConfig();
+  return [
+    ['assetNumber', 'Asset Number'], ['assetName', 'Asset Name'], ['pais', 'País'],
+    ['ingResponsable', 'Ingeniero Responsable'], ['fechaCreacion', 'Fecha'],
+  ].filter(([key]) => !cfg[key] || !String(cfg[key]).trim()).map(([, label]) => label);
 }
 
 // Lee directo el canvas WebGL del visor — no la captura de un contenedor HTML — así que
@@ -5566,6 +5950,28 @@ function _staadIdRanges(ids) {
   return parts.join(' ');
 }
 
+// Empaqueta strings ya formateados (ej. "id x y z" de un nodo, "id ni nj" de una barra) en
+// líneas de máximo 79 caracteres (cuentan los espacios, igual que INPUT WIDTH 79), varios
+// por línea — y NO uno por línea como antes. Si agregar el siguiente no entra en la línea
+// actual, la línea se cierra con " -" (continuación STAAD) y el siguiente arranca línea
+// nueva; la ÚLTIMA línea del bloque no lleva "-". Pedido explícito del usuario (2026-06-24).
+function _staadWrapGroups(groups, maxLen = 79) {
+  if (!groups.length) return '';
+  const lines = [];
+  let cur = groups[0];
+  for (let i = 1; i < groups.length; i++) {
+    const candidate = `${cur} ${groups[i]}`;
+    if (candidate.length + 2 > maxLen) {   // +2 reserva el " -" por si esta línea continúa
+      lines.push(cur);
+      cur = groups[i];
+    } else {
+      cur = candidate;
+    }
+  }
+  lines.push(cur);
+  return lines.map((l, i) => i < lines.length - 1 ? `${l} -` : l).join('\n') + '\n';
+}
+
 // Prioridad de numeración por categoría — orden dado explícitamente por el usuario
 // (2026-06-22): Montantes < Diagonales principales < Horizontales principales <
 // Retenidas < Elementos secundarios < Hip Bracing < Plan Bracing < Espesor monopolo.
@@ -5601,6 +6007,495 @@ function _staadMemberRenumber(nodes, members) {
   return { order, newId };
 }
 
+// Renumera TODOS los nodos: en arriostradas, primero los anclajes de retenida (base de
+// los cables — nunca tocados por un miembro estructural), y dentro de cada grupo
+// (anclajes / resto) de abajo hacia arriba por elevación — pedido explícito del usuario
+// (2026-06-22). Mismo criterio de detección de anclaje ya usado para SUPPORTS.
+function _staadNodeRenumber(nodes, members) {
+  const structuralTypes = new Set(['leg','diagonal','horizontal','planbrace','hipbrace','monothk']);
+  const structuralNodeIds = new Set();
+  members.forEach(m => { if (structuralTypes.has(m.type)) { structuralNodeIds.add(m.ni); structuralNodeIds.add(m.nj); } });
+  // Vértices del triángulo estabilizador (stabarm/puntal/tensor/horizPuntal/horizTensor)
+  // también tocan un cable 'guy' (vértice→anclaje) — sin excluirlos aquí, quedaban
+  // marcados como anclaje real igual que el nodo de anclaje verdadero (aid), porque la
+  // única señal que se usaba era "tocado por guy y no por un tipo estructural".
+  const estabTypes = new Set(['stabarm','puntal','tensor','horizPuntal','horizTensor']);
+  const estabNodeIds = new Set();
+  members.forEach(m => { if (estabTypes.has(m.type)) { estabNodeIds.add(m.ni); estabNodeIds.add(m.nj); } });
+  const guyNodeIds = new Set();
+  members.forEach(m => { if (m.type === 'guy') { guyNodeIds.add(m.ni); guyNodeIds.add(m.nj); } });
+  const anchorSet = new Set([...guyNodeIds].filter(id => !structuralNodeIds.has(id) && !estabNodeIds.has(id)));
+  const order = nodes.map((_, i) => i).sort((a, b) => {
+    const pa = anchorSet.has(a) ? 0 : 1, pb = anchorSet.has(b) ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return nodes[a].z - nodes[b].z;
+  });
+  const newId = new Array(nodes.length);
+  order.forEach((origIdx, pos) => { newId[origIdx] = pos + 1; });
+  return { order, newId, anchorSet, structuralNodeIds };
+}
+
+// Apoyos — base (PINNED autosoportada/guyed, FIXED monopolo) + anclajes de retenida
+// (FIXED). Compartido entre exportSTAAD(), la tabla Apoyos y sus etiquetas 3D, para no
+// duplicar el criterio de detección (estructural por tipo de miembro, no por índice).
+// supportOverrides (global, ver tabla Apoyos) puede cambiar el tipo por nodo — se
+// reaplica aquí para que el .std exportado quede consistente con lo editado en la tabla.
+function _computeSupportNodes(cfg, nodes, members) {
+  const { anchorSet, structuralNodeIds } = _staadNodeRenumber(nodes, members);
+  const minZ = nodes.length ? Math.min(...nodes.map(n => n.z)) : 0;
+  const baseType = cfg.type === 'monopole' ? 'FIXED' : 'PINNED';
+  const supports = [];
+  nodes.forEach((n, i) => {
+    if (Math.abs(n.z - minZ) < 1e-6 && structuralNodeIds.has(i)) supports.push({ idx: i, type: baseType });
+  });
+  anchorSet.forEach(i => supports.push({ idx: i, type: 'FIXED' }));
+  supports.forEach(s => { if (supportOverrides[s.idx]) s.type = supportOverrides[s.idx]; });
+  return supports;
+}
+// Iconos de apoyo (símbolo de articulado/empotrado) — usados en etiquetas 3D y tabla.
+const SUPPORT_ICONS = {
+  PINNED: `<svg width="13" height="13" viewBox="0 0 14 14"><polygon points="7,1 1,11 13,11" fill="none" stroke="#22C55E" stroke-width="1.4"/><line x1="0" y1="13" x2="14" y2="13" stroke="#22C55E" stroke-width="1.2"/><line x1="1" y1="13" x2="3" y2="11" stroke="#22C55E" stroke-width="1"/><line x1="5" y1="13" x2="7" y2="11" stroke="#22C55E" stroke-width="1"/><line x1="9" y1="13" x2="11" y2="11" stroke="#22C55E" stroke-width="1"/></svg>`,
+  FIXED: `<svg width="13" height="13" viewBox="0 0 14 14"><line x1="1" y1="2" x2="13" y2="2" stroke="#FF6B4A" stroke-width="1.6"/><line x1="1" y1="2" x2="3" y2="5.5" stroke="#FF6B4A" stroke-width="1"/><line x1="4.7" y1="2" x2="6.7" y2="5.5" stroke="#FF6B4A" stroke-width="1"/><line x1="8.3" y1="2" x2="10.3" y2="5.5" stroke="#FF6B4A" stroke-width="1"/><line x1="11" y1="2" x2="13" y2="5.5" stroke="#FF6B4A" stroke-width="1"/></svg>`,
+};
+// Override manual de tipo de apoyo, vía tabla Apoyos — {idx: 'PINNED'|'FIXED'}. Mismo
+// criterio que nodeOverrides/memberOverrides: por índice de nodo, se reaplica en cada
+// regeneración (dentro de _computeSupportNodes), no a prueba de cambios estructurales.
+let supportOverrides = {};
+
+// ── Hoja de Revisiones — historial de cambios del proyecto, capturado a mano por el
+// usuario (no derivado de la geometría). Cada fila: {version, descripcion, autor, fecha}.
+// Fila inicial tomada de Revisiones.xlsx (2026-06-24) — no agregar/editar filas nuevas
+// por iniciativa propia, el usuario dicta cada actualización (ver feedback_tsa_revisiones).
+const REVISION_DATA_DEFAULT = [{ version: 'V1.0', descripcion: 'Publicación Inicial', autor: 'Juan Espinosa', fecha: '2026-06-20', locked: true }];
+let revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
+// Ícono real de la app (assets/icon.svg) embebido inline — así se ve igual en TSA.html
+// y en app\web\viewer.html sin depender de una ruta de archivo relativa distinta.
+const TSA_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="34" height="34">
+<defs><pattern id="rlogoGrid" width="13" height="13" patternUnits="userSpaceOnUse"><path d="M13,0 L0,0 L0,13" fill="none" stroke="#1A3A8A" stroke-width="0.4"/></pattern></defs>
+<rect width="256" height="256" rx="40" fill="#0C2266"/>
+<rect width="256" height="256" rx="40" fill="url(#rlogoGrid)" opacity="0.55"/>
+<rect x="8" y="8" width="240" height="240" rx="34" fill="none" stroke="white" stroke-width="3" opacity="0.88"/>
+<rect x="16" y="16" width="224" height="224" rx="27" fill="none" stroke="white" stroke-width="1.2" opacity="0.38"/>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="108,78 97,100 84,124 69,150 54,178 41,206 33,225 21,238" stroke="white" stroke-width="2" opacity="0.38"/>
+  <polyline points="148,78 159,100 172,124 187,150 202,178 215,206 223,225 235,238" stroke="white" stroke-width="2" opacity="0.38"/>
+  <polyline points="103,78 92,100 79,124 64,150 49,178 36,206 28,225 16,238" stroke="white" stroke-width="5.5"/>
+  <polyline points="153,78 164,100 177,124 192,150 207,178 220,206 228,225 240,238" stroke="white" stroke-width="5.5"/>
+  <line x1="103" y1="78"  x2="153" y2="78"  stroke="white" stroke-width="4.2"/>
+  <line x1="92"  y1="100" x2="164" y2="100" stroke="white" stroke-width="4"/>
+  <line x1="79"  y1="124" x2="177" y2="124" stroke="white" stroke-width="4"/>
+  <line x1="64"  y1="150" x2="192" y2="150" stroke="white" stroke-width="4"/>
+  <line x1="49"  y1="178" x2="207" y2="178" stroke="white" stroke-width="4"/>
+  <line x1="36"  y1="206" x2="220" y2="206" stroke="white" stroke-width="4"/>
+  <line x1="28"  y1="225" x2="228" y2="225" stroke="white" stroke-width="4"/>
+  <line x1="16"  y1="238" x2="240" y2="238" stroke="white" stroke-width="3.8"/>
+  <g stroke="white" stroke-width="3">
+    <line x1="103" y1="78"  x2="164" y2="100"/><line x1="153" y1="78"  x2="92"  y2="100"/>
+    <line x1="92"  y1="100" x2="177" y2="124"/><line x1="164" y1="100" x2="79"  y2="124"/>
+    <line x1="79"  y1="124" x2="192" y2="150"/><line x1="177" y1="124" x2="64"  y2="150"/>
+    <line x1="64"  y1="150" x2="207" y2="178"/><line x1="192" y1="150" x2="49"  y2="178"/>
+    <line x1="49"  y1="178" x2="220" y2="206"/><line x1="207" y1="178" x2="36"  y2="206"/>
+    <line x1="36"  y1="206" x2="228" y2="225"/><line x1="220" y1="206" x2="28"  y2="225"/>
+    <line x1="28"  y1="225" x2="240" y2="238"/><line x1="228" y1="225" x2="16"  y2="238"/>
+  </g>
+  <line x1="128" y1="78" x2="128" y2="30" stroke="white" stroke-width="4"/>
+  <line x1="114" y1="57" x2="142" y2="57" stroke="white" stroke-width="3"/>
+  <line x1="119" y1="44" x2="137" y2="44" stroke="white" stroke-width="2.5"/>
+  <rect x="120" y="40" width="16" height="20" stroke="white" stroke-width="3.2" rx="1.5"/>
+  <line x1="114" y1="62" x2="92"  y2="62" stroke="white" stroke-width="3"/>
+  <line x1="92"  y1="52" x2="92"  y2="73" stroke="white" stroke-width="2.5"/>
+  <circle cx="68" cy="62" r="24" stroke="white" stroke-width="4.5"/>
+  <line x1="44"  y1="62" x2="92"  y2="62" stroke="white" stroke-width="2"/>
+  <line x1="68"  y1="38" x2="68"  y2="86" stroke="white" stroke-width="2"/>
+  <rect x="87" y="57" width="10" height="10" stroke="white" stroke-width="2.5" rx="1"/>
+  <line x1="142" y1="57" x2="164" y2="57" stroke="white" stroke-width="3"/>
+  <rect x="163" y="40" width="19" height="34" stroke="white" stroke-width="4" rx="1.5"/>
+  <rect x="184" y="47" width="15" height="22" stroke="white" stroke-width="3.5" rx="1.5"/>
+  <line x1="163" y1="57" x2="163" y2="74" stroke="white" stroke-width="2.5"/>
+  <line x1="172" y1="74" x2="163" y2="74" stroke="white" stroke-width="2"/>
+</g>
+<circle cx="64"  cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="192" cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="49"  cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="207" cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="128" cy="238" r="5.5" fill="#0C2266" stroke="white" stroke-width="2.5"/>
+<circle cx="128" cy="30" r="4"   fill="white"/>
+<circle cx="128" cy="30" r="7.5" fill="none" stroke="white" stroke-width="1.5" opacity="0.45"/>
+</svg>`;
+function openTablaRevisiones() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  renderTablaRevisiones();
+  document.getElementById('tabla-revisiones-overlay').classList.add('open');
+}
+function closeTablaRevisiones() {
+  document.getElementById('tabla-revisiones-overlay').classList.remove('open');
+}
+// Tabla 100% de solo lectura — ni agregar ni borrar ni editar desde la UI. El usuario
+// dicta cada actualización por chat y Claude la agrega directo en REVISION_DATA_DEFAULT/
+// revisionData (ver feedback_tsa_revisiones); no hay controles de edición aquí a propósito.
+function renderTablaRevisiones() {
+  const body = document.getElementById('tabla-revisiones-body');
+  if (!body) return;
+  const revNum = String(revisionData.length).padStart(2, '0');
+  const rows = revisionData.map(r => `
+    <tr>
+      <td>${r.version}</td>
+      <td>${r.descripcion}</td>
+      <td>${r.autor}</td>
+      <td>${r.fecha}</td>
+    </tr>`).join('');
+  body.innerHTML = `
+    <table class="rev-titleblock">
+      <tr>
+        <td class="rev-logo" rowspan="2"><div class="rev-logo-box">${TSA_ICON_SVG}</div></td>
+        <td class="rev-title">Tower Structural Analysis</td>
+        <td class="rev-rev" rowspan="2">Rev.:<br><b>${revNum}</b></td>
+      </tr>
+      <tr><td class="rev-subtitle">HOJA DE REVISIONES</td></tr>
+    </table>
+    <table class="ret-table db-table" style="margin-top:8px;">
+      <thead><tr><th style="width:60px;">Versión</th><th>Descripción del Cambio</th><th style="width:120px;">Autor</th><th style="width:120px;">Fecha</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
+      El historial de revisiones se actualiza directamente con el equipo de desarrollo.
+    </div>`;
+}
+
+// ── Tabla → Nodos / Barras / Retenidas ──────────────────────────────────────
+// Mismo patrón de candado que BASES DE DATOS (dbEditUnlocked): abren bloqueadas,
+// el usuario decide habilitar edición con el ícono 🔒/🔓.
+let tablaNodosUnlocked = false, tablaBarrasUnlocked = false, tablaRetenidasUnlocked = false;
+
+function openTablaNodos() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  tablaNodosUnlocked = false;
+  document.getElementById('tabla-nodos-lock-btn').textContent = '🔒';
+  renderTablaNodos();
+  document.getElementById('tabla-nodos-overlay').classList.add('open');
+}
+function closeTablaNodos() {
+  document.getElementById('tabla-nodos-overlay').classList.remove('open');
+  _stopBlink();
+}
+function toggleTablaNodosLock() {
+  tablaNodosUnlocked = !tablaNodosUnlocked;
+  document.getElementById('tabla-nodos-lock-btn').textContent = tablaNodosUnlocked ? '🔓' : '🔒';
+  renderTablaNodos();
+}
+function renderTablaNodos() {
+  if (!_towerData) return;
+  const dis = tablaNodosUnlocked ? '' : 'disabled';
+  const { order, newId } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
+  const rows = order.map(i => {
+    const n = _towerData.nodes[i];
+    return `
+    <tr class="ret-row-clickable" data-idx="${i}" onclick="blinkNodeAt(${i});_highlightTableRow(this)">
+      <td>${newId[i]}</td>
+      <td><input type="number" step="0.01" value="${n.x.toFixed(4)}" ${dis} onchange="setNodeOverride(${i},'x',this.value)" onclick="event.stopPropagation()"></td>
+      <td><input type="number" step="0.01" value="${n.y.toFixed(4)}" ${dis} onchange="setNodeOverride(${i},'y',this.value)" onclick="event.stopPropagation()"></td>
+      <td><input type="number" step="0.01" value="${n.z.toFixed(4)}" ${dis} onchange="setNodeOverride(${i},'z',this.value)" onclick="event.stopPropagation()"></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tabla-nodos-body').innerHTML = `
+    <table class="ret-table db-table">
+      <thead><tr><th>Nodo</th><th>X (m)</th><th>Y (m)</th><th>Z (m)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
+      Mover un nodo aquí es un ajuste manual sobre la geometría generada — si después
+      cambias parámetros que regeneran la torre desde cero (tipo de estructura, número
+      de secciones), el ajuste puede dejar de corresponder al mismo nodo físico.
+    </div>`;
+}
+function setNodeOverride(idx, axis, value) {
+  const val = parseFloat(value);
+  if (!Number.isFinite(val)) return;
+  const cur = _towerData.nodes[idx];
+  nodeOverrides[idx] = { x: cur.x, y: cur.y, z: cur.z, ...(nodeOverrides[idx] || {}), [axis]: val };
+  _unsavedChanges = true;
+  refresh();
+  renderTablaNodos();
+}
+// Cambia a qué nodo conecta el extremo (ni/nj) de una barra/retenida — el valor que
+// captura el usuario es el número de nodo MOSTRADO (renumerado), hay que convertirlo
+// al índice real con el mismo "order" que usa _staadNodeRenumber.
+function setMemberNodeOverride(memberIdx, which, value) {
+  const shown = parseInt(value, 10);
+  if (!Number.isFinite(shown)) return;
+  const { order } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
+  if (shown < 1 || shown > order.length) {
+    showToast('Número de nodo fuera de rango.');
+    renderTablaBarras(); renderTablaRetenidas();
+    return;
+  }
+  const origIdx = order[shown - 1];
+  const m = _towerData.members[memberIdx];
+  const otherEnd = which === 'ni' ? m.nj : m.ni;
+  if (origIdx === otherEnd) {
+    showToast('Los dos extremos no pueden ser el mismo nodo.');
+    renderTablaBarras(); renderTablaRetenidas();
+    return;
+  }
+  memberOverrides[memberIdx] = { ...(memberOverrides[memberIdx] || {}), [which]: origIdx };
+  _unsavedChanges = true;
+  refresh();
+  renderTablaBarras();
+  renderTablaRetenidas();
+}
+
+function openTablaBarras() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  tablaBarrasUnlocked = false;
+  document.getElementById('tabla-barras-lock-btn').textContent = '🔒';
+  renderTablaBarras();
+  document.getElementById('tabla-barras-overlay').classList.add('open');
+}
+function closeTablaBarras() {
+  document.getElementById('tabla-barras-overlay').classList.remove('open');
+  _stopBlink();
+}
+function toggleTablaBarrasLock() {
+  tablaBarrasUnlocked = !tablaBarrasUnlocked;
+  document.getElementById('tabla-barras-lock-btn').textContent = tablaBarrasUnlocked ? '🔓' : '🔒';
+  renderTablaBarras();
+}
+// Construye las filas de Barras o Retenidas — comparten estructura (Barra/Nodo A/
+// Nodo B/Perfil/Material/Longitud), solo cambia el filtro de tipo de miembro.
+function _tablaBarrasRows(filterFn, unlocked, editable) {
+  const { nodes, members } = _towerData;
+  const { newId } = _staadMemberRenumber(nodes, members);
+  const { newId: nodeNewId } = _staadNodeRenumber(nodes, members);
+  const order = members.map((_, i) => i).filter(i => filterFn(members[i])).sort((a, b) => newId[a] - newId[b]);
+  return order.map(i => {
+    const m = members[i];
+    const ni = nodes[m.ni], nj = nodes[m.nj];
+    const len = Math.hypot(nj.x-ni.x, nj.y-ni.y, nj.z-ni.z);
+    const gp = getMemberProfile(m);
+    const dis = unlocked ? '' : 'disabled';
+    const perfilCell = editable
+      ? `<button class="btn" style="width:100%;text-align:left;padding:4px 8px;font-size:11px;" ${dis}
+           onclick="event.stopPropagation();_pickTablaProfile(${i})">${gp.profile || '—'}</button>`
+      : `<input type="text" value="${gp.profile || '—'}" disabled>`;
+    return `<tr class="ret-row-clickable" data-idx="${i}" onclick="blinkMemberAt(_towerData.members[${i}]);_highlightTableRow(this)">
+      <td>${newId[i]}</td>
+      <td><input type="number" step="1" min="1" value="${nodeNewId[m.ni]}" ${dis}
+            onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'ni',this.value)"></td>
+      <td><input type="number" step="1" min="1" value="${nodeNewId[m.nj]}" ${dis}
+            onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'nj',this.value)"></td>
+      <td>${perfilCell}</td>
+      <td><input type="text" value="${gp.calidadName || '—'}" disabled></td>
+      <td>${len.toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+}
+function renderTablaBarras() {
+  if (!_towerData) return;
+  const noCables = m => m.type !== 'guy';
+  const rows = _tablaBarrasRows(noCables, tablaBarrasUnlocked, true);
+  document.getElementById('tabla-barras-body').innerHTML = `
+    <table class="ret-table db-table">
+      <thead><tr><th>Barra</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (m)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
+      La numeración de Barra coincide con la del export a STAAD. Nodo A/B son
+      instrucción de generación (índice real de nodo), no texto editable aquí.
+    </div>`;
+}
+// Edita Perfil+Material de una barra abriendo el mismo buscador de perfiles que usa
+// el modal de sección — escribe en el campo de secData que corresponda según el tipo
+// de miembro (misma lógica de getMemberProfile(), en sentido inverso).
+function _pickTablaProfile(memberIdx) {
+  const m = _towerData.members[memberIdx];
+  const gp = getMemberProfile(m);
+  openProfilePicker('tablaBarra', {
+    currentValue: gp.profile !== '—' ? gp.profile : null,
+    currentCal: gp.calidadName || '-',
+    onPick: (val, cal) => { _setMemberProfileField(m, val, cal); renderTablaBarras(); }
+  });
+}
+function _setMemberProfileField(m, profileVal, calidadVal) {
+  const sd = (m.sec != null) ? secData[m.sec] : null;
+  const isPrincipal = m.principal !== false;
+  if (m.type === 'guy') return; // los cables usan su propio buscador de diámetros (Bases de Datos → Retenidas)
+  if (!sd) return;
+  if (m.type === 'leg') { sd.M = profileVal; sd.MCal = calidadVal; }
+  else if (m.type === 'diagonal') {
+    if (isPrincipal) { sd.D = profileVal; sd.DCal = calidadVal; }
+    else { sd.Ds = profileVal; sd.DsCal = calidadVal; }
+  } else if (m.type === 'horizontal') {
+    if (isPrincipal) {
+      if (sd.Htop && sd.Htop !== '-') { sd.Htop = profileVal; sd.HtopCal = calidadVal; }
+      else { sd.Hbay = profileVal; sd.HbayCal = calidadVal; }
+    } else { sd.Hs = profileVal; sd.HsCal = calidadVal; }
+  } else if (m.type === 'planbrace') {
+    if (m.isTop) { if (m.isCorner) { sd.PbTop2 = profileVal; sd.PbTop2Cal = calidadVal; } else { sd.PbTop = profileVal; sd.PbTopCal = calidadVal; } }
+    else { if (m.isCorner) { sd.PbBay2 = profileVal; sd.PbBay2Cal = calidadVal; } else { sd.PbBay = profileVal; sd.PbBayCal = calidadVal; } }
+  } else if (m.type === 'hipbrace') {
+    if (m.isDiag) { sd.HhipD = profileVal; sd.HhipDCal = calidadVal; }
+    else if (m.isDiaphragm) { sd.HhipDia = profileVal; sd.HhipDiaCal = calidadVal; }
+    else { sd.HhipH = profileVal; sd.HhipHCal = calidadVal; }
+  } else { return; }
+  _unsavedChanges = true;
+  refresh();
+}
+
+function openTablaRetenidas() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  tablaRetenidasUnlocked = false;
+  document.getElementById('tabla-retenidas-lock-btn').textContent = '🔒';
+  renderTablaRetenidas();
+  document.getElementById('tabla-retenidas-overlay').classList.add('open');
+}
+function closeTablaRetenidas() {
+  document.getElementById('tabla-retenidas-overlay').classList.remove('open');
+  _stopBlink();
+}
+function toggleTablaRetenidasLock() {
+  tablaRetenidasUnlocked = !tablaRetenidasUnlocked;
+  document.getElementById('tabla-retenidas-lock-btn').textContent = tablaRetenidasUnlocked ? '🔓' : '🔒';
+  renderTablaRetenidas();
+}
+function renderTablaRetenidas() {
+  if (!_towerData || !document.getElementById('tabla-retenidas-body')) return;
+  const onlyCables = m => m.type === 'guy';
+  // Perfil de cable NO editable aquí — usa diamData estructurado (no un texto simple);
+  // se sigue editando desde Bases de Datos → Retenidas, igual que hoy.
+  const rows = _tablaBarrasRows(onlyCables, tablaRetenidasUnlocked, false);
+  document.getElementById('tabla-retenidas-body').innerHTML = `
+    <table class="ret-table db-table">
+      <thead><tr><th>Retenida</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (m)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
+      Perfil/Material de los cables se editan desde Bases de Datos → Retenidas (usan un
+      dato estructurado de diámetro, no un texto simple) — aquí son de solo lectura.
+    </div>`;
+}
+
+// ── Tabla Apoyos — derivada de _computeSupportNodes(), mismo criterio que SUPPORTS en
+// exportSTAAD. Solo lectura: el tipo de apoyo es una regla por tipo de torre, no un
+// dato que se capture manualmente por nodo.
+function openTablaApoyos() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  renderTablaApoyos();
+  document.getElementById('tabla-apoyos-overlay').classList.add('open');
+}
+function closeTablaApoyos() {
+  document.getElementById('tabla-apoyos-overlay').classList.remove('open');
+  _stopBlink();
+}
+function renderTablaApoyos() {
+  if (!_towerData || !document.getElementById('tabla-apoyos-body')) return;
+  const cfg = getConfig();
+  const { newId } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
+  const supports = _computeSupportNodes(cfg, _towerData.nodes, _towerData.members)
+    .sort((a, b) => newId[a.idx] - newId[b.idx]);
+  const rows = supports.map(({idx, type}) => `
+    <tr class="ret-row-clickable" data-idx="${idx}" onclick="blinkNodeAt(${idx});_highlightTableRow(this)">
+      <td>${newId[idx]}</td>
+      <td style="display:flex;align-items:center;gap:6px;">
+        ${SUPPORT_ICONS[type]}
+        <select onclick="event.stopPropagation()" onchange="setSupportOverride(${idx},this.value)" style="flex:1;">
+          <option value="PINNED" ${type==='PINNED'?'selected':''}>PINNED</option>
+          <option value="FIXED" ${type==='FIXED'?'selected':''}>FIXED</option>
+        </select>
+      </td>
+    </tr>`).join('');
+  document.getElementById('tabla-apoyos-body').innerHTML = supports.length ? `
+    <table class="ret-table db-table">
+      <thead><tr><th>Nodo</th><th>Tipo de apoyo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : `
+    <div class="db-placeholder" style="padding:20px 0;">
+      <span style="font-size:10px;">No se detectaron apoyos — genere la torre primero.</span>
+    </div>`;
+}
+function setSupportOverride(idx, type) {
+  supportOverrides[idx] = type;
+  _unsavedChanges = true;
+  renderTablaApoyos();
+  if (apoyosLabelsOn) _buildApoyosLabels();
+}
+
+// Mismo criterio que ya usan las tablas Barras/Retenidas (getMemberProfile() → '—' o
+// calidadName vacío = falta capturar). Se revisa sobre _towerData.members (el modelo
+// visual) y no sobre el split/dedupe interno de exportSTAAD, porque partir una diagonal
+// en el cruce no cambia su tipo/sección/principal — el resultado de getMemberProfile()
+// es el mismo antes y después del split.
+// Discretiza Retenidas (type:'guy') aparte de Barras — distinto modelo de datos (cable
+// diam/calidad, no un perfil de catálogo), así que el usuario las quiere contadas por
+// separado en el aviso, no mezcladas en el mismo conteo de "Barras".
+function _findMissingProfileMembers() {
+  if (!_towerData) return { sinPerfil: [], sinCalidad: [], sinPerfilRet: [], sinCalidadRet: [], all: [] };
+  const sinPerfil = [], sinCalidad = [], sinPerfilRet = [], sinCalidadRet = [];
+  _towerData.members.forEach(m => {
+    const { profile, calidadName } = getMemberProfile(m);
+    // Los campos *Cal de secData se inicializan en '-' (mismo criterio que los de perfil,
+    // ver buildSectionRows) — getMemberProfile() devuelve ese '-' tal cual, sin normalizar
+    // a null, así que hay que revisarlo aquí también y no solo el falsy genérico.
+    const faltaPerfil = profile === '—';
+    const faltaCalidad = !calidadName || calidadName === '-';
+    if (m.type === 'guy') {
+      if (faltaPerfil) sinPerfilRet.push(m);
+      if (faltaCalidad) sinCalidadRet.push(m);
+    } else {
+      if (faltaPerfil) sinPerfil.push(m);
+      if (faltaCalidad) sinCalidad.push(m);
+    }
+  });
+  const all = [...new Set([...sinPerfil, ...sinCalidad, ...sinPerfilRet, ...sinCalidadRet])];
+  return { sinPerfil, sinCalidad, sinPerfilRet, sinCalidadRet, all };
+}
+// Parpadeo MÚLTIPLE y simultáneo (azul) de los miembros sin perfil/calidad, mientras el
+// aviso de exportación está abierto — independiente del parpadeo de selección de las
+// tablas (_blinkObj), que es de un solo objeto y ya no parpadea por diseño. Misma técnica
+// que _highlightMember() (_makeHighlightLine), pero con blending ADITIVO: en bahías con
+// varias diagonales cortas muy juntas (ej. patrones K/hip), el antialiasing de cada borde
+// se mezclaba con el fondo oscuro y el brillo promedio de esa zona se veía más bajo —
+// con blending aditivo, donde varias líneas se traslapan el brillo se SUMA en vez de
+// diluirse, así que esas zonas densas quedan igual o más intensas, no menos.
+let _exportBlinkObjs = [];
+let _exportBlinkInterval = null;
+function _startExportBlink(members) {
+  _stopExportBlink();
+  _exportBlinkObjs = members.map(m => {
+    const line = _makeHighlightLine(_towerData.nodes[m.ni], _towerData.nodes[m.nj], 0x2266FF);
+    line.material.blending = THREE.AdditiveBlending;
+    scene.add(line);
+    return line;
+  });
+  _exportBlinkInterval = setInterval(() => {
+    _exportBlinkObjs.forEach(o => { o.visible = !o.visible; });
+  }, 250);
+}
+function _stopExportBlink() {
+  if (_exportBlinkInterval) { clearInterval(_exportBlinkInterval); _exportBlinkInterval = null; }
+  _exportBlinkObjs.forEach(o => { o.geometry?.dispose(); o.material?.dispose(); scene.remove(o); });
+  _exportBlinkObjs = [];
+}
+// El panel de aviso se reutiliza para dos validaciones encadenadas (datos de proyecto →
+// perfil/calidad) — _exportConfirmStep guarda qué hacer si el usuario pulsa "Exportar" en
+// el aviso que esté abierto en ese momento.
+let _exportConfirmStep = null;
+function cancelExportWarning() {
+  document.getElementById('export-warning-overlay').classList.remove('open');
+  _stopExportBlink();
+  _exportConfirmStep = null;
+}
+function confirmExportAnyway() {
+  document.getElementById('export-warning-overlay').classList.remove('open');
+  _stopExportBlink();
+  const next = _exportConfirmStep;
+  _exportConfirmStep = null;
+  if (next) next();
+}
+
 function exportSTAAD() {
   document.getElementById('export-menu').classList.remove('open');
   if (!projectGenerated) {
@@ -5610,6 +6505,163 @@ function exportSTAAD() {
     showToast(msg);
     return;
   }
+  const missingInfo = _findMissingProjectInfo();
+  if (missingInfo.length) {
+    // Restrictivo — a diferencia del aviso de perfil/calidad, este NO deja exportar de
+    // ningún modo (sin botón "Exportar"): faltar estos datos puede dejar el .std
+    // inválido para STAAD.Pro, así que hay que completarlos sí o sí antes de exportar.
+    document.getElementById('export-warning-message').textContent =
+      'Faltan datos del panel PROYECTO. Complétalos antes de exportar — alguno puede generar un error al abrir el .std en STAAD.Pro.';
+    document.getElementById('export-warning-count').innerHTML = `Falta: <b>${missingInfo.join(', ')}</b>`;
+    document.getElementById('export-warning-confirm-btn').style.display = 'none';
+    document.getElementById('export-warning-cancel-btn').textContent = 'Cerrar';
+    document.getElementById('export-warning-overlay').classList.add('open');
+    _exportConfirmStep = null;
+    return;
+  }
+  _checkProfilesAndExportSTAAD();
+}
+function _checkProfilesAndExportSTAAD() {
+  document.getElementById('export-warning-confirm-btn').style.display = '';
+  document.getElementById('export-warning-cancel-btn').textContent = 'Cancelar';
+  document.getElementById('export-warning-message').textContent =
+    'Uno o más elementos no cuentan con Perfilería o Calidad de acero.';
+  const { sinPerfil, sinCalidad, sinPerfilRet, sinCalidadRet, all } = _findMissingProfileMembers();
+  if (all.length) {
+    let lines = `Barras sin perfil: <b>${sinPerfil.length}</b><br>Barras sin Calidad: <b>${sinCalidad.length}</b>`;
+    if (sinPerfilRet.length || sinCalidadRet.length) {
+      lines += `<br>Retenidas sin perfil: <b>${sinPerfilRet.length}</b><br>Retenidas sin Calidad: <b>${sinCalidadRet.length}</b>`;
+    }
+    document.getElementById('export-warning-count').innerHTML = lines;
+    document.getElementById('export-warning-overlay').classList.add('open');
+    _startExportBlink(all);
+    _exportConfirmStep = _doExportSTAAD;
+    return;
+  }
+  _doExportSTAAD();
+}
+
+// ── Numeración EXCLUSIVA del export STAAD — miles por sección (2026-06-24, ver memoria
+// feedback_tsa_staad_groups). _staadNodeRenumber/_staadMemberRenumber NO se tocan: siguen
+// siendo la numeración secuencial que ve el usuario en el visor 3D y las tablas. Estas dos
+// funciones son una numeración PARALELA, usada únicamente dentro de _doExportSTAAD().
+//
+// Sección i (1-based) -> IDs base (i*1000). Dentro de cada sección: Montantes, luego
+// Diagonales principales, luego Diagonales secundarias (Ds) — únicas reglas confirmadas
+// hasta ahora — y el resto de tipos de esa sección (sin regla de grupo todavía) después,
+// por prioridad/elevación, numerados pero sin línea de GROUP DEFINITION.
+//
+// Nodo límite entre sección i e i+1 (mismo nodo físico, tocado por miembros de ambas) →
+// se asigna a la sección de ARRIBA (i+1), por instrucción explícita del usuario.
+//
+// Miembros/nodos sin sección (retenidas, estabilizador triangular — type:'guy' y afines no
+// llevan m.sec) van después del último bloque de sección, numerados secuencialmente, como
+// placeholder hasta que se dé su regla.
+// Nombre de grupo COMPLETO, ya armado — con prefijo _SECi_ para los tipos que sí tienen
+// m.sec (montantes, diagonales, horizontales, plan/hip bracing); SIN prefijo de sección
+// para retenidas/estabilizador (RN/EST/ESTP/ESTT), que se agrupan por NIVEL (m.guyLevel),
+// no por sección, porque esos miembros no llevan m.sec. null = todavía sin regla de grupo
+// (horizPuntal/horizTensor, por ahora). Reglas dadas paso a paso — ver memoria
+// feedback_tsa_staad_groups.
+function _exportGroupName(m, sec) {
+  if (m.type === 'leg') return `_SEC${sec+1}_M`;
+  if (m.type === 'diagonal') return m.principal !== false ? `_SEC${sec+1}_D` : `_SEC${sec+1}_Ds`;
+  if (m.type === 'horizontal') {
+    if (m.principal === false) return `_SEC${sec+1}_Hs`;
+    return m.isTop ? `_SEC${sec+1}_HT` : `_SEC${sec+1}_HB`;
+  }
+  if (m.type === 'planbrace') {
+    if (m.isTop) return m.isCorner ? `_SEC${sec+1}_PB2HT` : `_SEC${sec+1}_PBHT`;
+    return m.isCorner ? `_SEC${sec+1}_PB2HB` : `_SEC${sec+1}_PBHB`;
+  }
+  if (m.type === 'hipbrace') return m.isDiag ? `_SEC${sec+1}_HBD` : `_SEC${sec+1}_HBH`;
+  if (m.type === 'guy')      return `RN${m.guyLevel}`;
+  if (m.type === 'stabarm')  return `EST${m.guyLevel}`;
+  if (m.type === 'puntal')   return `ESTP${m.guyLevel}`;
+  if (m.type === 'tensor')   return `ESTT${m.guyLevel}`;
+  return null;   // horizPuntal/horizTensor: aún sin regla
+}
+// Orden DENTRO de cada sección, en el orden en que se fueron dando las reglas.
+const _SEC_GROUP_ORDER = ['M','D','Ds','HT','HB','Hs','PBHT','PB2HT','PBHB','PB2HB','HBD','HBH'];
+function _exportSecSubKey(m) {
+  if (m.type === 'leg') return 'M';
+  if (m.type === 'diagonal') return m.principal !== false ? 'D' : 'Ds';
+  if (m.type === 'horizontal') return m.principal === false ? 'Hs' : (m.isTop ? 'HT' : 'HB');
+  if (m.type === 'planbrace') return m.isTop ? (m.isCorner ? 'PB2HT' : 'PBHT') : (m.isCorner ? 'PB2HB' : 'PBHB');
+  if (m.type === 'hipbrace') return m.isDiag ? 'HBD' : 'HBH';
+  return null;
+}
+// Orden entre tipos sin sección (retenidas/estabilizador), dentro de un mismo nivel —
+// según el orden en que el usuario los fue dictando: Retenidas, Estabilizador, Puntales,
+// Tensores. horizPuntal/horizTensor (sin regla) quedan junto a su tipo principal.
+const _NOSEC_TYPE_ORDER = ['guy', 'stabarm', 'puntal', 'horizPuntal', 'tensor', 'horizTensor'];
+function _exportMemberRenumber(nodes, members) {
+  const bySec = {}, noSec = [];
+  members.forEach((m, i) => { if (m.sec != null) (bySec[m.sec] = bySec[m.sec] || []).push(i); else noSec.push(i); });
+  const secs = Object.keys(bySec).map(Number).sort((a, b) => a - b);
+  const elev = i => (nodes[members[i].ni].z + nodes[members[i].nj].z) / 2;
+  const subPriority = i => {
+    const key = _exportSecSubKey(members[i]);
+    const pos = key ? _SEC_GROUP_ORDER.indexOf(key) : -1;
+    return pos >= 0 ? pos : 100 + _staadTypePriority(members[i]);   // resto: numerado, sin grupo todavía
+  };
+  const order = [], newId = new Array(members.length), groupRanges = {};
+  secs.forEach(sec => {
+    const base = (sec + 1) * 1000;
+    const idxs = bySec[sec].slice().sort((a, b) => {
+      const pa = subPriority(a), pb = subPriority(b);
+      return pa !== pb ? pa - pb : elev(a) - elev(b);
+    });
+    idxs.forEach((origIdx, pos) => {
+      const id = base + pos;
+      newId[origIdx] = id; order.push(origIdx);
+      const gname = _exportGroupName(members[origIdx], sec);
+      if (gname) (groupRanges[gname] = groupRanges[gname] || []).push(id);
+    });
+  });
+  // Sin sección (retenidas/estabilizador) — numerados después del último bloque de
+  // sección, ordenados por NIVEL (guyLevel) y luego por tipo (RN, EST, ESTP, ESTT...).
+  // Sin esquema de miles propio todavía (no se ha dado esa regla para niveles).
+  let nextId = secs.length ? (secs[secs.length - 1] + 1) * 1000 + bySec[secs[secs.length - 1]].length : 1;
+  const levelsSet = new Set();
+  noSec.forEach(i => { if (members[i].guyLevel != null) levelsSet.add(members[i].guyLevel); });
+  const levels = [...levelsSet].sort((a, b) => a - b);
+  noSec.sort((a, b) => {
+    const ma = members[a], mb = members[b];
+    const la = ma.guyLevel ?? 0, lb = mb.guyLevel ?? 0;
+    if (la !== lb) return la - lb;
+    const ta = _NOSEC_TYPE_ORDER.indexOf(ma.type), tb = _NOSEC_TYPE_ORDER.indexOf(mb.type);
+    if (ta !== tb) return ta - tb;
+    return elev(a) - elev(b);
+  }).forEach(origIdx => {
+    const id = nextId++;
+    newId[origIdx] = id; order.push(origIdx);
+    const gname = _exportGroupName(members[origIdx], null);
+    if (gname) (groupRanges[gname] = groupRanges[gname] || []).push(id);
+  });
+  return { order, newId, groupRanges, secs, levels };
+}
+function _exportNodeRenumber(nodes, members) {
+  const nodeSec = new Array(nodes.length).fill(null);
+  members.forEach(m => {
+    if (m.sec == null) return;
+    [m.ni, m.nj].forEach(ni => { if (nodeSec[ni] == null || m.sec > nodeSec[ni]) nodeSec[ni] = m.sec; });
+  });
+  const bySec = {}, noSec = [];
+  nodes.forEach((n, i) => { if (nodeSec[i] != null) (bySec[nodeSec[i]] = bySec[nodeSec[i]] || []).push(i); else noSec.push(i); });
+  const secs = Object.keys(bySec).map(Number).sort((a, b) => a - b);
+  const order = [], newId = new Array(nodes.length);
+  secs.forEach(sec => {
+    const base = (sec + 1) * 1000;
+    const idxs = bySec[sec].slice().sort((a, b) => nodes[a].z - nodes[b].z);
+    idxs.forEach((origIdx, pos) => { newId[origIdx] = base + pos; order.push(origIdx); });
+  });
+  let nextId = secs.length ? (secs[secs.length - 1] + 1) * 1000 + bySec[secs[secs.length - 1]].length : 1;
+  noSec.sort((a, b) => nodes[a].z - nodes[b].z).forEach(origIdx => { newId[origIdx] = nextId++; order.push(origIdx); });
+  return { order, newId, secs };
+}
+
+function _doExportSTAAD() {
 
   const cfg  = getConfig();
   // Monopolo: solo se exporta el eje (1 nodo por límite de tramo, 1 barra por tramo) —
@@ -5650,29 +6702,39 @@ function exportSTAAD() {
   out += `INPUT WIDTH 79\n`;
   out += `${staadUnit}\n`;
 
+  const { order: nodeOrder, newId: nodeNewId } = _exportNodeRenumber(nodes, members);
   out += `JOINT COORDINATES\n`;
-  nodes.forEach((_, i) => { out += `${i+1} ${sx(i)} ${sy(i)} ${sz(i)}\n`; });
+  out += _staadWrapGroups(nodeOrder.map(origIdx => `${nodeNewId[origIdx]} ${sx(origIdx)} ${sy(origIdx)} ${sz(origIdx)}`));
 
-  const { order: memberOrder, newId: memberNewId } = _staadMemberRenumber(nodes, members);
+  const { order: memberOrder, newId: memberNewId, groupRanges, secs: memberSecs, levels: memberLevels } = _exportMemberRenumber(nodes, members);
   out += `MEMBER INCIDENCES\n`;
-  memberOrder.forEach(origIdx => {
+  out += _staadWrapGroups(memberOrder.map(origIdx => {
     const m = members[origIdx];
-    out += `${memberNewId[origIdx]} ${m.ni+1} ${m.nj+1}\n`;
-  });
+    return `${memberNewId[origIdx]} ${nodeNewId[m.ni]} ${nodeNewId[m.nj]}`;
+  }));
 
-  // ── GROUP DEFINITION — montantes (piernas) agrupados por sección, _SECi_M, con
-  // TODAS sus bahías incluidas (m.sec ya es índice de sección, no de bahía). Reglas
-  // dadas paso a paso por el usuario (2026-06-22) — ver memoria feedback_tsa_staad_groups.
-  const montanteGroups = {};   // sec (0-based) -> [ids]
-  members.forEach((m, i) => {
-    if (m.type === 'leg') (montanteGroups[m.sec] = montanteGroups[m.sec] || []).push(memberNewId[i]);
-  });
-  const montanteSecs = Object.keys(montanteGroups).map(Number).sort((a, b) => a - b);
-  if (montanteSecs.length) {
+  // ── GROUP DEFINITION — un bloque por sección (comentario *SECCION i) con Montantes/
+  // Diagonales/Horizontales/Plan Bracing/Hip Bracing, y un bloque por NIVEL de retenida
+  // (comentario *NIVEL i) con Retenidas/Estabilizador/Puntales/Tensores (RN/EST/ESTP/ESTT
+  // — estos NO llevan prefijo _SECi_ porque esos miembros no tienen m.sec). Reglas dadas
+  // paso a paso — ver memoria feedback_tsa_staad_groups. Se omite la línea de un tipo si
+  // esa sección/nivel no lo genera.
+  if (memberSecs.length || memberLevels.length) {
     out += `START GROUP DEFINITION\n`;
     out += `MEMBER\n`;
-    montanteSecs.forEach(sec => {
-      out += `_SEC${sec+1}_M ${_staadIdRanges(montanteGroups[sec])}\n`;
+    memberSecs.forEach(sec => {
+      out += `*\n*SECCION ${sec+1}\n*\n`;
+      _SEC_GROUP_ORDER.forEach(suf => {
+        const ids = groupRanges[`_SEC${sec+1}_${suf}`];
+        if (ids?.length) out += `_SEC${sec+1}_${suf} ${_staadIdRanges(ids)}\n`;
+      });
+    });
+    memberLevels.forEach(lvl => {
+      out += `*\n*NIVEL ${lvl}\n*\n`;
+      ['RN', 'EST', 'ESTP', 'ESTT'].forEach(pref => {
+        const ids = groupRanges[`${pref}${lvl}`];
+        if (ids?.length) out += `${pref}${lvl} ${_staadIdRanges(ids)}\n`;
+      });
     });
     out += `END GROUP DEFINITION\n`;
   }
@@ -5728,37 +6790,67 @@ function exportSTAAD() {
   out += `DENSITY ${steelDens} ALL\n`;
   out += `POISSON 0.3 ALL\n`;
 
-  // ── SUPPORTS — base (PINNED autosoportada/guyed, FIXED monopolo) + anclajes de
-  // retenida (FIXED). Nodos detectados por tipo de miembro, no por índice, para que
-  // sobreviva cualquier renumeración de _dedupeNodes()/_splitCrossingDiagonals().
-  const structuralTypes = new Set(['leg','diagonal','horizontal','planbrace','hipbrace','monothk']);
-  const structuralNodeIds = new Set();
-  members.forEach(m => { if (structuralTypes.has(m.type)) { structuralNodeIds.add(m.ni); structuralNodeIds.add(m.nj); } });
-  const guyNodeIds = new Set();
-  members.forEach(m => { if (m.type === 'guy') { guyNodeIds.add(m.ni); guyNodeIds.add(m.nj); } });
-  // Anclaje = nodo de un cable que NUNCA aparece en un miembro estructural (la pierna
-  // sí aparece en ambos, así que queda excluida automáticamente).
-  const anchorNodeIds = [...guyNodeIds].filter(id => !structuralNodeIds.has(id));
-  const minZ = nodes.length ? Math.min(...nodes.map(n => n.z)) : 0;
-  const baseNodeIds = [];
-  nodes.forEach((n, i) => { if (Math.abs(n.z - minZ) < 1e-6 && structuralNodeIds.has(i)) baseNodeIds.push(i); });
-  if (baseNodeIds.length || anchorNodeIds.length) {
+  // ── SUPPORTS — ver _computeSupportNodes() (compartida con la tabla Apoyos y sus
+  // etiquetas 3D, mismo criterio de detección por tipo de miembro, no por índice).
+  const supportNodes = _computeSupportNodes(cfg, nodes, members);
+  const pinnedIds = supportNodes.filter(s => s.type === 'PINNED').map(s => nodeNewId[s.idx]);
+  const fixedIds  = supportNodes.filter(s => s.type === 'FIXED').map(s => nodeNewId[s.idx]);
+  if (pinnedIds.length || fixedIds.length) {
     out += `SUPPORTS\n`;
-    if (baseNodeIds.length) {
-      const supportType = cfg.type === 'monopole' ? 'FIXED' : 'PINNED';
-      out += `${_staadIdRanges(baseNodeIds.map(i => i+1))} ${supportType}\n`;
-    }
-    if (anchorNodeIds.length) {
-      out += `${_staadIdRanges(anchorNodeIds.map(i => i+1))} FIXED\n`;
-    }
+    if (pinnedIds.length) out += `${_staadIdRanges(pinnedIds)} PINNED\n`;
+    if (fixedIds.length)  out += `${_staadIdRanges(fixedIds)} FIXED\n`;
   }
 
   out += `FINISH\n`;
+
+  // Todo el archivo en mayúsculas — convención STAAD, pedido explícito del usuario
+  // (2026-06-24). Va al final, sobre el texto ya armado, para no tener que mayuscular
+  // cada campo individualmente en cada línea.
+  out = out.toUpperCase();
 
   const blob = new Blob([out], { type: 'text/plain' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = `${title}.std`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Exportar DXF (AutoCAD) ──────────────────────────────────────
+// DXF es un dibujo, no un modelo de análisis — a diferencia de STAAD (que en monopolo
+// exporta solo el eje), aquí siempre se exporta la geometría visual COMPLETA (polígono/
+// anillos reales). Convención de ejes AutoCAD (WCS estándar): X horizontal, Y horizontal,
+// Z vertical (up), right-handed — coincide exactamente con la convención interna de TSA
+// (Z-up), así que NO se necesita el remapeo que sí hace falta para STAAD (que usa Y-up).
+function exportDXF() {
+  document.getElementById('export-menu').classList.remove('open');
+  if (!projectGenerated) {
+    const msg = '⚠  Genere una torre antes de exportar.';
+    const s = document.getElementById('status');
+    if (s) s.textContent = msg;
+    showToast(msg);
+    return;
+  }
+  const cfg = getConfig();
+  const tower = generateTower(cfg);
+  const split = _splitCrossingDiagonals(tower.nodes, tower.members);
+  const { nodes, members } = _dedupeNodes(split.nodes, split.members);
+  const title = _assetFileBase(cfg).replace(/\s+/g, '_');
+
+  let out = '';
+  out += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSBASE\n10\n0.0\n20\n0.0\n30\n0.0\n0\nENDSEC\n';
+  out += '0\nSECTION\n2\nENTITIES\n';
+  members.forEach(m => {
+    const ni = nodes[m.ni], nj = nodes[m.nj];
+    out += '0\nLINE\n8\n0\n';
+    out += `10\n${ni.x.toFixed(4)}\n20\n${ni.y.toFixed(4)}\n30\n${ni.z.toFixed(4)}\n`;
+    out += `11\n${nj.x.toFixed(4)}\n21\n${nj.y.toFixed(4)}\n31\n${nj.z.toFixed(4)}\n`;
+  });
+  out += '0\nENDSEC\n0\nEOF\n';
+
+  const blob = new Blob([out], { type: 'application/dxf' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `${title}.dxf`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -6014,6 +7106,11 @@ function loadProjectData(cfg, filename) {
     onTypeChange();
     onSecChange();
     _applyDefaultLabels();
+    nodeOverrides = (cfg.nodeOverrides && typeof cfg.nodeOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.nodeOverrides)) : {};
+    memberOverrides = (cfg.memberOverrides && typeof cfg.memberOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.memberOverrides)) : {};
+    supportOverrides = (cfg.supportOverrides && typeof cfg.supportOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.supportOverrides)) : {};
+    revisionData = Array.isArray(cfg.revisionData) ? JSON.parse(JSON.stringify(cfg.revisionData)) : [];
+    aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
       buildSectionRows(cfg.nInc + cfg.nStr);
@@ -6040,6 +7137,7 @@ let modalIdx  = -1;
 
 function buildSectionRows(n) {
   if (n <= 0) { document.getElementById('sec-container').innerHTML = ''; return; }
+  if (aislarTramoSec !== null && aislarTramoSec >= n) aislarTramoSec = null;  // ya no existe ese tramo
 
   const cfg  = getConfig();
   const nInc = cfg.nInc;
@@ -6099,8 +7197,9 @@ function buildSectionRows(n) {
   secData.forEach((s, i) => {
     const tipo    = i < nInc ? 'INC' : 'REC';
     const tipoLbl = i < nInc ? 'Inclinado' : 'Recto';
+    const isolatedHere = aislarTramoSec === i;
     const card = document.createElement('div');
-    card.className = 'sec-card';
+    card.className = 'sec-card' + (isolatedHere ? ' sec-card-isolated' : '');
     card.innerHTML = `
       <div class="sec-card-hdr">
         <span class="sec-card-title">${cfg.type==='monopole'?'Tramo':'Sección'} ${i+1}</span>
@@ -6110,7 +7209,9 @@ function buildSectionRows(n) {
           : `<span class="sec-tag" style="flex-shrink:0">${s.diag}</span>`}
         ${cfg.type!=='monopole' ? `<span class="sec-tag" style="flex-shrink:0">x${s.bays}</span>` : ''}
         <span class="sec-tag" style="flex-shrink:0">${s.h} m</span>
-        <button class="sec-edit-btn" style="flex-shrink:0" onclick="openSecModal(${i})">✎ editar</button>
+        <button class="sec-edit-btn ${isolatedHere?'sec-edit-btn-active':''}" style="flex-shrink:0" title="${isolatedHere ? 'Mostrar torre completa' : 'Aislar este tramo en el visor'}"
+          onclick="toggleAislarTramo(${i})">👁</button>
+        <button class="sec-edit-btn" style="flex-shrink:0" title="Editar sección" onclick="openSecModal(${i})">✎</button>
       </div>
       ${cfg.type==='monopole' ? `
       <div class="sec-row-detail"><span class="sec-row-code">Altura:</span><span class="sec-row-val">${s.h} m</span></div>
@@ -6837,8 +7938,7 @@ function openSecModal(idx) {
   buildSecModalPreview();
 }
 
-function closeSecModal(e) {
-  if (e && e.target !== document.getElementById('sec-modal-overlay')) return;
+function closeSecModal() {
   document.getElementById('sec-modal-overlay').classList.remove('open');
 }
 
@@ -7211,6 +8311,33 @@ loadUserProfiles();
 loadSectionBuilderProfiles();
 setupKeyboardShortcuts();
 
+// Arrastre de los paneles flotantes Tabla (Nodos/Barras/Retenidas) desde su
+// encabezado — al primer arrastre se fija con left/top explícitos en vez de
+// right, para que se quede exactamente donde el usuario lo soltó.
+function _makeDraggable(panel, handle) {
+  let dragging = false, startX, startY, startLeft, startTop;
+  handle.addEventListener('pointerdown', e => {
+    if (e.target.tagName === 'BUTTON') return;  // no arrastrar al tocar 🔒/✕
+    dragging = true;
+    const rect = panel.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    panel.style.right = 'auto';
+    panel.style.left = startLeft + 'px';
+    panel.style.top = startTop + 'px';
+  });
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    panel.style.left = (startLeft + (e.clientX - startX)) + 'px';
+    panel.style.top = (startTop + (e.clientY - startY)) + 'px';
+  });
+  window.addEventListener('pointerup', () => { dragging = false; });
+}
+['tabla-nodos-overlay', 'tabla-barras-overlay', 'tabla-retenidas-overlay', 'tabla-apoyos-overlay', 'tabla-revisiones-overlay', 'export-warning-overlay'].forEach(id => {
+  const panel = document.getElementById(id);
+  _makeDraggable(panel, panel.querySelector('.tabla-panel-hdr'));
+});
+
 // ── Member pick / highlight / info ────────────────────────────────────────────
 function _pickMember(e) {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -7230,16 +8357,84 @@ function _pickMember(e) {
   if (!member) { closeMemberInfo(); return; }
   _highlightMember(member);
   showMemberInfo(member, e.clientX, e.clientY);
+  // Selección inversa: si Barras/Retenidas está abierta, resalta la fila de este miembro.
+  _highlightRowIfOpen(member.type === 'guy' ? 'tabla-retenidas-overlay' : 'tabla-barras-overlay', member._idx);
 }
 
+// Línea resaltada gruesa de verdad — LineBasicMaterial.linewidth NO funciona en WebGL
+// (siempre se ve a 1px), por eso una pierna aislada se notaba pero una diagonal/
+// horizontal entre líneas densas se perdía. LineMaterial/LineSegments2 (mismo patrón
+// ya usado para la malla del visor) sí respeta el ancho en píxeles, y depthTest:false
+// la deja siempre por encima de cualquier otro miembro que se le cruce o solape.
+function _makeHighlightLine(p1, p2, color, linewidth = 4) {
+  const geo = new THREE.LineSegmentsGeometry();
+  geo.setPositions([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z]);
+  const mat = new THREE.LineMaterial({
+    color, linewidth, transparent: true, opacity: 1, depthTest: false,
+    resolution: new THREE.Vector2(wrap.clientWidth || 800, wrap.clientHeight || 600),
+  });
+  return new THREE.LineSegments2(geo, mat);
+}
 function _highlightMember(m) {
   if (_hlMesh) { _hlMesh.geometry.dispose(); _hlMesh.material.dispose(); scene.remove(_hlMesh); }
   const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
-  const hlGeo = new THREE.BufferGeometry();
-  hlGeo.setAttribute('position', new THREE.Float32BufferAttribute(
-    [ni.x, ni.y, ni.z, nj.x, nj.y, nj.z], 3));
-  _hlMesh = new THREE.LineSegments(hlGeo, new THREE.LineBasicMaterial({color:0x00D4FF, linewidth:2}));
+  _hlMesh = _makeHighlightLine(ni, nj, 0x00D4FF);
   scene.add(_hlMesh);
+}
+
+// ── Selección cruzada tabla ↔ visor 3D — elegir un nodo/barra/retenida en la tabla
+// resalta (color fijo, sin parpadear) el elemento en el visor; elegir un miembro en el
+// visor resalta de vuelta la fila correspondiente en la tabla, si está abierta.
+let _blinkObj = null;
+function _stopBlink() {
+  if (_blinkObj) {
+    _blinkObj.geometry?.dispose(); _blinkObj.material?.dispose();
+    scene.remove(_blinkObj); _blinkObj = null;
+  }
+  _clearTableRowHighlight();
+}
+// Se queda coloreado fijo hasta la siguiente selección, cerrar la tabla, o tocar el canvas.
+function _startBlink(obj) {
+  _stopBlink();
+  _blinkObj = obj;
+  scene.add(_blinkObj);
+}
+function blinkNodeAt(idx) {
+  if (!_towerData) return;
+  const n = _towerData.nodes[idx];
+  if (!n) return;
+  const maxH = Math.max(1, ...(_towerData.nodes.map(p => p.z)));
+  const r = Math.max(0.15, maxH * 0.015);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 16), new THREE.MeshBasicMaterial({color: 0x00D4FF, depthTest: false}));
+  mesh.position.set(n.x, n.y, n.z);
+  _startBlink(mesh);
+}
+function blinkMemberAt(m) {
+  if (!_towerData || !m) return;
+  const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+  _startBlink(_makeHighlightLine(ni, nj, 0x00D4FF));
+}
+
+// ── Resaltado de fila en la tabla abierta (independiente del parpadeo 3D) ───────
+let _highlightedRow = null;
+function _clearTableRowHighlight() {
+  if (_highlightedRow) { _highlightedRow.classList.remove('ret-row-selected'); _highlightedRow = null; }
+}
+function _highlightTableRow(tr) {
+  _clearTableRowHighlight();
+  if (!tr) return;
+  tr.classList.add('ret-row-selected');
+  tr.scrollIntoView({block: 'nearest'});
+  _highlightedRow = tr;
+}
+// Selección inversa: clic en un nodo (marcador "Nodos") o miembro del visor 3D resalta
+// la fila correspondiente, SI esa tabla está abierta — busca por data-idx (índice
+// original en _towerData.nodes/members, el mismo que usan blinkNodeAt/blinkMemberAt).
+function _highlightRowIfOpen(panelId, idx) {
+  const panel = document.getElementById(panelId);
+  if (!panel || !panel.classList.contains('open')) return;
+  const tr = panel.querySelector(`tr[data-idx="${idx}"]`);
+  if (tr) _highlightTableRow(tr);
 }
 
 // Determina qué perfil/calidad corresponde a un miembro generado, según su tipo y la
