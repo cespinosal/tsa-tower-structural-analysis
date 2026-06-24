@@ -5953,10 +5953,11 @@ function _staadIdRanges(ids) {
 // Empaqueta strings ya formateados (ej. "id x y z" de un nodo, "id ni nj" de una barra) en
 // líneas de máximo 79 caracteres (cuentan los espacios, igual que INPUT WIDTH 79), varios
 // por línea — y NO uno por línea como antes. `sep` es lo que va ENTRE grupos dentro de la
-// misma línea (espacio para nodos, ";" para barras); `lineEnd` es lo que va al final de
-// cada línea que SÍ continúa (nada para nodos, ";" para barras — ya no "-" de
-// continuación STAAD, pedido explícito del usuario 2026-06-24). La ÚLTIMA línea del
-// bloque nunca lleva `lineEnd`.
+// misma línea; `lineEnd` es lo que va al final de cada línea que SÍ continúa. Nodos y
+// barras usan "; " (no el "-" de continuación STAAD que se probó antes) — sin un
+// separador explícito, STAAD.Pro desfasaba la lectura de tokens entre líneas y los nodos
+// aparecían en coordenadas equivocadas al abrir el .std (bug real, confirmado 2026-06-24).
+// La ÚLTIMA línea del bloque nunca lleva `lineEnd`.
 function _staadWrapGroups(groups, maxLen = 79, sep = ' ', lineEnd = '') {
   if (!groups.length) return '';
   const lines = [];
@@ -6706,14 +6707,14 @@ function _doExportSTAAD() {
 
   const { order: nodeOrder, newId: nodeNewId } = _exportNodeRenumber(nodes, members);
   out += `JOINT COORDINATES\n`;
-  out += _staadWrapGroups(nodeOrder.map(origIdx => `${nodeNewId[origIdx]} ${sx(origIdx)} ${sy(origIdx)} ${sz(origIdx)}`));
+  out += _staadWrapGroups(nodeOrder.map(origIdx => `${nodeNewId[origIdx]} ${sx(origIdx)} ${sy(origIdx)} ${sz(origIdx)}`), 79, '; ', ';');
 
   const { order: memberOrder, newId: memberNewId, groupRanges, secs: memberSecs, levels: memberLevels } = _exportMemberRenumber(nodes, members);
   out += `MEMBER INCIDENCES\n`;
   out += _staadWrapGroups(memberOrder.map(origIdx => {
     const m = members[origIdx];
     return `${memberNewId[origIdx]} ${nodeNewId[m.ni]} ${nodeNewId[m.nj]}`;
-  }), 79, ';', ';');
+  }), 79, '; ', ';');
 
   // ── GROUP DEFINITION — un bloque por sección (comentario *SECCION i) con Montantes/
   // Diagonales/Horizontales/Plan Bracing/Hip Bracing, y un bloque por NIVEL de retenida
