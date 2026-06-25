@@ -6879,6 +6879,8 @@ function _doExportSTAAD() {
   out += `START JOB INFORMATION\n`;
   out += `ENGINEER DATE ${_staadDate(cfg.fechaCreacion)}\n`;
   out += `ENGINEER NAME ${_staadUpper(cfg.ingResponsable)}\n`;
+  out += `* PROGRAMA EN VERSIÓN BETA, TODOS LOS DATOS DE NODOS, BARRAS, PROPIEDADES\n`;
+  out += `* Y MATERIALES DEBEN SER REVISADOS POR EL INGENIERO RESPONSABLE DEL PROYECTO\n`;
   out += `END JOB INFORMATION\n`;
   out += `INPUT WIDTH 79\n`;
   out += `${staadUnit}\n`;
