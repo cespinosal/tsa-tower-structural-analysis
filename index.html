@@ -1919,7 +1919,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button class="db-tab active" id="db-tab-acero" onclick="switchDatabaseTab('acero')">Calidades de Acero</button>
       <button class="db-tab" id="db-tab-cables" onclick="switchDatabaseTab('cables')">Retenidas</button>
       <button class="db-tab" id="db-tab-aisc" onclick="switchDatabaseTab('aisc')">Perfiles AISC</button>
-      <button class="db-tab" id="db-tab-imca" onclick="switchDatabaseTab('imca')">Perfiles IMCA</button>
+      <button class="db-tab" id="db-tab-imca" onclick="switchDatabaseTab('imca')" style="display:none;" title="Oculto por ahora — poco usado">Perfiles IMCA</button>
       <button class="db-tab" id="db-tab-user" onclick="switchDatabaseTab('user')">Favoritos 🌟</button>
       <button class="db-tab" id="db-tab-sectionbuilder" onclick="switchDatabaseTab('sectionbuilder')">SectionBuilder</button>
     </div>
@@ -1939,8 +1939,8 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
       <button onclick="closeProfilePicker()">✕</button>
     </div>
     <div style="display:flex;gap:6px;padding:10px 14px 0;border-bottom:1px solid var(--border);">
-      <button class="db-tab" id="pp-tab-aisc" onclick="pickerSwitchCatalog('aisc')">Perfiles AISC</button>
-      <button class="db-tab active" id="pp-tab-imca" onclick="pickerSwitchCatalog('imca')">Perfiles IMCA</button>
+      <button class="db-tab active" id="pp-tab-aisc" onclick="pickerSwitchCatalog('aisc')">Perfiles AISC</button>
+      <button class="db-tab" id="pp-tab-imca" onclick="pickerSwitchCatalog('imca')" style="display:none;" title="Oculto por ahora — poco usado">Perfiles IMCA</button>
       <button class="db-tab" id="pp-tab-user" onclick="pickerSwitchCatalog('user')">Favoritos 🌟</button>
       <button class="db-tab" id="pp-tab-sectionbuilder" onclick="pickerSwitchCatalog('sectionbuilder')">SectionBuilder</button>
     </div>
@@ -2588,6 +2588,16 @@ function addPlanBracing(nodes, members, sec, pattern, corners, isTop) {
 function addMembersWithSecs(nodes, members, lnodes, nLegs, secForLevel, patterns, noBraceSpans) {
   const nSpans = secForLevel.length;
   const skipBrace = noBraceSpans instanceof Set ? noBraceSpans : new Set();
+  // Compartido entre TODAS las caras y TODOS los niveles — dos casos de punto repetido:
+  // (1) la cara f calcula su corte de pierna derecha y la cara f+1 calcula su corte de
+  // pierna izquierda sobre la MISMA pierna (mismo nivel); (2) el TC (top-center) de un
+  // patrón K en el tope de una sección y el BC (bottom-center) de un patrón K-Rev en la
+  // base de la sección siguiente son el punto medio del MISMO borde horizontal (límite
+  // entre secciones). Sin este caché cada cara/nivel creaba su propio nodo — dos nodos
+  // casi-duplicados y un miembro de longitud diferencial entre ambos (de ahí los
+  // "miembros intermedios" que se veían en piernas en niveles que no debían tener
+  // ningún corte ahí, y los nodos duplicados reportados).
+  const legNodeCache = new Map();
   for (let lv = 0; lv < nSpans; lv++) {
     const sec = secForLevel[lv];
     const pat = patterns[sec] || 'X';
@@ -2601,7 +2611,7 @@ function addMembersWithSecs(nodes, members, lnodes, nLegs, secForLevel, patterns
       for (let f = 0; f < nLegs; f++) {
         const {legL, legR, hipPts} = addFaceBracing(nodes, members, sec, pat,
           lnodes[lv][f], lnodes[lv][(f+1)%nLegs],
-          lnodes[lv+1][f], lnodes[lv+1][(f+1)%nLegs], lv, isTopBay);
+          lnodes[lv+1][f], lnodes[lv+1][(f+1)%nLegs], lv, isTopBay, legNodeCache);
         legL.forEach(n => (legCuts[f] = legCuts[f]||[]).push(n));
         legR.forEach(n => (legCuts[(f+1)%nLegs] = legCuts[(f+1)%nLegs]||[]).push(n));
         hipPtsByFace[f] = hipPts;
@@ -2609,7 +2619,9 @@ function addMembersWithSecs(nodes, members, lnodes, nLegs, secForLevel, patterns
     }
     // Piernas divididas en los puntos de corte (sin cortes si no hay bracing en este span)
     for (let j = 0; j < nLegs; j++) {
-      const cuts = (legCuts[j]||[]).sort((a,b) => nodes[a].z - nodes[b].z);
+      // dedupe: el mismo nodo de corte puede llegar dos veces (una por cada cara que
+      // comparte esta pierna) si el legNodeCache ya lo resolvió al mismo índice.
+      const cuts = [...new Set(legCuts[j]||[])].sort((a,b) => nodes[a].z - nodes[b].z);
       let prev = lnodes[lv][j];
       for (const c of cuts) { members.push({ni:prev, nj:c, type:'leg', sec}); prev = c; }
       members.push({ni:prev, nj:lnodes[lv+1][j], type:'leg', sec});
@@ -2676,7 +2688,7 @@ function addHipBracing(nodes, members, sec, option, hipPtsByFace, nLegs) {
   }
 }
 
-function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopBay=true) {
+function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopBay=true, legNodeCache=null) {
   // principal=true por defecto; se marca false para elementos secundarios (bracing auxiliar)
   const d = (a,b,principal=true) => members.push({ni:a, nj:b, type:'diagonal',   sec, principal});
   // isTop: true si esta horizontal está en el tope DE LA SECCIÓN (última bahía, isTopBay
@@ -2686,6 +2698,21 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
   const lerp = (a,b,t) => {
     const na=nodes[a], nb=nodes[b];
     return addRawNode(nodes, na.x+(nb.x-na.x)*t, na.y+(nb.y-na.y)*t, na.z+(nb.z-na.z)*t);
+  };
+  // Punto de corte SOBRE UNA PIERNA (siempre lerp(bottom,top,t) — BL,TL o BR,TR). La cara
+  // vecina que comparte esta misma pierna calcula el mismo punto de forma independiente
+  // (su propio xInt()/fracción), y aunque matemáticamente caiga en la misma altura, el
+  // redondeo de punto flotante puede diferir en el último bit — eso creaba DOS nodos casi
+  // idénticos y, al ordenar los cortes de pierna por Z, un miembro de pierna "diferencial"
+  // (longitud casi cero) entre ambos. Cachear por (bottomIdx,topIdx,t redondeado) y
+  // reusar el mismo nodo entre caras evita el duplicado de raíz.
+  const legLerp = (a, b, t) => {
+    if (!legNodeCache) return lerp(a, b, t);
+    const key = a + ',' + b + ',' + t.toFixed(7);
+    if (legNodeCache.has(key)) return legNodeCache.get(key);
+    const idx = lerp(a, b, t);
+    legNodeCache.set(key, idx);
+    return idx;
   };
   const mid = (a,b) => lerp(a,b,0.5);
   // Conecta ML→[pts ordenados por proyección]→MR como segmentos horizontales
@@ -2719,8 +2746,8 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     case 'X-50Pct': {
       const t = xInt();
       const IX = lerp(BL,TR,t);          // único nodo: intersección real de diagonales
-      const ML = lerp(BL,TL,t);          // corte pierna izq. a la misma altura
-      const MR = lerp(BR,TR,t);          // corte pierna der. a la misma altura
+      const ML = legLerp(BL,TL,t);          // corte pierna izq. a la misma altura
+      const MR = legLerp(BR,TR,t);          // corte pierna der. a la misma altura
       h(ML,IX,false); h(IX,MR,false);    // horizontal desde IX hacia ambas piernas — secundario
       d(BL,IX); d(IX,TR);                // diagonal 1 dividida en IX
       d(BR,IX); d(IX,TL);                // diagonal 2 dividida en IX
@@ -2732,12 +2759,12 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       // 1. Misma base que X-50Pct: IX real + cortes ML/MR en piernas
       const t  = xInt();
       const IX = lerp(BL,TR,t);
-      const ML = lerp(BL,TL,t);
-      const MR = lerp(BR,TR,t);
+      const ML = legLerp(BL,TL,t);
+      const MR = legLerp(BR,TR,t);
       // 2. Las mitades de pierna son el nuevo 100%: cortar al 50%
       const tL = t/2,  tH = (1+t)/2;
-      const ML_L = lerp(BL,TL,tL),  MR_L = lerp(BR,TR,tL);
-      const ML_U = lerp(BL,TL,tH),  MR_U = lerp(BR,TR,tH);
+      const ML_L = legLerp(BL,TL,tL),  MR_L = legLerp(BR,TR,tL);
+      const ML_U = legLerp(BL,TL,tH),  MR_U = legLerp(BR,TR,tH);
       // 3. Puntos donde cada diagonal cruza esos niveles de altura
       const D1L = lerp(BL,TR,tL),  D2L = lerp(BR,TL,tL);   // nivel bajo
       const D1H = lerp(BL,TR,tH),  D2H = lerp(BR,TL,tH);   // nivel alto
@@ -2761,21 +2788,21 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K': {
-      const TC = mid(TL,TR);
+      const TC = legLerp(TL,TR,0.5);
       d(BL,TC); d(BR,TC);
       break;
     }
 
     case 'K-Rev': {
-      const BC = mid(BL,BR);
+      const BC = legLerp(BL,BR,0.5);
       d(TL,BC); d(TR,BC);
       break;
     }
 
     case 'K-50Pct': {
-      const TC = mid(TL,TR);           // vértice K en el top center
-      const ML = lerp(BL,TL,.5);      // corte pierna izq a 50%
-      const MR = lerp(BR,TR,.5);      // corte pierna der a 50%
+      const TC = legLerp(TL,TR,0.5);           // vértice K en el top center
+      const ML = legLerp(BL,TL,.5);      // corte pierna izq a 50%
+      const MR = legLerp(BR,TR,.5);      // corte pierna der a 50%
       const PL = lerp(BL,TC,.5);      // diagonal K izq a la misma altura que ML
       const PR = lerp(BR,TC,.5);      // diagonal K der a la misma altura que MR
       d(BL,PL); d(PL,TC);            // diagonal K izq dividida en PL — PRINCIPAL
@@ -2790,9 +2817,9 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-50Pct-Rev': {
-      const BC = mid(BL,BR);           // vértice K-Rev en el bottom center
-      const ML = lerp(BL,TL,.5);      // corte pierna izq a 50%
-      const MR = lerp(BR,TR,.5);      // corte pierna der a 50%
+      const BC = legLerp(BL,BR,0.5);           // vértice K-Rev en el bottom center
+      const ML = legLerp(BL,TL,.5);      // corte pierna izq a 50%
+      const MR = legLerp(BR,TR,.5);      // corte pierna der a 50%
       const PL = lerp(TL,BC,.5);      // diagonal K-Rev izq a la misma altura que ML
       const PR = lerp(TR,BC,.5);      // diagonal K-Rev der a la misma altura que MR
       d(TL,PL); d(PL,BC);            // diagonal K-Rev izq dividida en PL — PRINCIPAL
@@ -2807,9 +2834,9 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-33Pct': {
-      const TC  = mid(TL,TR);
-      const L1  = lerp(BL,TL,1/3), R1  = lerp(BR,TR,1/3);
-      const L2  = lerp(BL,TL,2/3), R2  = lerp(BR,TR,2/3);
+      const TC  = legLerp(TL,TR,0.5);
+      const L1  = legLerp(BL,TL,1/3), R1  = legLerp(BR,TR,1/3);
+      const L2  = legLerp(BL,TL,2/3), R2  = legLerp(BR,TR,2/3);
       const P1L = lerp(BL,TC,1/3), P1R = lerp(BR,TC,1/3);
       const P2L = lerp(BL,TC,2/3), P2R = lerp(BR,TC,2/3);
       d(BL,P1L); d(P1L,P2L); d(P2L,TC);   // cadena K — PRINCIPAL
@@ -2824,9 +2851,9 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-33Pct-Rev': {
-      const BC  = mid(BL,BR);
-      const LA  = lerp(BL,TL,1/3), RA  = lerp(BR,TR,1/3);
-      const LB  = lerp(BL,TL,2/3), RB  = lerp(BR,TR,2/3);
+      const BC  = legLerp(BL,BR,0.5);
+      const LA  = legLerp(BL,TL,1/3), RA  = legLerp(BR,TR,1/3);
+      const LB  = legLerp(BL,TL,2/3), RB  = legLerp(BR,TR,2/3);
       const P1L = lerp(TL,BC,1/3), P1R = lerp(TR,BC,1/3);
       const P2L = lerp(TL,BC,2/3), P2R = lerp(TR,BC,2/3);
       d(TL,P1L); d(P1L,P2L); d(P2L,BC);   // cadena K — PRINCIPAL
@@ -2841,10 +2868,10 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-25Pct': {
-      const TC  = mid(TL,TR);
-      const L1  = lerp(BL,TL,1/4), R1  = lerp(BR,TR,1/4);
-      const L2  = lerp(BL,TL,2/4), R2  = lerp(BR,TR,2/4);
-      const L3  = lerp(BL,TL,3/4), R3  = lerp(BR,TR,3/4);
+      const TC  = legLerp(TL,TR,0.5);
+      const L1  = legLerp(BL,TL,1/4), R1  = legLerp(BR,TR,1/4);
+      const L2  = legLerp(BL,TL,2/4), R2  = legLerp(BR,TR,2/4);
+      const L3  = legLerp(BL,TL,3/4), R3  = legLerp(BR,TR,3/4);
       const P1L = lerp(BL,TC,1/4), P1R = lerp(BR,TC,1/4);
       const P2L = lerp(BL,TC,2/4), P2R = lerp(BR,TC,2/4);
       const P3L = lerp(BL,TC,3/4), P3R = lerp(BR,TC,3/4);
@@ -2862,10 +2889,10 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-25Pct-Rev': {
-      const BC  = mid(BL,BR);
-      const LA  = lerp(BL,TL,1/4), RA  = lerp(BR,TR,1/4);
-      const LB  = lerp(BL,TL,2/4), RB  = lerp(BR,TR,2/4);
-      const LC  = lerp(BL,TL,3/4), RC  = lerp(BR,TR,3/4);
+      const BC  = legLerp(BL,BR,0.5);
+      const LA  = legLerp(BL,TL,1/4), RA  = legLerp(BR,TR,1/4);
+      const LB  = legLerp(BL,TL,2/4), RB  = legLerp(BR,TR,2/4);
+      const LC  = legLerp(BL,TL,3/4), RC  = legLerp(BR,TR,3/4);
       const P1L = lerp(TL,BC,1/4), P1R = lerp(TR,BC,1/4);
       const P2L = lerp(TL,BC,2/4), P2R = lerp(TR,BC,2/4);
       const P3L = lerp(TL,BC,3/4), P3R = lerp(TR,BC,3/4);
@@ -2883,11 +2910,11 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-25Pct2': {
-      const TC  = mid(TL,TR);
+      const TC  = legLerp(TL,TR,0.5);
       const TLC = mid(TL,TC), TRC = mid(TR,TC);
-      const L1  = lerp(BL,TL,1/4), R1  = lerp(BR,TR,1/4);
-      const L2  = lerp(BL,TL,2/4), R2  = lerp(BR,TR,2/4);
-      const L3  = lerp(BL,TL,3/4), R3  = lerp(BR,TR,3/4);
+      const L1  = legLerp(BL,TL,1/4), R1  = legLerp(BR,TR,1/4);
+      const L2  = legLerp(BL,TL,2/4), R2  = legLerp(BR,TR,2/4);
+      const L3  = legLerp(BL,TL,3/4), R3  = legLerp(BR,TR,3/4);
       const P1L = lerp(BL,TC,1/4), P1R = lerp(BR,TC,1/4);
       const P2L = lerp(BL,TC,2/4), P2R = lerp(BR,TC,2/4);
       const P3L = lerp(BL,TC,3/4), P3R = lerp(BR,TC,3/4);
@@ -2907,11 +2934,11 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     }
 
     case 'K-25Pct2-Rev': {
-      const BC  = mid(BL,BR);
+      const BC  = legLerp(BL,BR,0.5);
       const BLC = mid(BL,BC), BRC = mid(BR,BC);
-      const LA  = lerp(BL,TL,1/4), RA  = lerp(BR,TR,1/4);
-      const LB  = lerp(BL,TL,2/4), RB  = lerp(BR,TR,2/4);
-      const LC  = lerp(BL,TL,3/4), RC  = lerp(BR,TR,3/4);
+      const LA  = legLerp(BL,TL,1/4), RA  = legLerp(BR,TR,1/4);
+      const LB  = legLerp(BL,TL,2/4), RB  = legLerp(BR,TR,2/4);
+      const LC  = legLerp(BL,TL,3/4), RC  = legLerp(BR,TR,3/4);
       const P1L = lerp(TL,BC,1/4), P1R = lerp(TR,BC,1/4);
       const P2L = lerp(TL,BC,2/4), P2R = lerp(TR,BC,2/4);
       const P3L = lerp(TL,BC,3/4), P3R = lerp(TR,BC,3/4);
@@ -2936,7 +2963,7 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
 
     case 'Staggered-50Pct': {
       const flip = !!secData[sec]?.staggerFlip;
-      const ML=lerp(BL,TL,.5), MR=lerp(BR,TR,.5);
+      const ML=legLerp(BL,TL,.5), MR=legLerp(BR,TR,.5);
       h(ML,MR);
       if ((bayIdx%2===0) !== flip) d(BL,TR); else d(BR,TL);
       legL=[ML]; legR=[MR];
@@ -3019,6 +3046,10 @@ labelRenderer.domElement.style.position = 'absolute';
 labelRenderer.domElement.style.top = '0';
 labelRenderer.domElement.style.left = '0';
 labelRenderer.domElement.style.pointerEvents = 'none';
+// Sin esto quedaba en z-index:auto — al competir contra los paneles flotantes de
+// Tablas (position:fixed, z-index:150) el navegador podía pintar las etiquetas de
+// Nodos/Barras encima de la tabla en vez de detrás, justo lo que reportó el usuario.
+labelRenderer.domElement.style.zIndex = '1';
 wrap.appendChild(labelRenderer.domElement);
 let nodeLabelsOn = false;
 let profileLabelsOn = false;
@@ -3603,6 +3634,16 @@ function renderTower(data) {
   if (profileLabelsOn) _buildProfileLabels();
   if (staadLabelsOn) _buildStaadLabels();
   if (apoyosLabelsOn) _buildApoyosLabels();
+  // Si alguna tabla (Nodos/Barras/Retenidas/Apoyos) está abierta, se vuelve a pintar con
+  // los datos frescos de _towerData — si no, quedaba mostrando la numeración VIEJA tras
+  // cualquier edición que regenerara la torre sin pasar por una de las funciones que ya
+  // llamaban renderTabla*() a mano (ej. al cambiar bahías/patrón desde el modal de
+  // sección), mientras las etiquetas "Barras" del visor sí se reconstruían aquí mismo —
+  // de ahí el desfase reportado entre el visor y la tabla.
+  if (document.getElementById('tabla-nodos-overlay')?.classList.contains('open')) renderTablaNodos();
+  if (document.getElementById('tabla-barras-overlay')?.classList.contains('open')) renderTablaBarras();
+  if (document.getElementById('tabla-retenidas-overlay')?.classList.contains('open')) renderTablaRetenidas();
+  if (document.getElementById('tabla-apoyos-overlay')?.classList.contains('open')) renderTablaApoyos();
 }
 
 // ── Dual grid ─────────────────────────────────────────────────────────
@@ -4196,7 +4237,7 @@ function switchDatabaseTab(tab) {
 // sección; escribe el resultado de vuelta en mt-<field> (designación) y mt-<field>Cal.
 // Modo 2 (con opts.onPick) — uso genérico desde cualquier otra parte de la app (ej.
 // el perfil del brazo en el modal Estabilizadores): opts = {currentValue, currentCal, onPick(val,cal)}.
-let pickerField = null, pickerOnPick = null, pickerCatalog = 'imca', pickerFamily = 'li', pickerSelected = null;
+let pickerField = null, pickerOnPick = null, pickerCatalog = 'aisc', pickerFamily = 'li', pickerSelected = null;
 // Encuentra en qué catálogo/familia vive una designación ya elegida — para reabrir el
 // picker exactamente donde se hizo la selección anterior, en vez de resetear a IMCA/LI.
 function _findProfileLocation(designacion) {
@@ -5550,8 +5591,16 @@ function _splitCrossingDiagonals(nodes, members) {
   // (ver abajo) en vez de mandar todos los cruces al frente del arreglo; así un miembro
   // que no participa en ningún cruce conserva un índice más parecido al original.
   const replacement = new Map();
+  // SOLO el patrón "X" simple (2 diagonales por cara, cruce en su punto medio) — el
+  // pedido explícito del usuario era "cortar las X en sus puntos medios, lo demás ya
+  // estaba ok". K-25Pct/X-25Pct/Staggered/etc. ya tienen su propia cadena de segmentos
+  // cortos (con sus propios nodos intermedios reales) y NO deben pasar por este chequeo
+  // de cruce — si dos de esos segmentos cortos llegan a tocarse/cruzarse numéricamente
+  // cerca de un punto que no es un cruce real de X, se generaban nodos/miembros de más.
   const diagIdxs    = [];
-  members.forEach((m, i) => { if (m.type === 'diagonal') diagIdxs.push(i); });
+  members.forEach((m, i) => {
+    if (m.type === 'diagonal' && secData[m.sec]?.diag === 'X') diagIdxs.push(i);
+  });
   const TOL_SQ   = 1e-6;   // ~1mm
   const EDGE_EPS = 1e-4;
   for (let a = 0; a < diagIdxs.length; a++) {
@@ -5620,6 +5669,111 @@ function _staadUpper(str) {
   const lo = String.fromCharCode(0x0300), hi = String.fromCharCode(0x036f);
   const stripAccents = new RegExp('[' + lo + '-' + hi + ']', 'g');
   return (str || '').normalize('NFD').replace(stripAccents, '').toUpperCase();
+}
+
+// Convierte una dimensión en pulgadas (entero, mixta "2-1/2" o fracción pura "3/16") a
+// decimal. Usado solo para traducir designaciones de ángulo TSA -> nombre STAAD.
+function _parseInchDim(str) {
+  str = String(str).trim();
+  const mixed = str.match(/^(\d+)-(\d+)\/(\d+)$/);
+  if (mixed) return +mixed[1] + (+mixed[2] / +mixed[3]);
+  const frac = str.match(/^(\d+)\/(\d+)$/);
+  if (frac) return +frac[1] / +frac[2];
+  return parseFloat(str) || 0;
+}
+// Equivalencia de nombre de ángulo TSA -> STAAD.Pro (tabla AMERICAN), confirmada por el
+// usuario (2026-06-24): STAAD trabaja en dieciseisavos de pulgada — "L<lado1>X<lado2>X
+// <espesor>" se convierte a "L" + lado1(pulg×10, 2 díg.) + lado2(pulg×10, 2 díg.) +
+// espesor(en 16vos). Ej.: L2X2X1/8 -> L20202; L2-1/2X2-1/2X3/16 -> L25253. Solo ángulos
+// (LI/LD) por ahora — tubulares/redondos (OC/OS) se exportan con su nombre TSA tal cual,
+// pendiente de su propia regla.
+function _tsaAngleToStaadName(profile) {
+  if (!profile) return null;
+  const m = String(profile).match(/^L([\d\-\/]+)X([\d\-\/]+)X([\d\-\/]+)$/i);
+  if (!m) return null;
+  const leg1 = Math.round(_parseInchDim(m[1]) * 10);
+  const leg2 = Math.round(_parseInchDim(m[2]) * 10);
+  const thk16 = Math.round(_parseInchDim(m[3]) * 16);
+  return `L${String(leg1).padStart(2,'0')}${String(leg2).padStart(2,'0')}${thk16}`;
+}
+
+// Equivalencia de tubulares (OC) AISC -> nombre STAAD, tabla dada por el usuario
+// ("OC Staad.xlsx", 2026-06-24) — OD y espesor en pulgadas, igual que el catálogo AISC
+// OC de TSA (campos diametro/espesor). PIPS = standard, PIPX = extra strong, PIPD =
+// double extra strong. Solo AISC (el catálogo IMCA OC es métrico, no aplica esta tabla).
+const _OC_STAAD_TABLE = [
+  [0.84, 0.109, 'PIPS5'], [0.84, 0.147, 'PIPX5'],
+  [1.05, 0.113, 'PIPS7'], [1.05, 0.154, 'PIPX7'],
+  [1.315, 0.133, 'PIPS10'], [1.315, 0.179, 'PIPX10'],
+  [1.66, 0.14, 'PIPS12'], [1.66, 0.191, 'PIPX12'],
+  [1.9, 0.145, 'PIPS15'], [1.9, 0.2, 'PIPX15'],
+  [2.375, 0.154, 'PIPS20'], [2.375, 0.218, 'PIPX20'], [2.375, 0.436, 'PIPD20'],
+  [2.875, 0.203, 'PIPS25'], [2.875, 0.276, 'PIPX25'], [2.875, 0.552, 'PIPD25'],
+  [3.5, 0.216, 'PIPS30'], [3.5, 0.3, 'PIPX30'], [3.5, 0.6, 'PIPD30'],
+  [4, 0.226, 'PIPS35'], [4, 0.318, 'PIPX35'],
+  [4.5, 0.237, 'PIPS40'], [4.5, 0.337, 'PIPX40'], [4.5, 0.647, 'PIPD40'],
+  [5.563, 0.258, 'PIPS50'], [5.563, 0.375, 'PIPX50'], [5.563, 0.75, 'PIPD50'],
+  [6.625, 0.28, 'PIPS60'], [6.625, 0.432, 'PIPX60'], [6.625, 0.864, 'PIPD60'],
+  [8.625, 0.322, 'PIPS80'], [8.625, 0.5, 'PIPX80'], [8.625, 0.875, 'PIPD80'],
+  [10.75, 0.365, 'PIPS100'], [10.75, 0.5, 'PIPX100'],
+  [12.75, 0.375, 'PIPS120'], [12.75, 0.5, 'PIPX120'],
+];
+function _tsaOCToStaadName(profile) {
+  if (!profile) return null;
+  const rec = (profileCatalogs.aisc?.oc || []).find(r => r.designacion === profile);
+  if (!rec) return null;
+  const TOL = 0.003;
+  const hit = _OC_STAAD_TABLE.find(([od, tw]) => Math.abs(od - rec.diametro) < TOL && Math.abs(tw - rec.espesor) < TOL);
+  return hit ? hit[2] : null;
+}
+
+// Redondos sólidos (OS) — regla distinta a TABLE ST: no usan un nombre de catálogo en
+// STAAD, van como PRISMATIC circular (PRIS YD <diámetro en metros>) en su propio bloque
+// MEMBER PROPERTY (sin "AMERICAN"), después del de ángulos/tubulares. Pedido explícito
+// del usuario (2026-06-24). `diametro` del catálogo AISC OS está en pulgadas, el de IMCA
+// OS en cm — cada uno con su propia conversión a metros.
+function _tsaOSToDiameterM(profile) {
+  if (!profile) return null;
+  let rec = (profileCatalogs.aisc?.os || []).find(r => r.designacion === profile);
+  if (rec) return rec.diametro * 0.0254;
+  rec = (profileCatalogs.imca?.os || []).find(r => r.designacion === profile);
+  if (rec) return rec.diametro * 0.01;
+  return null;
+}
+
+// Canales (C) — a diferencia de ángulos/tubulares, la designación TSA NO corresponde
+// 1:1 con la tabla STAAD (ej. AISC trae "C3X3.5"/"C3X4.1", STAAD solo tiene "C3X4"/
+// "C3X5") — por instrucción explícita del usuario (2026-06-24) se hace match por ÁREA
+// más cercana, no por nombre. Tabla STAAD ("C Staad.xlsx") en pulgadas². `area` del
+// catálogo AISC C ya está en in² (igual que STAAD); IMCA C está en cm² → se convierte.
+const _C_STAAD_TABLE = [
+  [1.21,'C3X4'], [1.47,'C3X5'], [1.76,'C3X6'],
+  [1.59,'C4X5'], [2.13,'C4X7'],
+  [1.97,'C5X6'], [2.64,'C5X9'],
+  [2.4,'C6X8'], [3.09,'C6X10'], [3.83,'C6X13'],
+  [2.87,'C7X9'], [3.6,'C7X12'], [4.33,'C7X14'],
+  [3.38,'C8X11'], [4.04,'C8X13'], [5.51,'C8X18'],
+  [3.94,'C9X13'], [4.41,'C9X15'], [5.88,'C9X20'],
+  [4.49,'C10X15'], [5.88,'C10X20'], [7.35,'C10X25'], [8.82,'C10X30'],
+  [6.09,'C12X20'], [7.35,'C12X25'], [8.82,'C12X30'],
+  [9.96,'C15X33'], [11.8,'C15X40'], [14.7,'C15X50'],
+];
+function _tsaChannelToStaadName(profile) {
+  if (!profile) return null;
+  let areaIn2 = null;
+  const aiscRec = (profileCatalogs.aisc?.c || []).find(r => r.designacion === profile);
+  if (aiscRec) areaIn2 = aiscRec.area;
+  else {
+    const imcaRec = (profileCatalogs.imca?.c || []).find(r => r.designacion === profile);
+    if (imcaRec) areaIn2 = imcaRec.area / 6.4516;
+  }
+  if (areaIn2 == null) return null;
+  let best = null, bestDiff = Infinity;
+  _C_STAAD_TABLE.forEach(([ax, name]) => {
+    const diff = Math.abs(ax - areaIn2);
+    if (diff < bestDiff) { bestDiff = diff; best = name; }
+  });
+  return best;
 }
 
 function _staadDate(iso) {
@@ -6600,11 +6754,13 @@ function _exportGroupName(m, sec) {
     return m.isCorner ? `_SEC${sec+1}_PB2HB` : `_SEC${sec+1}_PBHB`;
   }
   if (m.type === 'hipbrace') return m.isDiag ? `_SEC${sec+1}_HBD` : `_SEC${sec+1}_HBH`;
-  if (m.type === 'guy')      return `RN${m.guyLevel}`;
-  if (m.type === 'stabarm')  return `EST${m.guyLevel}`;
-  if (m.type === 'puntal')   return `ESTP${m.guyLevel}`;
-  if (m.type === 'tensor')   return `ESTT${m.guyLevel}`;
-  return null;   // horizPuntal/horizTensor: aún sin regla
+  if (m.type === 'guy')         return `RN${m.guyLevel}`;
+  if (m.type === 'stabarm')     return `EST${m.guyLevel}`;
+  if (m.type === 'puntal')      return `ESTP${m.guyLevel}`;
+  if (m.type === 'tensor')      return `ESTT${m.guyLevel}`;
+  if (m.type === 'horizPuntal') return `ESTHP${m.guyLevel}`;
+  if (m.type === 'horizTensor') return `ESTHT${m.guyLevel}`;
+  return null;
 }
 // Orden DENTRO de cada sección, en el orden en que se fueron dando las reglas.
 const _SEC_GROUP_ORDER = ['M','D','Ds','HT','HB','Hs','PBHT','PB2HT','PBHB','PB2HB','HBD','HBH'];
@@ -6759,7 +6915,7 @@ function _doExportSTAAD() {
     });
     memberLevels.forEach(lvl => {
       out += `*\n*NIVEL ${lvl}\n*\n`;
-      ['RN', 'EST', 'ESTP', 'ESTT'].forEach(pref => {
+      ['RN', 'EST', 'ESTP', 'ESTHP', 'ESTT', 'ESTHT'].forEach(pref => {
         const ids = groupRanges[`${pref}${lvl}`];
         if (ids?.length) out += `${pref}${lvl} ${_staadIdRanges(ids)}\n`;
       });
@@ -6771,6 +6927,7 @@ function _doExportSTAAD() {
   // eje del monopolo) + MEMBER TENSION (cables de retenida) ──────────────────────
   const profileGroups = {};   // perfil normalizado -> [ids]
   const monoGroups = {};      // "A_Iz_Iy" -> {props, ids}
+  const osGroups = {};        // diámetro en m (string fijo) -> [ids]
   const cableTensionIds = [];
   const nTotMono = cfg.nInc + cfg.nStr;
   const zIncMono = (cfg.type === 'monopole' && cfg.nInc > 0)
@@ -6796,7 +6953,15 @@ function _doExportSTAAD() {
     }
     const gp = getMemberProfile(m);
     if (!gp.profile || gp.profile === '—' || gp.isCableCal) return;
-    const key = _staadUpper(gp.profile);
+    // Redondos sólidos (OS) — no van por TABLE ST, van aparte como PRIS YD (ver
+    // _tsaOSToDiameterM). El resto (ángulos/tubulares) sigue por profileGroups.
+    const osDiamM = _tsaOSToDiameterM(gp.profile);
+    if (osDiamM != null) {
+      const key = osDiamM.toFixed(4);
+      (osGroups[key] = osGroups[key] || []).push(id);
+      return;
+    }
+    const key = _tsaAngleToStaadName(gp.profile) || _tsaOCToStaadName(gp.profile) || _tsaChannelToStaadName(gp.profile) || _staadUpper(gp.profile);
     (profileGroups[key] = profileGroups[key] || []).push(id);
   });
   if (Object.keys(profileGroups).length || Object.keys(monoGroups).length) {
@@ -6809,6 +6974,14 @@ function _doExportSTAAD() {
     });
     Object.values(monoGroups).forEach(({props, ids}) => {
       out += `${_staadIdRanges(ids)} PRISMATIC AX ${props.A.toFixed(6)} IZ ${props.Iz.toFixed(8)} IY ${props.Iy.toFixed(8)}\n`;
+    });
+  }
+  // Redondos sólidos (OS) — bloque MEMBER PROPERTY aparte (sin "AMERICAN"), debajo del
+  // de ángulos/tubulares. Pedido explícito del usuario (2026-06-24).
+  if (Object.keys(osGroups).length) {
+    out += `MEMBER PROPERTY\n`;
+    Object.entries(osGroups).forEach(([diamM, ids]) => {
+      out += `${_staadIdRanges(ids)} PRIS YD ${diamM}\n`;
     });
   }
   if (cableTensionIds.length) {
