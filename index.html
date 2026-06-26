@@ -6898,6 +6898,10 @@ function _exportMemberRenumber(nodes, members) {
     return pos >= 0 ? pos : 100 + _staadTypePriority(members[i]);   // resto: numerado, sin grupo todavía
   };
   const order = [], newId = new Array(members.length), groupRanges = {};
+  // groupRep: nombre de grupo -> ÍNDICE ORIGINAL de su primer miembro — todos los
+  // miembros de un mismo grupo comparten sección+tipo, así que cualquiera sirve para
+  // resolver el perfil del grupo entero (ver MEMBER PROPERTY por sección/grupo).
+  const groupRep = {};
   secs.forEach(sec => {
     const base = (sec + 1) * 1000;
     const idxs = bySec[sec].slice().sort((a, b) => {
@@ -6908,7 +6912,10 @@ function _exportMemberRenumber(nodes, members) {
       const id = base + pos;
       newId[origIdx] = id; order.push(origIdx);
       const gname = _exportGroupName(members[origIdx], sec);
-      if (gname) (groupRanges[gname] = groupRanges[gname] || []).push(id);
+      if (gname) {
+        (groupRanges[gname] = groupRanges[gname] || []).push(id);
+        if (groupRep[gname] == null) groupRep[gname] = origIdx;
+      }
     });
   });
   // Sin sección (retenidas/estabilizador) — numerados después del último bloque de
@@ -6929,9 +6936,12 @@ function _exportMemberRenumber(nodes, members) {
     const id = nextId++;
     newId[origIdx] = id; order.push(origIdx);
     const gname = _exportGroupName(members[origIdx], null);
-    if (gname) (groupRanges[gname] = groupRanges[gname] || []).push(id);
+    if (gname) {
+      (groupRanges[gname] = groupRanges[gname] || []).push(id);
+      if (groupRep[gname] == null) groupRep[gname] = origIdx;
+    }
   });
-  return { order, newId, groupRanges, secs, levels };
+  return { order, newId, groupRanges, groupRep, secs, levels };
 }
 function _exportNodeRenumber(nodes, members) {
   const nodeSec = new Array(nodes.length).fill(null);
@@ -6953,7 +6963,35 @@ function _exportNodeRenumber(nodes, members) {
   return { order, newId, secs };
 }
 
-function _doExportSTAAD() {
+// Guarda un archivo de export (STAAD/DXF) con diálogo "Guardar como" cuando el navegador
+// lo soporta (File System Access API) — mismo patrón ya usado en saveProjectAs() para el
+// .TSA. Sin esto, exportar SIEMPRE caía directo a la carpeta de Descargas sin preguntar
+// nada (reportado en la versión publicada en GitHub Pages). El .exe de escritorio
+// (qtBridge presente) no tiene todavía un diálogo nativo para estos formatos, así que
+// mantiene el comportamiento de descarga directa sin cambios — solo afecta al navegador.
+async function _saveExportFile(filename, content, mimeType, description, extensions) {
+  if (!qtBridge && window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description, accept: { [mimeType]: extensions } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;   // el usuario canceló el diálogo, no exportar nada
+      // cualquier otro error cae al fallback de abajo
+    }
+  }
+  const blob = new Blob([content], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+async function _doExportSTAAD() {
 
   const cfg  = getConfig();
   // Monopolo: solo se exporta el eje (1 nodo por límite de tramo, 1 barra por tramo) —
@@ -7000,7 +7038,7 @@ function _doExportSTAAD() {
   out += `JOINT COORDINATES\n`;
   out += _staadWrapGroups(nodeOrder.map(origIdx => `${nodeNewId[origIdx]} ${sx(origIdx)} ${sy(origIdx)} ${sz(origIdx)}`), 79, '; ', ';');
 
-  const { order: memberOrder, newId: memberNewId, groupRanges, secs: memberSecs, levels: memberLevels } = _exportMemberRenumber(nodes, members);
+  const { order: memberOrder, newId: memberNewId, groupRanges, groupRep, secs: memberSecs, levels: memberLevels } = _exportMemberRenumber(nodes, members);
   out += `MEMBER INCIDENCES\n`;
   out += _staadWrapGroups(memberOrder.map(origIdx => {
     const m = members[origIdx];
@@ -7036,67 +7074,72 @@ function _doExportSTAAD() {
     out += `END GROUP DEFINITION\n`;
   }
 
-  // ── MEMBER PROPERTY (catálogo AISC/IMCA vía getMemberProfile, o PRISMATIC para el
-  // eje del monopolo) + MEMBER TENSION (cables de retenida) ──────────────────────
-  const profileGroups = {};   // perfil normalizado -> [ids]
-  const monoGroups = {};      // "A_Iz_Iy" -> {props, ids}
-  const osGroups = {};        // diámetro en m (string fijo) -> [ids]
-  const cableTensionIds = [];
+  // ── MEMBER PROPERTY, organizada por SECCIÓN y por GRUPO (mismo orden que GROUP
+  // DEFINITION arriba) — pedido explícito del usuario (2026-06-25): en vez de agrupar
+  // por valor de perfil único (mezclando secciones que comparten perfil en una sola
+  // línea), cada grupo (_SECi_M, _SECi_D, etc.) escribe su propia línea usando el NOMBRE
+  // DEL GRUPO como referencia de miembro (válido en STAAD una vez declarado en GROUP
+  // DEFINITION) en vez de repetir rangos de ID. Todos los miembros de un grupo comparten
+  // sección+tipo, así que basta resolver el perfil de UN representante (groupRep).
   const nTotMono = cfg.nInc + cfg.nStr;
   const zIncMono = (cfg.type === 'monopole' && cfg.nInc > 0)
     ? Array.from({length: cfg.nInc}, (_, i) => +secData[i]?.h || (cfg.height / nTotMono)).reduce((a,b) => a+b, 0)
     : 0;
-  members.forEach((m, i) => {
-    const id = memberNewId[i];
-    if (m.type === 'guy') { cableTensionIds.push(id); return; }
-    // stabarm/puntal/tensor/horizPuntal/horizTensor (miembros del estabilizador de
-    // arriostradas) todavía no tienen un cálculo de propiedades propio — quedan sin
-    // MEMBER PROPERTY por ahora, igual que un perfil no capturado.
-    if (['stabarm','puntal','tensor','horizPuntal','horizTensor'].includes(m.type)) return;
+  // stabarm/puntal/tensor/horizPuntal/horizTensor (estabilizador de arriostradas)
+  // todavía no tienen cálculo de propiedades propio — quedan sin línea, igual que un
+  // perfil no capturado. type:'guy' tampoco (van por MEMBER TENSION, no por TABLE ST).
+  function _resolveMemberPropertyLine(m) {
+    if (m.type === 'guy' || ['stabarm','puntal','tensor','horizPuntal','horizTensor'].includes(m.type)) return null;
     if (cfg.type === 'monopole' && m.type === 'leg') {
       const sd = secData[m.sec];
       const zStart = Math.min(nodes[m.ni].z, nodes[m.nj].z);
       const zEnd   = Math.max(nodes[m.ni].z, nodes[m.nj].z);
       const r = _monopoleSectionRadius(cfg, m.sec, zStart, zEnd, zIncMono);
       const props = _monopolePrismaticProps(sd, r);
-      if (!props) return;
-      const key = `${props.A.toFixed(6)}_${props.Iz.toFixed(8)}_${props.Iy.toFixed(8)}`;
-      (monoGroups[key] = monoGroups[key] || {props, ids: []}).ids.push(id);
-      return;
+      if (!props) return null;
+      return { kind: 'prismatic', text: `PRISMATIC AX ${props.A.toFixed(6)} IZ ${props.Iz.toFixed(8)} IY ${props.Iy.toFixed(8)}` };
     }
     const gp = getMemberProfile(m);
-    if (!gp.profile || gp.profile === '—' || gp.isCableCal) return;
+    if (!gp.profile || gp.profile === '—' || gp.isCableCal) return null;
     // Redondos sólidos (OS) — no van por TABLE ST, van aparte como PRIS YD (ver
-    // _tsaOSToDiameterM). El resto (ángulos/tubulares) sigue por profileGroups.
+    // _tsaOSToDiameterM), en su propio bloque MEMBER PROPERTY (sin "AMERICAN").
     const osDiamM = _tsaOSToDiameterM(gp.profile);
-    if (osDiamM != null) {
-      const key = osDiamM.toFixed(4);
-      (osGroups[key] = osGroups[key] || []).push(id);
-      return;
-    }
+    if (osDiamM != null) return { kind: 'prisYD', text: `PRIS YD ${osDiamM.toFixed(4)}` };
     const key = _tsaAngleToStaadName(gp.profile) || _tsaOCToStaadName(gp.profile) || _tsaChannelToStaadName(gp.profile) || _staadUpper(gp.profile);
-    (profileGroups[key] = profileGroups[key] || []).push(id);
+    return { kind: 'table', text: `TABLE ST ${key}` };
+  }
+  const americanBlock = [];   // líneas TABLE ST / PRISMATIC, con encabezados *SECCION i*
+  const prisYDBlock    = [];  // líneas PRIS YD, mismo criterio
+  memberSecs.forEach(sec => {
+    const secAmerican = [], secPrisYD = [];
+    _SEC_GROUP_ORDER.forEach(suf => {
+      const gname = `_SEC${sec+1}_${suf}`;
+      const repIdx = groupRep[gname];
+      if (repIdx == null) return;
+      const resolved = _resolveMemberPropertyLine(members[repIdx]);
+      if (!resolved) return;
+      const line = `${gname} ${resolved.text}\n`;
+      if (resolved.kind === 'prisYD') secPrisYD.push(line); else secAmerican.push(line);
+    });
+    if (secAmerican.length) { americanBlock.push(`*\n*SECCION ${sec+1}\n*\n`, ...secAmerican); }
+    if (secPrisYD.length)   { prisYDBlock.push(`*\n*SECCION ${sec+1}\n*\n`, ...secPrisYD); }
   });
-  if (Object.keys(profileGroups).length || Object.keys(monoGroups).length) {
+  if (americanBlock.length) {
     out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `***** PERFILES *****\n`;
     out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `MEMBER PROPERTY AMERICAN\n`;
-    Object.entries(profileGroups).forEach(([profile, ids]) => {
-      out += `${_staadIdRanges(ids)} TABLE ST ${profile}\n`;
-    });
-    Object.values(monoGroups).forEach(({props, ids}) => {
-      out += `${_staadIdRanges(ids)} PRISMATIC AX ${props.A.toFixed(6)} IZ ${props.Iz.toFixed(8)} IY ${props.Iy.toFixed(8)}\n`;
-    });
+    out += americanBlock.join('');
   }
   // Redondos sólidos (OS) — bloque MEMBER PROPERTY aparte (sin "AMERICAN"), debajo del
   // de ángulos/tubulares. Pedido explícito del usuario (2026-06-24).
-  if (Object.keys(osGroups).length) {
+  if (prisYDBlock.length) {
     out += `MEMBER PROPERTY\n`;
-    Object.entries(osGroups).forEach(([diamM, ids]) => {
-      out += `${_staadIdRanges(ids)} PRIS YD ${diamM}\n`;
-    });
+    out += prisYDBlock.join('');
   }
+  // MEMBER TENSION (cables de retenida) — los IDs ya están en groupRanges (grupos RNi),
+  // solo se concatenan en orden de nivel.
+  const cableTensionIds = memberLevels.flatMap(lvl => groupRanges[`RN${lvl}`] || []);
   if (cableTensionIds.length) {
     out += `MEMBER TENSION\n${_staadIdRanges(cableTensionIds)}\n`;
   }
@@ -7131,11 +7174,7 @@ function _doExportSTAAD() {
   // cada campo individualmente en cada línea.
   out = out.toUpperCase();
 
-  const blob = new Blob([out], { type: 'text/plain' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `${title}.std`; a.click();
-  URL.revokeObjectURL(url);
+  await _saveExportFile(`${title}.std`, out, 'text/plain', 'STAAD Input File', ['.std']);
 }
 
 // ── Exportar DXF (AutoCAD) ──────────────────────────────────────
@@ -7144,7 +7183,7 @@ function _doExportSTAAD() {
 // anillos reales). Convención de ejes AutoCAD (WCS estándar): X horizontal, Y horizontal,
 // Z vertical (up), right-handed — coincide exactamente con la convención interna de TSA
 // (Z-up), así que NO se necesita el remapeo que sí hace falta para STAAD (que usa Y-up).
-function exportDXF() {
+async function exportDXF() {
   document.getElementById('export-menu').classList.remove('open');
   if (!projectGenerated) {
     const msg = '⚠  Genere una torre antes de exportar.';
@@ -7170,11 +7209,7 @@ function exportDXF() {
   });
   out += '0\nENDSEC\n0\nEOF\n';
 
-  const blob = new Blob([out], { type: 'application/dxf' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `${title}.dxf`; a.click();
-  URL.revokeObjectURL(url);
+  await _saveExportFile(`${title}.dxf`, out, 'application/dxf', 'AutoCAD DXF', ['.dxf']);
 }
 
 // ── Guardar proyecto ───────────────────────────────────────────
@@ -7546,8 +7581,8 @@ function buildSectionRows(n) {
       <div class="sec-row-detail"><span class="sec-row-code">D:</span><span class="sec-row-val">${profFy(s.D, s.DCal)}</span></div>
       ${isKPattern(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Ds:</span><span class="sec-row-val">${profFy(s.Ds, s.DsCal)}</span></div>` : ''}
       ${isKPattern(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Hs:</span><span class="sec-row-val">${profFy(s.Hs, s.HsCal)}</span></div>` : ''}
+      <div class="sec-row-detail"><span class="sec-row-code">H:</span><span class="sec-row-val">${s.topH ? profFy(s.Htop, s.HtopCal) : (s.bayTopH ? profFy(s.Hbay, s.HbayCal) : '—')}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">-</span></div>
-      <div class="sec-row-detail"><span class="sec-row-code">H:</span><span class="sec-row-val" style="color:${(s.topH||s.bayTopH)?'#22C55E':'#3a5070'}">${[s.topH&&'TOP',s.bayTopH&&'BAH'].filter(Boolean).join('+') || '—'}</span></div>
       `}`;
     c.appendChild(card);
   });
