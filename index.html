@@ -759,8 +759,12 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 }
 .report-pages-scroll { flex: 1; overflow-y: auto; padding: 30px 0 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
 .report-page {
-  width: 780px; background: #fff; color: #1a1a1a;
-  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 50px 56px;
+  /* Tamaño carta real (8.5x11in) — antes era un ancho arbitrario en px que no
+     correspondía a ningún tamaño de papel; la vista previa en pantalla debe verse como
+     una hoja carta, no solo el CSS de impresión (que no aplica en la vista normal del
+     modal) — pedido explícito del usuario (2026-06-26). */
+  width: 8.5in; min-height: 11in; box-sizing: border-box; background: #fff; color: #1a1a1a;
+  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 0.5in 0.6in;
   font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5;
 }
 .rp-cover { text-align: center; margin-bottom: 10px; }
@@ -775,8 +779,20 @@ table.rp-table th { background: #eef2f7; font-weight: 600; white-space: nowrap; 
 table.rp-table .rp-total-row td { font-weight: 700; background: #eef2f7; }
 table.rp-table-transposed th:first-child { width: 130px; background: #f5f5f5; white-space: nowrap; }
 table.rp-table-transposed td { text-align: center; font-size: 10px; }
-.rp-elev-wrap { display: flex; gap: 24px; align-items: flex-start; }
+.rp-elev-wrap { display: flex; gap: 8px; align-items: flex-start; }
 .rp-elev-svg { flex-shrink: 0; width: 260px; border: 1px solid #ddd; }
+/* Tabla vertical de detalle por sección (estilo "planos llave") — una fila por sección/
+   límite de elevación, de arriba hacia abajo igual que la torre, encabezados de columna
+   rotados 90° para que entren muchas columnas angostas sin ensanchar la tabla. */
+table.rp-key-table { width: auto; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
+table.rp-key-table th, table.rp-key-table td { border: 1px solid #ccc; padding: 0 2px; text-align: center; vertical-align: middle; overflow: visible; }
+table.rp-key-table thead th {
+  height: 90px; background: #eef2f7; font-weight: 600; white-space: nowrap;
+  vertical-align: bottom; padding-bottom: 4px;
+}
+table.rp-key-table thead th span, table.rp-key-table tbody td span {
+  display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+}
 .rp-pending {
   font-size: 10.5px; color: #888; background: #f7f7f7; border: 1px dashed #ccc;
   border-radius: 5px; padding: 14px; text-align: center; margin-bottom: 10px;
@@ -784,12 +800,20 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
 .rp-disclaimer { font-size: 10px; color: #555; background: #f7f7f7; border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-top: 16px; }
 .rp-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
 @media print {
+  @page { size: letter; margin: 0.4in; }
   body * { visibility: hidden; }
   .report-modal-overlay, .report-modal-overlay * { visibility: visible; }
   .report-modal-toolbar { display: none !important; }
-  .report-modal-overlay { position: static !important; background: none !important; }
-  .report-pages-scroll { overflow: visible !important; padding: 0 !important; display: block !important; }
-  .report-page { box-shadow: none !important; margin: 0 auto !important; page-break-after: always; }
+  /* display:block (no flex) en TODA la cadena de ancestros — un contenedor flex en medio
+     hace que Chrome ignore page-break-after y exporte todo en 1 sola hoja de PDF, que es
+     justo lo que reportó el usuario — pedido explícito tras esa falla (2026-06-26). */
+  .report-modal-overlay { position: static !important; background: none !important; display: block !important; }
+  .report-pages-scroll { overflow: visible !important; padding: 0 !important; display: block !important; gap: 0 !important; }
+  #report-page-content { display: block !important; gap: 0 !important; }
+  .report-page {
+    box-shadow: none !important; margin: 0 auto !important; page-break-after: always;
+    min-height: 0 !important; width: 7.7in !important; padding: 0 !important;
+  }
   .report-page:last-child { page-break-after: auto; }
 }
 
@@ -5935,66 +5959,364 @@ function _reportSectionWeights() {
   });
   return bySec;
 }
-// Elevación 2D (proyección XZ, igual criterio que el preview de "Nueva Torre") — todas
-// las caras se proyectan superpuestas sobre el mismo plano, no es una sola cara aislada,
-// pero ya es el mismo método probado que usa el preview en vivo de la app.
-function _reportElevationSvg() {
+// Elevación 2D — SOLO la cara paralela al plano X-Z (Y constante), no todas las caras
+// superpuestas — pedido explícito del usuario (2026-06-26). Las piernas conectadas por
+// type:'leg' se agrupan por columna (unión de nodos vía las propias barras de pierna,
+// como un union-find simple); se eligen las 2 columnas con mayor Y en su nodo más bajo
+// — para un polígono regular esas 2 piernas son justo la cara "de frente". Solo se
+// dibuja un miembro si AMBOS extremos pertenecen a esas 2 piernas. Para arriostradas,
+// las retenidas (type:'guy') se filtran aparte: solo las del lado derecho (anclaje con
+// x>0 en la proyección), pedido explícito también.
+// Presupuesto de píxeles compartido con _reportSectionVerticalTable/_reportMonopoleVerticalTable
+// (mismo número en ambos lados) — así una sección de X metros ocupa el MISMO alto en la
+// tabla y en el esquema, y las líneas de cada inicio de sección coinciden con el límite
+// de fila de la tabla. Pedido explícito del usuario (2026-06-26).
+function _reportPxBudget(isGuyed) { return isGuyed ? 1800 : 600; }
+function _reportElevationSvg(cfg) {
   const data = _towerData;
   if (!data || !data.nodes.length) return '';
+  const isGuyed = cfg?.type === 'guyed';
   const xs = data.nodes.map(n => n.x), zs = data.nodes.map(n => n.z);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minZ = Math.min(...zs), maxZ = Math.max(...zs);
-  const W = 260, H = 700, padX = 34, padY = 16;
+  const W = 260, padX = 34, padBottom = 16;
+  // El margen ARRIBA debe igualar la altura del thead de la tabla (90px, encabezados
+  // rotados) — son 2 elementos flex hermanos alineados arriba (align-items:flex-start),
+  // así que el "tope de la torre" en el SVG debe caer justo donde empieza la primera
+  // fila de datos de la tabla (después del thead), no a los 16px de antes — pedido
+  // explícito del usuario tras ver el desalineamiento real (flechas en su captura).
+  const padTop = 90;
   const spanX = Math.max(0.01, maxX - minX), spanZ = Math.max(0.01, maxZ - minZ);
-  const scale = Math.min((W - 2 * padX) / spanX, (H - 2 * padY) / spanZ);
-  const cx = W / 2, baseY = H - padY;
+  // H se deriva del presupuesto compartido (no de un valor fijo) — el contenido (sin
+  // contar el padding) mide exactamente PX_BUDGET, igual que la suma de alturas de fila
+  // de la tabla. Solo se usa la escala por Z (se ignora el ancho) para que 1 m vertical
+  // mida lo mismo en la tabla y en el esquema, sin distorsión por el ancho de la torre.
+  const PX_BUDGET = _reportPxBudget(isGuyed);
+  const H = PX_BUDGET + padTop + padBottom;
+  const scale = PX_BUDGET / spanZ;
+  // En arriostradas solo se dibujan las retenidas del lado derecho (anclaje x>0) — el
+  // fuste centrado deja la mitad izquierda del viewBox vacía y recorta las retenidas
+  // antes de tiempo. Se recorre el centro hacia la izquierda para darles más espacio
+  // a la derecha — pedido explícito del usuario (2026-06-26).
+  const cx = isGuyed ? W * 0.25 : W / 2, baseY = H - padBottom;
   const px = x => cx + (x - (minX + maxX) / 2) * scale;
   const py = z => baseY - (z - minZ) * scale;
   const colorFor = m => m.type === 'guy' ? '#C9A227' : m.type === 'stabarm' ? '#2E8B57'
     : m.type === 'leg' ? '#0A1628' : m.type === 'diagonal' ? '#2E8B57' : '#7A8B9A';
+
+  // Agrupar nodos en columnas de pierna (union-find sobre las barras type:'leg') para
+  // identificar las 2 piernas de "la cara de frente" (mayor Y en su nodo más bajo).
+  const parent = {};
+  const find = x => { while (parent[x] !== undefined && parent[x] !== x) x = parent[x]; return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  data.members.forEach(m => { if (m.type === 'leg') { if (parent[m.ni] === undefined) parent[m.ni] = m.ni; if (parent[m.nj] === undefined) parent[m.nj] = m.nj; union(m.ni, m.nj); } });
+  const legCols = new Map();   // raíz -> Set de nodos de esa columna
+  data.members.forEach(m => {
+    if (m.type !== 'leg') return;
+    [m.ni, m.nj].forEach(idx => {
+      const root = find(idx);
+      if (!legCols.has(root)) legCols.set(root, new Set());
+      legCols.get(root).add(idx);
+    });
+  });
+  // En vez de exigir que AMBOS extremos sean nodos de pierna (eso descartaba diagonales
+  // partidas en su cruce — el nodo nuevo del cruce no pertenece a ninguna pierna, y la
+  // celosía completa desaparecía del esquema). Como las 2 piernas de la cara comparten
+  // el mismo Y en cada altura (geometría simétrica del polígono), cualquier punto SOBRE
+  // esa cara (incluido un cruce de diagonales) tiene el mismo Y que las piernas a esa
+  // misma Z — se interpola Y-de-pierna-vs-Z y se acepta el nodo si su Y real coincide.
+  let faceYAt = null;
+  if (legCols.size >= 2) {
+    const colInfo = [...legCols.values()].map(idxs => {
+      let baseIdx = [...idxs][0];
+      idxs.forEach(i => { if (data.nodes[i].z < data.nodes[baseIdx].z) baseIdx = i; });
+      return { idxs, y: data.nodes[baseIdx].y };
+    });
+    // Buscar el PAR de piernas cuyo Y en la base sea más parecido entre sí — NO
+    // simplemente las 2 de mayor Y. Con 3+ piernas (ej. triangular) las 2 de mayor Y
+    // pueden no compartir cara (una pierna única "de punta" + 2 simétricas detrás
+    // comparten el MISMO Y entre ellas, no con la de mayor Y) — bug real encontrado con
+    // harness: con esa selección errónea, ninguna diagonal pasaba el filtro.
+    let bestPair = null, bestDiff = Infinity;
+    for (let i = 0; i < colInfo.length; i++) {
+      for (let j = i + 1; j < colInfo.length; j++) {
+        const diff = Math.abs(colInfo[i].y - colInfo[j].y);
+        if (diff < bestDiff) { bestDiff = diff; bestPair = [colInfo[i], colInfo[j]]; }
+      }
+    }
+    const samples = [...bestPair[0].idxs].map(i => ({ z: data.nodes[i].z, y: data.nodes[i].y })).sort((a, b) => a.z - b.z);
+    faceYAt = z => {
+      if (z <= samples[0].z) return samples[0].y;
+      for (let i = 1; i < samples.length; i++) {
+        if (z <= samples[i].z) {
+          const t = (z - samples[i - 1].z) / ((samples[i].z - samples[i - 1].z) || 1);
+          return samples[i - 1].y + (samples[i].y - samples[i - 1].y) * t;
+        }
+      }
+      return samples[samples.length - 1].y;
+    };
+  }
+  const FACE_TOL = 0.05;
+  const onFaceNode = idx => !faceYAt || Math.abs(data.nodes[idx].y - faceYAt(data.nodes[idx].z)) < FACE_TOL;
+  const onFace = m => onFaceNode(m.ni) && onFaceNode(m.nj);
+
+  // Solo pierna/diagonal/retenida — el resto (tensor, horizTensor, horizPuntal del
+  // triángulo estabilizador, etc.) son bracing interno del estabilizador, no parte de
+  // la cara/celosía ni de las retenidas reales, y colaban líneas grisáceo-azules cerca
+  // del fuste cerca del nivel del estabilizador que el usuario confundió con "retenidas
+  // en azul" — pedido explícito tras revisar su captura (2026-06-26).
+  const ELEV_TYPES = new Set(['leg', 'diagonal', 'guy']);
+  // Por nivel de retenida solo se dibuja LA UNA con el anclaje más "de lado" (mayor X) —
+  // con 3+ anclajes por nivel, más de uno puede caer en x>0 sin ser realmente "de
+  // perfil"; el de X chico se proyecta casi vertical, pegado al fuste, y es justo esa
+  // línea la que el usuario identificó como "retenida en azul" y no quiere ver — pedido
+  // explícito tras corregir mi diagnóstico anterior (2026-06-26).
+  const bestGuyByLevel = new Map();
+  if (isGuyed) {
+    data.members.forEach(m => {
+      if (m.type !== 'guy') return;
+      const x = data.nodes[m.ni].x;
+      if (x <= 0) return;
+      const cur = bestGuyByLevel.get(m.guyLevel);
+      if (!cur || x > cur) bestGuyByLevel.set(m.guyLevel, x);
+    });
+  }
   let lines = '';
   data.members.forEach(m => {
+    if (!ELEV_TYPES.has(m.type)) return;
+    if (m.type === 'guy') {
+      if (!isGuyed) return;
+      const x = data.nodes[m.ni].x;
+      if (x <= 0 || x !== bestGuyByLevel.get(m.guyLevel)) return;
+    } else if (!onFace(m)) {
+      return;
+    }
     const a = data.nodes[m.ni], b = data.nodes[m.nj];
     lines += `<line x1="${px(a.x).toFixed(1)}" y1="${py(a.z).toFixed(1)}" x2="${px(b.x).toFixed(1)}" y2="${py(b.z).toFixed(1)}" stroke="${colorFor(m)}" stroke-width="0.7"/>`;
   });
-  // Marcas de elevación reales — niveles únicos en Z donde hay un nodo de pierna.
-  const legZs = [...new Set(data.members.filter(m => m.type === 'leg').flatMap(m => [data.nodes[m.ni].z, data.nodes[m.nj].z]))].sort((a, b) => a - b);
+  // Marcas en cada INICIO DE SECCIÓN (no en cada corte de bahía) — para que coincidan
+  // con los límites de fila de la tabla (una fila por sección, ver
+  // _reportSectionVerticalTable) — pedido explícito del usuario (2026-06-26). Elevación
+  // a la izquierda, Apertura de la torre a esa altura a la DERECHA (antes vivían en la
+  // tabla, ahora se mudan aquí, junto al dibujo, como en la hoja de referencia).
+  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const secZs = [0];
+  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
+  const isMono = cfg.type === 'monopole';
+  const apertura = (zAt, secIdx) => {
+    if (isMono) {
+      const isInc = secIdx < cfg.nInc;
+      const apFijo = cfg.secData[secIdx]?.monoAp;
+      if (!isInc && apFijo != null) return apFijo;
+      return cfg.baseW + (cfg.topW - cfg.baseW) * (zAt / totalH);
+    }
+    return isGuyed ? cfg.shaftW : (cfg.baseW + (cfg.topW - cfg.baseW) * (zAt / totalH));
+  };
   let ticks = '';
-  legZs.forEach(z => {
-    const y = py(z);
-    ticks += `<line x1="${padX - 5}" y1="${y.toFixed(1)}" x2="${W - padX + 5}" y2="${y.toFixed(1)}" stroke="#e2e2e2" stroke-width="0.4"/>`;
-    ticks += `<text x="2" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${z.toFixed(1)}m</text>`;
+  const tickHalfW = isGuyed ? 26 : (W / 2 - padX + 5);
+  secZs.forEach((zReal, k) => {
+    const y = py(minZ + zReal);
+    const secIdx = Math.max(0, k - 1);
+    ticks += `<line x1="${(cx - tickHalfW).toFixed(1)}" y1="${y.toFixed(1)}" x2="${(cx + tickHalfW).toFixed(1)}" y2="${y.toFixed(1)}" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>`;
+    ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${zReal.toFixed(1)}m</text>`;
+    ticks += `<text x="${(cx + tickHalfW + 4).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${apertura(zReal, secIdx).toFixed(2)}</text>`;
   });
-  return `<svg class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:660px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
+  return `<svg class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
 }
-// Tabla transpuesta de propiedades por sección (filas=propiedad, columnas=sección) —
-// análoga a la columna izquierda de las hojas clásicas de diseño de torre (TIA-222).
-function _reportSectionPropsTable(cfg) {
-  if (cfg.type === 'monopole') return '';   // Monopolo ya tiene su propia tabla por tramo
+// Tabla vertical "planos llave" — una fila por sección, de arriba hacia abajo (igual
+// que la altura real de la torre), con columnas rotadas 90° y Nivel/Apertura marcando
+// el límite inferior de cada sección (el límite superior ya quedó marcado como el
+// inferior de la sección de encima — solo la sección más alta muestra ambos límites).
+// Reemplaza la tabla transpuesta anterior — pedido explícito del usuario (2026-06-26),
+// con una imagen de referencia tipo Excel "Tabla planos llave". Lattice (autosoportada)
+// y Guyed comparten columnas (mismos campos en secData); Guyed solo cambia la fórmula
+// de Apertura (shaftW constante, no ahúsa baseW→topW). Monopolo usa su propia versión
+// (_reportMonopoleVerticalTable) por tener columnas totalmente distintas.
+// Letras de marca (A, B, C...) para reemplazar el nombre del perfil repetido en cada
+// celda — pedido explícito del usuario con una hoja de diseño profesional de referencia
+// (RISA/TNX-style: tabla con "MARK" en vez de perfil completo por celda, y aparte una
+// MATERIAL LIST que traduce cada marca). Se asignan en el orden en que aparecen al
+// recorrer la tabla (de la sección más alta hacia abajo).
+function _reportSectionVerticalTable(cfg) {
   const weights = _reportSectionWeights();
-  const g = name => steelGrades.find(x => x.name === name);
-  const calTxt = cal => { const gr = g(cal); return gr ? gr.name : '—'; };
-  const rows = [
-    ['Sección',             cfg.secData.map((_, i) => `${i + 1}`)],
-    ['Patrón',              cfg.secData.map(s => s.diag)],
-    ['Bahías',              cfg.secData.map(s => `x${s.bays}`)],
-    ['Altura',              cfg.secData.map(s => `${s.h} m`)],
-    ['Piernas (M)',         cfg.secData.map(s => (s.M && s.M !== '-') ? s.M : '—')],
-    ['Calidad piernas',     cfg.secData.map(s => calTxt(s.MCal))],
-    ['Diagonales (D)',      cfg.secData.map(s => (s.D && s.D !== '-') ? s.D : '—')],
-    ['Calidad diagonales',  cfg.secData.map(s => calTxt(s.DCal))],
-    ['Peso (kg)',           cfg.secData.map((_, i) => weights[i] != null ? weights[i].toFixed(1) : '—')],
+  const isGuyed = cfg.type === 'guyed';
+  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const v = val => (val && val !== '-') ? val : '';
+  const cols = [
+    ['Piernas',         s => v(s.M),    s => s.MCal],
+    ['Diagonales',      s => v(s.D),    s => s.DCal],
+    ['Horizontales',    s => v(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null)), s => s.topH ? s.HtopCal : (s.bayTopH ? s.HbayCal : null)],
+    ['Diag. Sec.',      s => v(s.Ds),   s => s.DsCal],
+    ['Horiz. Sec.',     s => v(s.Hs),   s => s.HsCal],
+    ['Diag. Internas',  s => v(s.HhipD), s => s.HhipDCal],
+    ['Horiz. Internas', s => v(s.HhipH), s => s.HhipHCal],
+    ['Plan-Bracing',    s => v(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null)), s => s.planTop !== 'none' ? s.PbTopCal : (s.planBay !== 'none' ? s.PbBayCal : null)],
+    ['Diafragma',       s => v(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null)), s => s.planTop === 'A-A' ? s.PbTop2Cal : (s.planBay === 'A-A' ? s.PbBay2Cal : null)],
   ];
-  return `<table class="rp-table rp-table-transposed">
-    <tbody>${rows.map(([label, vals]) => `<tr><th>${label}</th>${vals.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody>
+  const calidadSet = new Set();
+  // Nivel/Apertura ya NO van en la tabla — se muestran junto al esquema de elevación
+  // (ver _reportElevationSvg), a la derecha de cada línea de inicio de sección. Una
+  // sola fila por sección, sin fila vacía de separación — pedido explícito del usuario
+  // (2026-06-26). rowH usa el MISMO presupuesto de píxeles que el esquema, para que el
+  // límite de cada fila coincida con la línea de esa sección en el dibujo.
+  const PX_BUDGET = _reportPxBudget(isGuyed);
+  const order = cfg.secData.map((_, i) => i).reverse();   // de arriba hacia abajo
+  let rowsHtml = '';
+  order.forEach(i => {
+    const s = cfg.secData[i];
+    const rowH = Math.max(16, Math.round((s.h / totalH) * PX_BUDGET));
+    const w = weights[i] != null ? weights[i].toFixed(1) : '';
+    rowsHtml += `<tr style="height:${rowH}px;">
+      <td>${i + 1}</td>
+      ${cols.map(([, fn, calFn]) => {
+        const val = fn(s);
+        if (val) { const cal = calFn(s); if (cal && cal !== '-') calidadSet.add(cal); }
+        return `<td>${val ? `<span>${val}</span>` : ''}</td>`;
+      }).join('')}
+      <td>${w}</td>
+    </tr>`;
+  });
+  const headers = ['Sección', ...cols.map(c => c[0]), 'Peso (Kg)'];
+  // Anchos angostos por columna — el texto rotado 90° solo necesita el ancho de una
+  // línea de texto, no una columna ancha. Sección y Peso van horizontales (sin rotar)
+  // y necesitan un poco más de aire. Pedido explícito del usuario (2026-06-26).
+  const colWidths = [22, ...cols.map(() => 20), 38];
+  const html = `<table class="rp-key-table">
+    <thead><tr>${headers.map((h, i) => `<th style="width:${colWidths[i]}px;"><span>${h}</span></th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+  return { html, calidadSet };
+}
+// Equivalente para Monopolo — columnas propias (sin Piernas/Diagonales/etc., el eje es
+// un tubo continuo): Diámetro, Espesor, Lados, Calidad, Peso. Mismo criterio de filas
+// de arriba hacia abajo con Nivel/Apertura por límite de tramo.
+function _reportMonopoleVerticalTable(cfg) {
+  const g = name => steelGrades.find(x => x.name === name);
+  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const calidadSet = new Set();
+  // Nivel/Apertura ya NO van en la tabla (ver _reportElevationSvg) — una sola fila por
+  // tramo, mismo presupuesto de píxeles que el esquema. Mismo criterio que la tabla de
+  // lattice/guyed (2026-06-26).
+  const PX_BUDGET = _reportPxBudget(false);
+  const order = cfg.secData.map((_, i) => i).reverse();
+  let rowsHtml = '';
+  order.forEach(i => {
+    const s = cfg.secData[i];
+    const rowH = Math.max(16, Math.round((s.h / totalH) * PX_BUDGET));
+    const gr = g(s.monoFy);
+    if (gr) calidadSet.add(gr.name);
+    rowsHtml += `<tr style="height:${rowH}px;">
+      <td>${i + 1}</td>
+      <td>${i < cfg.nInc ? 'Inclinado' : 'Recto'}</td>
+      <td>${s.monoSides >= 24 ? 'Redondo' : (s.monoSides || '') + ' lados'}</td>
+      <td>${s.monoThk === '-' ? '' : s.monoThk}</td>
+      <td>${gr ? gr.name : ''}</td>
+    </tr>`;
+  });
+  const headers = ['Tramo', 'Tipo', 'Lados', 'Espesor (mm)', 'Calidad'];
+  // Estas celdas van horizontales (sin rotar) — necesitan ancho para la palabra
+  // completa, a diferencia de las columnas rotadas de lattice/guyed. Igual de angostas
+  // que el contenido lo permite — pedido explícito del usuario (2026-06-26).
+  const colWidths = [28, 45, 40, 55, 70];
+  const html = `<table class="rp-key-table">
+    <thead><tr>${headers.map((h, i) => `<th style="width:${colWidths[i]}px;"><span>${h}</span></th>`).join('')}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+  return { html, calidadSet };
+}
+function _reportSectionPropsTable(cfg) {
+  return cfg.type === 'monopole' ? _reportMonopoleVerticalTable(cfg) : _reportSectionVerticalTable(cfg);
+}
+// MATERIAL STRENGTH — calidades de acero realmente usadas (no el catálogo completo),
+// con su Fy, en pares Grade|Yield por fila.
+function _buildMaterialStrengthHtml(calidadSet) {
+  if (!calidadSet.size) return '';
+  const entries = [...calidadSet].map(name => {
+    const g = steelGrades.find(x => x.name === name);
+    return [name, g ? `${g.fy} kg/cm²` : '—'];
+  });
+  let rows = '';
+  for (let i = 0; i < entries.length; i += 2) {
+    const [g1, y1] = entries[i];
+    const p2 = entries[i + 1];
+    rows += `<tr><td>${g1}</td><td>${y1}</td><td>${p2 ? p2[0] : ''}</td><td>${p2 ? p2[1] : ''}</td></tr>`;
+  }
+  return `<table class="rp-table" style="font-size:10px;">
+    <thead><tr><th>Grade</th><th>Yield</th><th>Grade</th><th>Yield</th></tr></thead>
+    <tbody>${rows}</tbody>
   </table>`;
 }
+// Vista en planta — piernas (lattice) o fuste+líneas a cada anclaje con su radio
+// (guyed). Pedido explícito del usuario con una hoja de referencia que la incluye.
+function _reportPlanSvg(cfg) {
+  const data = _towerData;
+  if (!data || !data.nodes.length) return '';
+  const W = 220, H = 220, cx = W / 2, cy = H / 2;
+  const px = x => cx + x, py = y => cy - y;   // se reescala más abajo
+  let content = '';
+  if (cfg.type === 'guyed') {
+    const anchorPts = new Map();
+    data.members.forEach(m => {
+      if (m.type !== 'guy') return;
+      const a = data.nodes[m.ni];   // ni = anclaje (convención ya establecida)
+      const key = `${a.x.toFixed(3)},${a.y.toFixed(3)}`;
+      if (!anchorPts.has(key)) anchorPts.set(key, a);
+    });
+    const pts = [...anchorPts.values()];
+    if (!pts.length) return '';
+    const maxR = Math.max(1, ...pts.map(p => Math.hypot(p.x, p.y)));
+    const scale = (Math.min(W, H) / 2 - 34) / maxR;
+    const sx = x => cx + x * scale, sy = y => cy - y * scale;
+    pts.forEach(p => {
+      const r = Math.hypot(p.x, p.y);
+      content += `<line x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${sx(p.x).toFixed(1)}" y2="${sy(p.y).toFixed(1)}" stroke="#999" stroke-width="0.6"/>`;
+      content += `<text x="${sx(p.x).toFixed(1)}" y="${sy(p.y).toFixed(1)}" font-size="6" fill="#666" text-anchor="middle">R=${r.toFixed(1)}m</text>`;
+    });
+    content += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="#0A1628"/>`;
+  } else {
+    // Piernas en columnas (union-find sobre type:'leg', mismo método que la elevación)
+    // — se toma el nodo más bajo de cada columna y se ordenan por ángulo para cerrar
+    // el polígono de la planta.
+    const parent = {};
+    const find = x => { while (parent[x] !== undefined && parent[x] !== x) x = parent[x]; return x; };
+    const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+    data.members.forEach(m => { if (m.type === 'leg') { if (parent[m.ni] === undefined) parent[m.ni] = m.ni; if (parent[m.nj] === undefined) parent[m.nj] = m.nj; union(m.ni, m.nj); } });
+    const cols = new Map();
+    data.members.forEach(m => {
+      if (m.type !== 'leg') return;
+      [m.ni, m.nj].forEach(idx => {
+        const r = find(idx);
+        if (!cols.has(r) || data.nodes[idx].z < data.nodes[cols.get(r)].z) cols.set(r, idx);
+      });
+    });
+    const pts = [...cols.values()].map(idx => data.nodes[idx]);
+    if (pts.length < 2) return '';
+    pts.sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
+    const maxR = Math.max(1, ...pts.map(p => Math.hypot(p.x, p.y)));
+    const scale = (Math.min(W, H) / 2 - 20) / maxR;
+    const sx = x => cx + x * scale, sy = y => cy - y * scale;
+    const poly = pts.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
+    content += `<polygon points="${poly}" fill="none" stroke="#0A1628" stroke-width="1"/>`;
+    pts.forEach(p => { content += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.2" fill="#0A1628"/>`; });
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:200px;height:200px;border:1px solid #ddd;flex-shrink:0;">${content}</svg>`;
+}
 function _renderReportPage2HTML(cfg) {
+  const { html: propsTableHtml, calidadSet } = _reportSectionPropsTable(cfg);
+  const materialStrengthHtml = _buildMaterialStrengthHtml(calidadSet);
+  const planSvg = _reportPlanSvg(cfg);
   return `
     <h2 class="rp-h2">Elevación y propiedades de la torre (MKS)</h2>
     <div class="rp-elev-wrap">
-      ${_reportElevationSvg()}
-      <div style="flex:1;min-width:0;">${_reportSectionPropsTable(cfg) || '<p style="font-size:11px;color:#777;">No aplica para Monopolo — ver "Detalle por tramo" en la hoja anterior.</p>'}</div>
+      ${_reportElevationSvg(cfg)}
+      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+    </div>
+
+    <div style="display:flex;gap:24px;align-items:flex-start;margin-top:14px;">
+      ${planSvg}
+      <div style="flex:1;min-width:0;">
+        ${materialStrengthHtml ? `<h2 class="rp-h2" style="margin-top:0;">Material Strength</h2>${materialStrengthHtml}` : ''}
+      </div>
     </div>
 
     <h2 class="rp-h2">Carga de diseño de accesorios (appurtenances)</h2>
@@ -6017,11 +6339,24 @@ function openReportModal() {
     `<div class="report-page">${_renderReportHTML()}</div>` +
     `<div class="report-page">${_renderReportPage2HTML(cfg)}</div>`;
   document.getElementById('report-modal-overlay').classList.add('open');
+  if (qtBridge && qtBridge.debugPageSize) qtBridge.debugPageSize();
 }
 function closeReportModal() {
   document.getElementById('report-modal-overlay').classList.remove('open');
 }
-function printReport() { window.print(); }
+function printReport() {
+  // window.print() dentro de QWebEngineView (app de escritorio) no hace nada — no hay
+  // diálogo de impresión nativo a menos que el lado Qt llame explícitamente a
+  // printToPdf(). Con qtBridge presente (app de escritorio) se delega a Python, que sí
+  // puede escribir el PDF a disco con tamaño carta forzado — pedido explícito del
+  // usuario tras confirmar que "Guardar como PDF" no hacía nada en la app (2026-06-26).
+  if (qtBridge) {
+    const title = _assetFileBase(getConfig()).replace(/\s+/g, '_');
+    qtBridge.savePdfDialog(`${title}.pdf`);
+  } else {
+    window.print();
+  }
+}
 
 function _renderReportHTML() {
   const cfg = getConfig();
@@ -6181,8 +6516,11 @@ function _monopolePrismaticProps(sd, r) {
 // Comprime una lista de IDs (miembro o nodo) al formato "TO" de STAAD — ej. [1,2,3,4,5,8,9]
 // -> "1 TO 5 8 9" — para que MEMBER PROPERTY/SUPPORTS no se vuelvan líneas gigantes en
 // torres con muchos miembros del mismo perfil.
-function _staadIdRanges(ids) {
-  if (!ids.length) return '';
+// Arreglo de tokens "N" / "N TO M" (sin unir) — para envolver a 79 caracteres sin
+// partir un rango a la mitad (ver _staadWrapGroups). _staadIdRanges() sigue igual,
+// solo ahora reutiliza esto.
+function _staadIdRangeParts(ids) {
+  if (!ids.length) return [];
   const sorted = [...ids].sort((a, b) => a - b);
   const parts = [];
   let start = sorted[0], prev = sorted[0];
@@ -6194,7 +6532,10 @@ function _staadIdRanges(ids) {
     }
     prev = cur;
   }
-  return parts.join(' ');
+  return parts;
+}
+function _staadIdRanges(ids) {
+  return _staadIdRangeParts(ids).join(' ');
 }
 
 // Empaqueta strings ya formateados (ej. "id x y z" de un nodo, "id ni nj" de una barra) en
@@ -7243,16 +7584,19 @@ async function _doExportSTAAD() {
   // (acero) + una para CABLE, SIN E/DENSITY/POISSON ALL (ya quedan definidos dentro de
   // cada ISOTROPIC en MATERIALES) — formato final dado explícitamente por el usuario
   // (2026-06-26), con rangos de ID comprimidos (vía _staadIdRanges, no nombres de
-  // grupo) para ocupar menos caracteres que enumerar cada grupo por su nombre.
+  // grupo) para ocupar menos caracteres que enumerar cada grupo por su nombre. Envuelto
+  // a 79 caracteres (pedido explícito) vía _staadWrapGroups + _staadIdRangeParts, para
+  // no partir un rango "N TO M" a la mitad — continuación con " -" (el separador de
+  // continuación estándar de STAAD para listas de miembros).
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `***** CONSTANTES *****\n`;
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `CONSTANTS\n`;
   Object.entries(materialGroups).forEach(([key, { ids }]) => {
-    out += `MATERIAL ${key} MEMB ${_staadIdRanges(ids)}\n`;
+    out += _staadWrapGroups([`MATERIAL ${key} MEMB`, ..._staadIdRangeParts(ids)], 79, ' ', ' -');
   });
   if (cableIds.length) {
-    out += `MATERIAL CABLE MEMB ${_staadIdRanges(cableIds)}\n`;
+    out += _staadWrapGroups(['MATERIAL CABLE MEMB', ..._staadIdRangeParts(cableIds)], 79, ' ', ' -');
   }
 
   // ── TENSIONES INICIALES — un bloque MEMBER CABLE con la tensión inicial de cada
@@ -7269,7 +7613,7 @@ async function _doExportSTAAD() {
       const dd = cd?.diamData;
       if (!dd?.rotura) return;
       const tensionKg = dd.rotura * 1000 * ((cd.tensionPct ?? 10) / 100);
-      tensionLines.push(`*NIVEL ${lvl} CABLES DE ${dd.name} ${dd.calidad}\n_RN${lvl} TENSION ${tensionKg.toFixed(2)} kg\n*\n`);
+      tensionLines.push(`*NIVEL ${lvl} CABLES DE ${dd.name} ${dd.calidad}\n_RN${lvl} TENSION ${tensionKg.toFixed(2)}\n*\n`);
     });
     if (tensionLines.length) {
       out += `*//////////////////////////////////////////////////////////////////\n`;
@@ -7366,57 +7710,6 @@ async function saveProject() {
   return await saveProjectAs();
 }
 
-// ── Recordar la carpeta de proyectos cuando TSA.html se abre directo en el navegador ──
-// File System Access API no admite fijar una ruta arbitraria como carpeta inicial, pero
-// sí permite reutilizar un FileSystemDirectoryHandle ya elegido — se guarda en IndexedDB
-// la primera vez (se le pide al usuario elegir la carpeta de TSA una sola vez) y se
-// reutiliza como "startIn" en Guardar/Abrir siguientes, sin volver a preguntar.
-const PROJECT_DIR_DB = 'tsa_handles', PROJECT_DIR_STORE = 'dirs', PROJECT_DIR_KEY = 'projectDir';
-function _idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(PROJECT_DIR_DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(PROJECT_DIR_STORE);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-async function _getSavedProjectDirHandle() {
-  try {
-    const db = await _idbOpen();
-    const handle = await new Promise((resolve, reject) => {
-      const tx = db.transaction(PROJECT_DIR_STORE, 'readonly');
-      const req = tx.objectStore(PROJECT_DIR_STORE).get(PROJECT_DIR_KEY);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
-    if (!handle) return null;
-    let perm = await handle.queryPermission({ mode: 'readwrite' });
-    if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'readwrite' });
-    return perm === 'granted' ? handle : null;
-  } catch { return null; }
-}
-async function _saveProjectDirHandle(handle) {
-  try {
-    const db = await _idbOpen();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(PROJECT_DIR_STORE, 'readwrite');
-      tx.objectStore(PROJECT_DIR_STORE).put(handle, PROJECT_DIR_KEY);
-      tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
-    });
-  } catch {}
-}
-// La primera vez (sin carpeta guardada todavía) se le pide al usuario elegirla una sola
-// vez con showDirectoryPicker — después de eso ya no se vuelve a preguntar.
-async function _ensureProjectDirHandle() {
-  let handle = await _getSavedProjectDirHandle();
-  if (handle) return handle;
-  if (!window.showDirectoryPicker) return null;
-  try {
-    handle = await window.showDirectoryPicker({ id: 'tsaProjectDir', mode: 'readwrite' });
-    await _saveProjectDirHandle(handle);
-    return handle;
-  } catch { return null; }
-}
 
 // Nombre sugerido para Guardar/Exportar: "<Asset Number> <Asset Name>" — cae a "TSA" si
 // ambos campos están vacíos (proyecto sin datos de PROYECTO aún).
@@ -7443,11 +7736,14 @@ async function saveProjectAs() {
   }
   if (window.showSaveFilePicker) {
     try {
-      const dirHandle = await _ensureProjectDirHandle();
+      // Sin "startIn" con carpeta recordada (showDirectoryPicker) — Chrome bloquea
+      // elegir carpetas "completas" como Escritorio/Documentos/Descargas/carpeta de
+      // usuario directamente ("contiene archivos del sistema"), mostrando un cuadro
+      // confuso justo al abrir la app en un equipo nuevo. Sin esto, el picker nativo de
+      // archivos abre directo, sin ese riesgo (el usuario navega manualmente, una vez).
       const handle = await window.showSaveFilePicker({
         suggestedName: currentFileHandle ? currentFileHandle.name : `${suggestedBase}.TSA`,
         types: [{ description: 'TSA Project', accept: { 'application/json': ['.TSA', '.tsa'] } }],
-        ...(dirHandle ? { startIn: dirHandle } : {}),
       });
       await _writeHandle(handle);
       currentFileHandle = handle;
@@ -7523,10 +7819,10 @@ async function openProject() {
   }
   if (window.showOpenFilePicker) {
     try {
-      const dirHandle = await _ensureProjectDirHandle();
+      // Sin "startIn" (ver mismo comentario en saveProjectAs) — evita el cuadro
+      // "esta carpeta no se puede abrir" de Chrome al usar TSA en un equipo nuevo.
       const [handle] = await window.showOpenFilePicker({
         types: [{ description: 'TSA Project', accept: { 'application/json': ['.TSA', '.tsa', '.json'] } }],
-        ...(dirHandle ? { startIn: dirHandle } : {}),
       });
       const file = await handle.getFile();
       loadProjectData(JSON.parse(await file.text()), file.name);
