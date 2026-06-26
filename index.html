@@ -1705,7 +1705,10 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
         </tr></thead>
         <tbody id="anc-table-body"></tbody>
       </table>
-      <button class="btn-add-row" onclick="addAnchorRow()">+ Añadir punto de retenida</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+        <button class="btn-add-row" onclick="addAnchorRow()">+ Añadir punto de retenida</button>
+        <select id="anc-new-ring" class="ctrl-input" style="width:220px;" title="Anillo donde se agregará el siguiente anclaje"></select>
+      </div>
     </div>
     <div class="sec-modal-ftr">
       <button class="btn-cancel" onclick="closeRetenidasModal()">Cancelar</button>
@@ -2523,20 +2526,24 @@ function genGuyed(cfg) {
         const aid = ancIdsAll[ai];
         if (aid == null) return;
         const k = nearestLeg(anchorDefsAll[ai].azimut);
-        members.push({ni:vIds[k],       nj:aid, type:'guy', guyLevel:g});   // vértice derecho
-        members.push({ni:vIds[(k+2)%3], nj:aid, type:'guy', guyLevel:g});   // vértice izquierdo
+        // ni = nodo en la base (anclaje), nj = nodo en la torre/estabilizador — convención
+        // pedida explícitamente por el usuario (nodo inicial=base, nodo final=torre).
+        // anchorIdx = índice en guyAnchorData/cd.nodes — permite borrar esta retenida
+        // puntual desde la tabla (delGuyMember) sin tener que abrir el sub-modal de Nodos.
+        members.push({ni:aid, nj:vIds[k],       type:'guy', guyLevel:g, anchorIdx:ai});   // vértice derecho
+        members.push({ni:aid, nj:vIds[(k+2)%3], type:'guy', guyLevel:g, anchorIdx:ai});   // vértice izquierdo
         // Retenida media — cable ADICIONAL del mismo anclaje directo al montante (no a
         // un vértice), entre las dos anteriores — solo disponible con Triángulo
         // Estabilizador activo (de ahí que con ambos un nivel llegue a 9 retenidas:
         // 3 anclajes × (2 a vértices + 1 al montante)).
-        if (cd.retenidaMedia) members.push({ni:lnodes[gLv][k], nj:aid, type:'guy', guyLevel:g});
+        if (cd.retenidaMedia) members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai});
       });
     } else {
       useNodes.forEach(ai => {
         const aid = ancIdsAll[ai];
         if (aid == null) return;
         const k = nearestLeg(anchorDefsAll[ai].azimut);
-        members.push({ni:lnodes[gLv][k], nj:aid, type:'guy', guyLevel:g});
+        members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai});
       });
     }
   }
@@ -3534,11 +3541,17 @@ function renderTower(data) {
   // compartido real — mismo criterio que ya usa el export STAAD (_splitCrossingDiagonals),
   // ahora también aquí para que el visor, las tablas Nodos/Barras y la selección por clic
   // vean el cruce como una unión real (nodo nuevo + cada diagonal partida en 2). Solo
-  // AGREGA nodos/miembros, nunca renumera los existentes — nodeOverrides sigue siendo
-  // válido por índice; memberOverrides puede desalinearse si aparece un cruce nuevo,
-  // mismo límite ya aceptado para esa función avanzada.
+  // AGREGA nodos, nunca renumera los existentes — pero SÍ desplaza el índice de todo lo
+  // que viene después de un cruce dentro de members (cada cruce reemplaza 2 elementos por
+  // 4). nodeOverrides/memberOverrides se capturan con índices ya POST-corte (los que
+  // muestra la tabla, vía _towerData), así que deben aplicarse aquí, DESPUÉS del corte —
+  // antes se aplicaban en refresh() sobre el arreglo PRE-corte, desalineando el override
+  // en cualquier torre con al menos un cruce antes de la barra editada (bug reportado:
+  // "Nodo A regresa al valor por default" en Retenidas/Barras).
   const _split = _splitCrossingDiagonals(data.nodes, data.members);
   data = { ...data, nodes: _split.nodes, members: _split.members };
+  _applyNodeOverrides(data.nodes);
+  _applyMemberOverrides(data.members);
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
     c.material && c.material.dispose();
@@ -4666,8 +4679,8 @@ function getConfig() {
 function refresh() {
   if (projectGenerated) {
     const data = generateTower(getConfig());
-    _applyNodeOverrides(data.nodes);
-    _applyMemberOverrides(data.members);
+    // nodeOverrides/memberOverrides ahora se aplican DENTRO de renderTower(), después del
+    // corte de cruces — ver comentario ahí (los índices de la tabla son POST-corte).
     renderTower(data);
   }
   scheduleHistoryPush();
@@ -5011,28 +5024,46 @@ function ensureGuyHeights() {
   guyHeights = [0.25, 0.5, 0.75].map(f => +(h*f).toFixed(1));
 }
 
-// ── Nomenclatura de nodos de anclaje: A{anillo}{a|b|c}, de 3 en 3 por posición ──
+// ── Nomenclatura de nodos de anclaje: A{anillo}{letra} — el anillo y la letra se eligen
+// UNA VEZ al agregar el anclaje (ver addAnchorRow) y quedan FIJOS en el dato mismo
+// (a.ring/a.letter), no se recalculan por posición en el arreglo. Así, borrar un anclaje
+// no le cambia el nombre a los demás, y el usuario puede seguir la numeración de un
+// anillo existente (rellenando huecos primero) o pasar a uno nuevo, a su criterio.
+function _ensureAnchorLabels() {
+  // Migración: anclajes guardados antes de que existiera ring/letter (proyectos viejos)
+  // se etiquetan con la fórmula previa de 3-en-3 por posición, para no romperlos.
+  guyAnchorData.forEach((a, idx) => {
+    if (a.ring == null || a.letter == null) {
+      a.ring = Math.floor(idx/3) + 1;
+      a.letter = ['a','b','c'][idx % 3] || String(idx);
+    }
+  });
+}
 function _anchorNodeLabel(idx) {
-  const ring = Math.floor(idx/3) + 1;
-  const letter = ['a','b','c'][idx % 3];
-  return `A${ring}${letter}`;
+  const a = guyAnchorData[idx];
+  return a ? `A${a.ring}${a.letter}` : '?';
 }
 function _anchorRingLabels(ring) {
-  const labels = [];
-  guyAnchorData.forEach((_, idx) => { if (Math.floor(idx/3) + 1 === ring) labels.push(_anchorNodeLabel(idx)); });
-  return labels;
+  return guyAnchorData.map((a, idx) => ({a, idx})).filter(x => x.a.ring === ring).map(x => _anchorNodeLabel(x.idx));
 }
 function _anchorRingCount() {
-  return Math.max(1, Math.ceil(guyAnchorData.length / 3));
+  return Math.max(1, ...guyAnchorData.map(a => a.ring || 1));
 }
 function _anchorRingIndices(ring) {
-  const start = (ring - 1) * 3;
-  return guyAnchorData.map((_,i) => i).filter(i => i >= start && i < start + 3);
+  return guyAnchorData.map((_, i) => i).filter(i => guyAnchorData[i].ring === ring);
+}
+// Próxima letra libre dentro de un anillo — rellena huecos antes de extender (ej. si el
+// anillo 2 solo tiene "b" porque se borró "a", continuar ese anillo asigna "a", no "c").
+const _ANCHOR_LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+function _nextLetterInRing(ring) {
+  const used = new Set(guyAnchorData.filter(a => a.ring === ring).map(a => a.letter));
+  return _ANCHOR_LETTERS.find(l => !used.has(l)) || String(used.size);
 }
 
 // ── Modal Editar Retenidas (RETENIDAS + ANCLAJES) ──────────────────
 function openRetenidasModal() {
   ensureGuyHeights();
+  _ensureAnchorLabels();
   const prevCable = guyCableData.slice();
   guyCableData = Array.from({length: guyHeights.length}, (_,i) => {
     // Migración: cables guardados con el formato viejo (sin Calidad/diamData) se
@@ -5068,7 +5099,7 @@ function openRetenidasModal() {
   });
   // Anclajes por defecto: uno por pierna (azimut 0°/120°/240°), o lo que ya hubiera guardado
   if (guyAnchorData.length === 0) {
-    guyAnchorData = [0, 120, 240].map(az => ({elev: 0, radio: 15, azimut: az}));
+    guyAnchorData = [0, 120, 240].map((az, i) => ({elev: 0, radio: 15, azimut: az, ring: 1, letter: _ANCHOR_LETTERS[i]}));
     guyCableData.forEach(c => { if (!c.nodes.length) c.nodes = _anchorRingIndices(1); });
   }
   renderAncTable();
@@ -5287,18 +5318,58 @@ function closeNodesModal(e) {
 }
 function renderAncTable() {
   const body = document.getElementById('anc-table-body');
-  body.innerHTML = guyAnchorData.map((a, i) => `
+  // Se muestra ordenado por anillo/letra (A1a,A1b,A1c,A1d,A2a,...), no por orden de
+  // inserción — un anclaje agregado después (ej. A1d, que extiende un anillo ya
+  // completo) debe listarse junto a su anillo, no al final de la tabla.
+  const order = guyAnchorData.map((_, i) => i).sort((ia, ib) => {
+    const a = guyAnchorData[ia], b = guyAnchorData[ib];
+    if (a.ring !== b.ring) return a.ring - b.ring;
+    return String(a.letter).localeCompare(String(b.letter));
+  });
+  body.innerHTML = order.map(i => { const a = guyAnchorData[i]; return `
     <tr>
       <td style="color:var(--cyan);font-weight:600;">${_anchorNodeLabel(i)}</td>
       <td><input type="number" step="0.1" value="${a.elev}"   oninput="guyAnchorData[${i}].elev = +this.value || 0"></td>
       <td><input type="number" step="0.5" value="${a.radio}"  oninput="guyAnchorData[${i}].radio = +this.value || 0"></td>
       <td><input type="number" step="1"   value="${a.azimut}" oninput="guyAnchorData[${i}].azimut = +this.value || 0"></td>
       <td><button class="row-del" onclick="delAnchorRow(${i})" title="Eliminar">✕</button></td>
-    </tr>`).join('');
+    </tr>`; }).join('');
+  _renderAnchorRingPicker();
   renderRetTable();   // las etiquetas de anillo pueden haber cambiado — refresca el dropdown
 }
+// Selector de anillo para el SIGUIENTE anclaje a agregar — el usuario decide aquí si
+// continúa la numeración de un anillo existente (se le muestra cuál sería la siguiente
+// letra) o abre uno nuevo. Al confirmar (+Añadir), ese anillo/letra quedan fijos en el
+// dato del anclaje — no se vuelven a recalcular después (ver _ensureAnchorLabels).
+function _renderAnchorRingPicker() {
+  const sel = document.getElementById('anc-new-ring');
+  if (!sel) return;
+  const prevValue = sel.value;
+  const ringCount = guyAnchorData.length ? _anchorRingCount() : 0;
+  const opts = [];
+  for (let r = 1; r <= ringCount; r++) {
+    opts.push({value: String(r), label: `Anillo ${r} — siguiente: A${r}${_nextLetterInRing(r)}`});
+  }
+  const nextRing = ringCount + 1;
+  opts.push({value: 'new', label: `+ Nuevo anillo ${nextRing} (A${nextRing}a)`});
+  sel.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  // Por default se continúa el PRIMER anillo existente en secuencia (A1d antes que
+  // A3a) — abrir un anillo nuevo es una elección EXPLÍCITA del usuario, no lo que pasa
+  // por seguir agregando puntos sin tocar el selector. Si ya había elegido un anillo a
+  // mano en este modal, se respeta esa elección entre un "+" y el siguiente (no se
+  // resetea a cada click).
+  const stillValid = opts.some(o => o.value === prevValue);
+  sel.value = stillValid ? prevValue : (ringCount ? '1' : 'new');
+}
 function addAnchorRow() {
-  guyAnchorData.push({elev: 0, radio: 15, azimut: 0});
+  const sel = document.getElementById('anc-new-ring');
+  let ring;
+  if (guyAnchorData.length === 0) ring = 1;
+  else if (sel && sel.value === 'new') ring = _anchorRingCount() + 1;
+  else if (sel && +sel.value > 0) ring = +sel.value;
+  else ring = 1;   // selector ausente/vacío (no debería pasar en la UI real) -> default seguro
+  const letter = _nextLetterInRing(ring);
+  guyAnchorData.push({elev: 0, radio: 15, azimut: 0, ring, letter});
   renderAncTable();
 }
 function delAnchorRow(i) {
@@ -6481,7 +6552,7 @@ function renderTablaBarras() {
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
       La numeración de Barra coincide con la del export a STAAD. Nodo A/B son
-      instrucción de generación (índice real de nodo), no texto editable aquí.
+      editables (cambian el nodo real de inicio/fin de la barra).
     </div>`;
 }
 // Edita Perfil+Material de una barra abriendo el mismo buscador de perfiles que usa
@@ -6539,21 +6610,61 @@ function toggleTablaRetenidasLock() {
   document.getElementById('tabla-retenidas-lock-btn').textContent = tablaRetenidasUnlocked ? '🔓' : '🔒';
   renderTablaRetenidas();
 }
+// Borra UNA retenida puntual desde la tabla — equivale a desmarcar su anclaje en el
+// sub-modal "Nodos conectados" (toggleNode), pero sin tener que abrirlo. m.anchorIdx
+// identifica el anclaje (índice en guyAnchorData/cd.nodes); si no existe (retenida
+// generada antes de este campo, proyecto viejo) se deshabilita el botón.
+function delGuyMember(memberIdx) {
+  const m = _towerData.members[memberIdx];
+  if (!m || m.type !== 'guy' || m.anchorIdx == null) return;
+  const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+  if (!cd || !Array.isArray(cd.nodes)) return;
+  cd.nodes = cd.nodes.filter(x => x !== m.anchorIdx);
+  _unsavedChanges = true;
+  refresh();
+  renderTablaRetenidas();
+}
+// Filas de la tabla Retenidas — columnas más angostas que Barras (números cortos) y con
+// botón de eliminar por fila, a diferencia de _tablaBarrasRows() que es de solo Barras.
+function _tablaRetenidasRows(unlocked) {
+  const { nodes, members } = _towerData;
+  const { newId } = _staadMemberRenumber(nodes, members);
+  const { newId: nodeNewId } = _staadNodeRenumber(nodes, members);
+  const order = members.map((_, i) => i).filter(i => members[i].type === 'guy').sort((a, b) => newId[a] - newId[b]);
+  const dis = unlocked ? '' : 'disabled';
+  return order.map(i => {
+    const m = members[i];
+    const ni = nodes[m.ni], nj = nodes[m.nj];
+    const len = Math.hypot(nj.x-ni.x, nj.y-ni.y, nj.z-ni.z);
+    const gp = getMemberProfile(m);
+    return `<tr class="ret-row-clickable" data-idx="${i}" onclick="blinkMemberAt(_towerData.members[${i}]);_highlightTableRow(this)">
+      <td>${newId[i]}</td>
+      <td><input type="number" step="1" min="1" value="${nodeNewId[m.ni]}" style="width:48px;" ${dis}
+            onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'ni',this.value)"></td>
+      <td><input type="number" step="1" min="1" value="${nodeNewId[m.nj]}" style="width:48px;" ${dis}
+            onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'nj',this.value)"></td>
+      <td><input type="text" value="${gp.profile || '—'}" disabled style="width:64px;"></td>
+      <td><input type="text" value="${gp.calidadName || '—'}" disabled style="width:64px;"></td>
+      <td>${len.toFixed(3)}</td>
+      <td style="text-align:center;">
+        <button class="row-del" title="Eliminar retenida" ${m.anchorIdx == null ? 'disabled' : ''}
+          onclick="event.stopPropagation();delGuyMember(${i})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
 function renderTablaRetenidas() {
   if (!_towerData || !document.getElementById('tabla-retenidas-body')) return;
-  const onlyCables = m => m.type === 'guy';
-  // Perfil de cable NO editable aquí — usa diamData estructurado (no un texto simple);
-  // se sigue editando desde Bases de Datos → Retenidas, igual que hoy.
-  const rows = _tablaBarrasRows(onlyCables, tablaRetenidasUnlocked, false);
+  const rows = _tablaRetenidasRows(tablaRetenidasUnlocked);
   document.getElementById('tabla-retenidas-body').innerHTML = `
     <table class="ret-table db-table">
-      <thead><tr><th>Retenida</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (m)</th></tr></thead>
+      <colgroup>
+        <col style="width:46px;"><col style="width:62px;"><col style="width:62px;">
+        <col style="width:78px;"><col style="width:78px;"><col style="width:64px;"><col style="width:40px;">
+      </colgroup>
+      <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Long. (m)</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>
-    <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
-      Perfil/Material de los cables se editan desde Bases de Datos → Retenidas (usan un
-      dato estructurado de diámetro, no un texto simple) — aquí son de solo lectura.
-    </div>`;
+    </table>`;
 }
 
 // ── Tabla Apoyos — derivada de _computeSupportNodes(), mismo criterio que SUPPORTS en
@@ -6651,7 +6762,7 @@ function _startExportBlink(members) {
   });
   _exportBlinkInterval = setInterval(() => {
     _exportBlinkObjs.forEach(o => { o.visible = !o.visible; });
-  }, 250);
+  }, 500);
 }
 function _stopExportBlink() {
   if (_exportBlinkInterval) { clearInterval(_exportBlinkInterval); _exportBlinkInterval = null; }
