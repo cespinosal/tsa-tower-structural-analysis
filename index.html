@@ -1805,7 +1805,7 @@ table.rp-table-transposed td { text-align: center; font-size: 10px; }
         <select class="ctrl-input" id="diam-calidad" onchange="renderDiamTable()"></select>
       </div>
       <table class="ret-table">
-        <thead><tr><th>Nombre</th><th>Forma</th><th>Peso (kg/m)</th><th>Área (cm²)</th><th>Carga Ruptura (kg)</th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Forma</th><th>Peso (kg/m)</th><th>Área (cm²)</th><th>Carga Ruptura (ton)</th></tr></thead>
         <tbody id="diam-table-body"></tbody>
       </table>
     </div>
@@ -4615,7 +4615,7 @@ function delCableRow(i) {
   renderCableCatalogTable();
 }
 const CABLE_FIELDS = [['name','Nombre','text'], ['forma','Forma','text'],
-  ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['rotura','Carga Ruptura (kg)','number'], ['modulo','Módulo (kg/cm²)','number']];
+  ['peso','Peso (kg/m)','number'], ['area','Área (cm²)','number'], ['rotura','Carga Ruptura (ton)','number'], ['modulo','Módulo (kg/cm²)','number']];
 function renderCableCatalogTable() {
   const calidades = [...new Set(['HS', 'EHS', ...cableCatalog.map(d => d.calidad)])];
   document.getElementById('db-subtabs').innerHTML = calidades.map(c => `
@@ -6865,12 +6865,12 @@ function _exportGroupName(m, sec) {
     return m.isCorner ? `_SEC${sec+1}_PB2HB` : `_SEC${sec+1}_PBHB`;
   }
   if (m.type === 'hipbrace') return m.isDiag ? `_SEC${sec+1}_HBD` : `_SEC${sec+1}_HBH`;
-  if (m.type === 'guy')         return `RN${m.guyLevel}`;
-  if (m.type === 'stabarm')     return `EST${m.guyLevel}`;
-  if (m.type === 'puntal')      return `ESTP${m.guyLevel}`;
-  if (m.type === 'tensor')      return `ESTT${m.guyLevel}`;
-  if (m.type === 'horizPuntal') return `ESTHP${m.guyLevel}`;
-  if (m.type === 'horizTensor') return `ESTHT${m.guyLevel}`;
+  if (m.type === 'guy')         return `_RN${m.guyLevel}`;
+  if (m.type === 'stabarm')     return `_EST${m.guyLevel}`;
+  if (m.type === 'puntal')      return `_ESTP${m.guyLevel}`;
+  if (m.type === 'tensor')      return `_ESTT${m.guyLevel}`;
+  if (m.type === 'horizPuntal') return `_ESTHP${m.guyLevel}`;
+  if (m.type === 'horizTensor') return `_ESTHT${m.guyLevel}`;
   return null;
 }
 // Orden DENTRO de cada sección, en el orden en que se fueron dando las reglas.
@@ -7045,6 +7045,75 @@ async function _doExportSTAAD() {
     return `${memberNewId[origIdx]} ${nodeNewId[m.ni]} ${nodeNewId[m.nj]}`;
   }), 79, '; ', ';');
 
+  // ── MATERIALES — DEFINE MATERIAL START con un ISOTROPIC por calidad de acero usada
+  // en miembros estructurales/estabilizador (vía steelGrades, kg/cm² ×10000 → kg/m²),
+  // más un ISOTROPIC CABLE fijo si hay retenidas — pedido explícito del usuario
+  // (2026-06-26), justo después de MEMBER INCIDENCES. CONSTANTS más abajo asigna cada
+  // material por GRUPO (no por rango de ID), mismo patrón ya usado en MEMBER PROPERTY.
+  // _toStaadExp: notación exponencial con exponente de 2 dígitos (3.163E+07, no E+7),
+  // igual al formato que el usuario dio en su ejemplo.
+  const _toStaadExp = (num, dec=3) => num.toExponential(dec).toUpperCase().replace(/E([+-])(\d)$/, 'E$10$2');
+  const _sanitizeMatName = name => _staadUpper(name).replace(/\s+/g, '_');
+  const materialGroups = {};   // nombre ISOTROPIC saneado -> {grade, groupNames:[], ids:[]}
+  const cableGroupNames = [];
+  const cableIds = [];
+  function _collectMaterialGroup(gname, repIdx) {
+    const m = members[repIdx];
+    const ids = groupRanges[gname] || [];
+    if (m.type === 'guy') { cableGroupNames.push(gname); cableIds.push(...ids); return; }
+    const gp = getMemberProfile(m);
+    if (!gp.calidadName) return;
+    const grade = steelGrades.find(g => g.name === gp.calidadName);
+    if (!grade) return;
+    const key = _sanitizeMatName(gp.calidadName);
+    const bucket = (materialGroups[key] = materialGroups[key] || { grade, groupNames: [], ids: [] });
+    bucket.groupNames.push(gname);
+    bucket.ids.push(...ids);
+  }
+  memberSecs.forEach(sec => {
+    _SEC_GROUP_ORDER.forEach(suf => {
+      const gname = `_SEC${sec+1}_${suf}`;
+      const repIdx = groupRep[gname];
+      if (repIdx != null) _collectMaterialGroup(gname, repIdx);
+    });
+  });
+  memberLevels.forEach(lvl => {
+    ['_RN', '_EST', '_ESTP', '_ESTHP', '_ESTT', '_ESTHT'].forEach(pref => {
+      const gname = `${pref}${lvl}`;
+      const repIdx = groupRep[gname];
+      if (repIdx != null) _collectMaterialGroup(gname, repIdx);
+    });
+  });
+  if (Object.keys(materialGroups).length || cableGroupNames.length) {
+    out += `*//////////////////////////////////////////////////////////////////\n`;
+    out += `***** MATERIALES *****\n`;
+    out += `*//////////////////////////////////////////////////////////////////\n`;
+    out += `DEFINE MATERIAL START\n`;
+    let firstMat = true;
+    Object.entries(materialGroups).forEach(([key, { grade }]) => {
+      if (!firstMat) out += `*\n`;
+      firstMat = false;
+      out += `ISOTROPIC ${key}\n`;
+      out += `E ${_toStaadExp(grade.e * 10000)}\n`;
+      out += `POISSON 0.3\n`;
+      out += `DENSITY 7833.41\n`;
+      out += `ALPHA 1.2E-05\n`;
+      out += `TYPE STEEL\n`;
+      out += `STRENGTH FY ${_toStaadExp(grade.fy * 10000)} FU ${_toStaadExp(grade.fu * 10000)} RY 1.5 RT 1.2\n`;
+    });
+    if (cableGroupNames.length) {
+      if (!firstMat) out += `*\n`;
+      out += `ISOTROPIC CABLE\n`;
+      out += `E 1.68744E+10\n`;
+      out += `POISSON 0.3\n`;
+      out += `DENSITY 7833.41\n`;
+      out += `ALPHA 1.2E-05\n`;
+      out += `TYPE STEEL\n`;
+      out += `STRENGTH RY 1 RT 1\n`;
+    }
+    out += `END DEFINE MATERIAL\n`;
+  }
+
   // ── GROUP DEFINITION — un bloque por sección (comentario *SECCION i) con Montantes/
   // Diagonales/Horizontales/Plan Bracing/Hip Bracing, y un bloque por NIVEL de retenida
   // (comentario *NIVEL i) con Retenidas/Estabilizador/Puntales/Tensores (RN/EST/ESTP/ESTT
@@ -7066,7 +7135,7 @@ async function _doExportSTAAD() {
     });
     memberLevels.forEach(lvl => {
       out += `*\n*NIVEL ${lvl}\n*\n`;
-      ['RN', 'EST', 'ESTP', 'ESTHP', 'ESTT', 'ESTHT'].forEach(pref => {
+      ['_RN', '_EST', '_ESTP', '_ESTHP', '_ESTT', '_ESTHT'].forEach(pref => {
         const ids = groupRanges[`${pref}${lvl}`];
         if (ids?.length) out += `${pref}${lvl} ${_staadIdRanges(ids)}\n`;
       });
@@ -7085,11 +7154,21 @@ async function _doExportSTAAD() {
   const zIncMono = (cfg.type === 'monopole' && cfg.nInc > 0)
     ? Array.from({length: cfg.nInc}, (_, i) => +secData[i]?.h || (cfg.height / nTotMono)).reduce((a,b) => a+b, 0)
     : 0;
-  // stabarm/puntal/tensor/horizPuntal/horizTensor (estabilizador de arriostradas)
-  // todavía no tienen cálculo de propiedades propio — quedan sin línea, igual que un
-  // perfil no capturado. type:'guy' tampoco (van por MEMBER TENSION, no por TABLE ST).
+  // Retenidas (type:'guy') — no son perfil de catálogo, van como sección PIPE genérica
+  // (sin "AMERICAN") usando el diámetro real del cable: <grupo> PIPE OD <diámetro_m>
+  // ID 0 — pedido explícito del usuario (2026-06-26). stabarm/puntal/tensor/horizPuntal/
+  // horizTensor (estabilizador de arriostradas) SÍ tienen perfil de catálogo (capturado
+  // en guyCableData) y se resuelven igual que montantes/diagonales (mismo camino de
+  // getMemberProfile + conversión a nombre STAAD más abajo).
   function _resolveMemberPropertyLine(m) {
-    if (m.type === 'guy' || ['stabarm','puntal','tensor','horizPuntal','horizTensor'].includes(m.type)) return null;
+    if (m.type === 'guy') {
+      const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+      const inches = _parseInchDim(cd?.diamData?.name || '');
+      if (!inches) return null;
+      // TABLE ST PIPE OD <diámetro_m> ID 0 — formato exacto pedido por el usuario
+      // (2026-06-26), va en el mismo bloque MEMBER PROPERTY AMERICAN que el resto.
+      return { kind: 'table', text: `TABLE ST PIPE OD ${(inches * 0.0254).toFixed(6)} ID 0` };
+    }
     if (cfg.type === 'monopole' && m.type === 'leg') {
       const sd = secData[m.sec];
       const zStart = Math.min(nodes[m.ni].z, nodes[m.nj].z);
@@ -7124,6 +7203,22 @@ async function _doExportSTAAD() {
     if (secAmerican.length) { americanBlock.push(`*\n*SECCION ${sec+1}\n*\n`, ...secAmerican); }
     if (secPrisYD.length)   { prisYDBlock.push(`*\n*SECCION ${sec+1}\n*\n`, ...secPrisYD); }
   });
+  // Retenidas/estabilizador (sin sección, agrupados por NIVEL) — mismo criterio,
+  // después de las secciones, igual que en GROUP DEFINITION.
+  memberLevels.forEach(lvl => {
+    const lvlAmerican = [], lvlPrisYD = [];
+    ['_RN', '_EST', '_ESTP', '_ESTHP', '_ESTT', '_ESTHT'].forEach(pref => {
+      const gname = `${pref}${lvl}`;
+      const repIdx = groupRep[gname];
+      if (repIdx == null) return;
+      const resolved = _resolveMemberPropertyLine(members[repIdx]);
+      if (!resolved) return;
+      const line = `${gname} ${resolved.text}\n`;
+      if (resolved.kind === 'prisYD') lvlPrisYD.push(line); else lvlAmerican.push(line);
+    });
+    if (lvlAmerican.length) { americanBlock.push(`*\n*NIVEL ${lvl}\n*\n`, ...lvlAmerican); }
+    if (lvlPrisYD.length)   { prisYDBlock.push(`*\n*NIVEL ${lvl}\n*\n`, ...lvlPrisYD); }
+  });
   if (americanBlock.length) {
     out += `*//////////////////////////////////////////////////////////////////\n`;
     out += `***** PERFILES *****\n`;
@@ -7139,19 +7234,51 @@ async function _doExportSTAAD() {
   }
   // MEMBER TENSION (cables de retenida) — los IDs ya están en groupRanges (grupos RNi),
   // solo se concatenan en orden de nivel.
-  const cableTensionIds = memberLevels.flatMap(lvl => groupRanges[`RN${lvl}`] || []);
+  const cableTensionIds = memberLevels.flatMap(lvl => groupRanges[`_RN${lvl}`] || []);
   if (cableTensionIds.length) {
     out += `MEMBER TENSION\n${_staadIdRanges(cableTensionIds)}\n`;
   }
 
-  // ── CONSTANTS — propiedades del acero ya calculadas arriba (steelE/steelDens) ───
+  // ── CONSTANTS — una línea MATERIAL <calidad> MEMB <rangos de ID> por calidad
+  // (acero) + una para CABLE, SIN E/DENSITY/POISSON ALL (ya quedan definidos dentro de
+  // cada ISOTROPIC en MATERIALES) — formato final dado explícitamente por el usuario
+  // (2026-06-26), con rangos de ID comprimidos (vía _staadIdRanges, no nombres de
+  // grupo) para ocupar menos caracteres que enumerar cada grupo por su nombre.
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `***** CONSTANTES *****\n`;
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `CONSTANTS\n`;
-  out += `E ${steelE} ALL\n`;
-  out += `DENSITY ${steelDens} ALL\n`;
-  out += `POISSON 0.3 ALL\n`;
+  Object.entries(materialGroups).forEach(([key, { ids }]) => {
+    out += `MATERIAL ${key} MEMB ${_staadIdRanges(ids)}\n`;
+  });
+  if (cableIds.length) {
+    out += `MATERIAL CABLE MEMB ${_staadIdRanges(cableIds)}\n`;
+  }
+
+  // ── TENSIONES INICIALES — un bloque MEMBER CABLE con la tensión inicial de cada
+  // nivel de retenida, al 10% (o lo que tenga capturado tensionPct) de la carga de
+  // ruptura del cable de ese nivel — pedido explícito del usuario (2026-06-26).
+  // ¡OJO! cableCatalog.rotura está en TONELADAS (columna mal etiquetada como "(kg)"
+  // hasta ahora, corregida a "(ton)") — se multiplica ×1000 para convertir a kg.
+  {
+    const tensionLines = [];
+    memberLevels.forEach(lvl => {
+      const repIdx = groupRep[`_RN${lvl}`];
+      if (repIdx == null) return;
+      const cd = guyCableData[lvl - 1];
+      const dd = cd?.diamData;
+      if (!dd?.rotura) return;
+      const tensionKg = dd.rotura * 1000 * ((cd.tensionPct ?? 10) / 100);
+      tensionLines.push(`*NIVEL ${lvl} CABLES DE ${dd.name} ${dd.calidad}\n_RN${lvl} TENSION ${tensionKg.toFixed(2)} kg\n*\n`);
+    });
+    if (tensionLines.length) {
+      out += `*//////////////////////////////////////////////////////////////////\n`;
+      out += `***** TENSIONES INICIALES *****\n`;
+      out += `*//////////////////////////////////////////////////////////////////\n`;
+      out += `MEMBER CABLE\n`;
+      out += tensionLines.join('');
+    }
+  }
 
   // ── SUPPORTS — ver _computeSupportNodes() (compartida con la tabla Apoyos y sus
   // etiquetas 3D, mismo criterio de detección por tipo de miembro, no por índice).
