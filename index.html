@@ -747,42 +747,58 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 .sec-modal-body::-webkit-scrollbar-thumb { background: #263545; border-radius: 2px; }
 
 /* ── Reporte (HTML standalone que se abre en el navegador, ver
-   _buildStandaloneReportHTML) — estas reglas .report-page/.rp-* las reutiliza ese
+   _buildStandaloneReportHTML) — estas reglas .report-doc/.mem-*/.rp-* las reutiliza ese
    documento aparte tal cual (copia este <style> completo), ya no hay un modal dentro
    de la app misma — pedido explícito del usuario de simplificar el flujo, el HTML que
    se genera para el navegador ya funciona como visualizador (2026-06-26). ──────────── */
-.report-page {
-  /* Márgenes de la Memoria de Cálculo: superior 25mm, inferior 20mm, izq 25mm, der 20mm
-     (0.98in/0.79in/0.98in/0.79in) — pedido explícito del usuario (2026-06-26). */
-  width: 8.5in; min-height: 11in; box-sizing: border-box; background: #fff; color: #1a1a1a;
-  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 0.98in 0.79in 0.79in 0.98in;
-  font-family: Arial, 'Segoe UI', sans-serif; line-height: 1.5; position: relative;
+/* Rediseño: documento de flujo CONTINUO con paginación nativa del navegador, en vez
+   de N <div> pre-calculados que simulan "1 div = 1 hoja física" (el enfoque anterior,
+   con fórmula y luego con medición real, seguía generando hojas extra en blanco al
+   guardar el PDF porque mi cálculo de altura y el motor de impresión del navegador
+   podían no coincidir por unos pocos px). Con un solo flujo y un único motor de
+   paginación (el del navegador), ese conflicto deja de poder existir. A cambio, el
+   encabezado/pie ya no pueden mostrar "Página X de Y" (Chrome no soporta encabezados/
+   pies de página dinámicos por CSS en impresión) — se quedan fijos, sin número de
+   página. Pedido explícito del usuario: "Primero hagamos la paginación nativa, si no
+   funciona ya cambiamos definitivamente a imagen" (2026-06-27). */
+.report-doc {
+  width: 8.5in; margin: 24px auto; background: #fff; color: #1a1a1a;
+  box-shadow: 0 0 30px rgba(0,0,0,.5); font-family: Arial, 'Segoe UI', sans-serif;
+  line-height: 1.5;
 }
-.report-page.mem-cover { padding: 0; }
+/* min-height 9.2in, no 11in — con @page margin real (0.98in arriba + 0.79in abajo =
+   1.77in) el área de contenido disponible por hoja es 11-1.77=9.23in, no 11in. Forzar
+   11in de alto en el bloque hacía que se desbordara ~1.77in a una segunda hoja casi
+   vacía justo después de la carátula — bug real confirmado con captura del usuario
+   (2026-06-27). */
+.mem-cover-block { min-height: 9.2in; box-sizing: border-box; page-break-after: always; }
+/* Márgenes de la Memoria de Cálculo: superior 25mm, inferior 20mm, izq 25mm, der 20mm
+   (0.98in/0.79in/0.98in/0.79in) — pedido explícito del usuario (2026-06-26). */
+.mem-section-block { padding: 0.98in 0.79in 0.79in 0.98in; box-sizing: border-box; page-break-before: always; }
+.mem-section-block.mem-index-block { page-break-before: auto; }
 .mem-band {
   background: #1B3A6B; color: #fff; height: 60mm; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center;
 }
 .mem-band-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.mem-band-sub { font-size: 12pt; margin-top: 6px; }
 .mem-cover-body { padding: 0.79in 0.98in; }
 .mem-tower-name { text-align: center; font-size: 16pt; font-weight: 700; color: #1B3A6B; margin: 18px 0 22px; }
 table.mem-meta { width: 100%; border-collapse: collapse; font-size: 10pt; }
 table.mem-meta th { text-align: left; font-weight: 700; padding: 5px 10px 5px 0; white-space: nowrap; width: 1%; }
 table.mem-meta td { text-align: left; padding: 5px 0; }
-.mem-page-header {
-  display: flex; justify-content: space-between; font-size: 9pt; color: #444;
-  border-bottom: 1px solid #999; padding-bottom: 6px; margin-bottom: 16px;
+/* Encabezado/pie ÚNICOS (ya no 1 por hoja) — position:sticky en pantalla, position:fixed
+   al imprimir (Chrome repite los elementos fixed en cada hoja física automáticamente). */
+.mem-header-fixed, .mem-footer-fixed {
+  display: flex; justify-content: space-between; font-size: 7.5pt; background: #fff;
 }
-.mem-page-footer {
-  position: absolute; bottom: 0.4in; left: 0; width: 100%; text-align: center;
-  font-size: 9pt; color: #555;
-}
-.mem-index-title { font-size: 16pt; font-weight: 700; color: #1B3A6B; margin: 0 0 20px; text-align: center; }
-.mem-index-row { display: flex; align-items: baseline; font-size: 10.5pt; margin: 6px 0; }
-.mem-index-row.sub { font-size: 10pt; color: #444; margin-left: 18px; }
-.mem-index-leader { flex: 1; border-bottom: 1px dotted #999; margin: 0 6px; height: 1em; }
+.mem-header-fixed { color: #444; border-bottom: 1px solid #999; padding: 8px 0.79in 6px 0.98in; }
+.mem-footer-fixed { color: #555; align-items: center; padding: 6px 0.79in 8px 0.98in; }
+.mem-index-title { font-size: 15pt; font-weight: 700; color: #1B3A6B; margin: 0 0 12px; text-align: center; }
+.mem-index-row { display: flex; align-items: baseline; font-size: 9.5pt; margin: 4px 0; }
+.mem-index-row a { color: inherit; text-decoration: none; }
+.mem-index-row a:hover { text-decoration: underline; }
+.mem-index-row.sub { font-size: 9pt; color: #444; margin-left: 18px; }
 .mem-chapter-title { font-size: 14pt; font-weight: 700; color: #1B3A6B; margin: 0 0 14px; }
 .rp-cover { text-align: center; margin-bottom: 10px; }
 .rp-cover-brand { font-size: 11px; letter-spacing: 1.5px; color: #00698A; font-weight: 700; margin-bottom: 14px; }
@@ -796,7 +812,7 @@ table.rp-table th { background: #eef2f7; font-weight: 600; white-space: nowrap; 
 table.rp-table .rp-total-row td { font-weight: 700; background: #eef2f7; }
 table.rp-table-transposed th:first-child { width: 130px; background: #f5f5f5; white-space: nowrap; }
 table.rp-table-transposed td { text-align: center; font-size: 10px; }
-.rp-elev-wrap { display: flex; gap: 8px; align-items: flex-start; }
+.rp-elev-wrap { display: flex; gap: 8px; align-items: flex-start; page-break-inside: avoid; }
 .rp-elev-svg { flex-shrink: 0; width: 260px; border: 1px solid #ddd; }
 /* Tabla vertical de detalle por sección (estilo "planos llave") — una fila por sección/
    límite de elevación, de arriba hacia abajo igual que la torre, encabezados de columna
@@ -814,21 +830,45 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   font-size: 10.5px; color: #888; background: #f7f7f7; border: 1px dashed #ccc;
   border-radius: 5px; padding: 14px; text-align: center; margin-bottom: 10px;
 }
-.rp-disclaimer { font-size: 10px; color: #555; background: #f7f7f7; border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-top: 16px; }
+/* Más compacto que .rp-pending — el aviso profesional comparte la hoja 8.1 con el
+   esquema+tabla de la torre, que ya usa casi todo el espacio disponible; con el
+   padding/tamaño de .rp-pending esa hoja crecía ~26px más de 11in (confirmado
+   midiendo scrollHeight con harness) — pedido explícito tras "14 páginas en vez de
+   11" del usuario (2026-06-27). */
+.mem-disclaimer { font-size: 9px; color: #777; background: #f7f7f7; border: 1px dashed #ccc; border-radius: 4px; padding: 7px 9px; margin-top: 8px; line-height: 1.3; }
 .rp-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
+@media screen {
+  /* En pantalla, el encabezado/pie quedan pegados (sticky) arriba/abajo del
+     contenedor con scroll — simplemente para que no se pierdan de vista al
+     desplazarse por el documento continuo. */
+  .mem-header-fixed { position: sticky; top: 0; z-index: 5; }
+  .mem-footer-fixed { position: sticky; bottom: 0; z-index: 5; }
+}
 @media print {
-  /* margin:0 en @page — el margen real lo da el padding propio de .report-page (ver
-     regla base), que YA representa la hoja física completa de 8.5x11in con sus
-     márgenes 25/20/25/20mm simulados por padding interno. Forzar un margen de @page
-     ADEMÁS de ese padding duplicaría el margen y correría el contenido — pedido
-     explícito del usuario al definir la Memoria de Cálculo (2026-06-26). */
-  @page { size: letter; margin: 0; background: #fff; }
+  /* Mismos márgenes que tenía .report-page antes (25/20/25/20mm), pero ahora vía
+     @page real (se repite en CADA hoja física automáticamente, a diferencia del
+     padding por <div> que dependía de mi propio cálculo de cuántas hojas hacían
+     falta). El encabezado/pie usan position:fixed con un offset NEGATIVO para caber
+     DENTRO de ese margen (arriba/abajo del área de contenido) en cada hoja — Chrome
+     repite los elementos fixed en cada página impresa. Pedido explícito del usuario
+     tras 2 intentos fallidos con hojas pre-calculadas: "Primero hagamos la
+     paginación nativa" (2026-06-27). */
+  @page { size: letter; margin: 0.98in 0.79in 0.79in 0.98in; background: #fff; }
   html, body { background: #fff !important; }
-  .report-page {
-    box-shadow: none !important; margin: 0 auto !important; page-break-after: always;
-    min-height: 0 !important;
+  /* Sin esto, Chrome no imprime fondos/colores de elementos (la banda azul de la
+     carátula salía en blanco/gris al guardar como PDF) — por defecto omite los
+     "background graphics" al imprimir salvo que se fuerce explícitamente. */
+  * { print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+  .report-doc { box-shadow: none !important; margin: 0; width: auto; }
+  .mem-header-fixed {
+    position: fixed; top: -0.55in; left: 0; right: 0; padding: 0 0.79in 6px 0.98in;
   }
-  .report-page:last-child { page-break-after: auto; }
+  .mem-footer-fixed {
+    position: fixed; bottom: -0.45in; left: 0; right: 0; padding: 6px 0.79in 0 0.98in;
+  }
+  .mem-cover-block { page-break-after: always; }
+  .mem-section-block { page-break-before: always; }
+  .mem-section-block.mem-index-block { page-break-before: auto; }
 }
 
 /* Modal: cards por sección */
@@ -1400,10 +1440,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="text" id="s-assetnum" placeholder="N° de activo"></div>
         <div class="tf-row"><span class="tf-lbl">ASSET NAME</span>
           <input class="tf-input" type="text" id="s-asset" placeholder="ID del activo"></div>
+        <div class="tf-row"><span class="tf-lbl">CLIENTE</span>
+          <input class="tf-input" type="text" id="s-cliente" placeholder="Nombre del cliente"></div>
         <div class="tf-row"><span class="tf-lbl">PAÍS</span>
-          <input class="tf-input" type="text" id="s-pais" placeholder="México"></div>
+          <select class="tf-input" id="s-pais"><option value="">—</option></select></div>
         <div class="tf-row"><span class="tf-lbl">INGENIERO RESPONSABLE</span>
           <input class="tf-input" type="text" id="s-ing" placeholder="Nombre del ingeniero"></div>
+        <div class="tf-row"><span class="tf-lbl">REVISIÓN</span>
+          <input class="tf-input" type="text" id="s-revision" placeholder="00"></div>
         <div class="tf-row"><span class="tf-lbl">FECHA DE CREACIÓN</span>
           <input class="tf-input" type="date" id="s-fecha"></div>
       </div>
@@ -1558,12 +1602,20 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <input class="ctrl-input" type="text" id="assetName" style="width:120px;" placeholder="—">
           </div>
           <div class="frow">
+            <span class="flbl">Cliente:</span>
+            <input class="ctrl-input" type="text" id="cliente" style="width:120px;" placeholder="—">
+          </div>
+          <div class="frow">
             <span class="flbl">País:</span>
-            <input class="ctrl-input" type="text" id="pais" style="width:120px;" placeholder="—">
+            <select class="ctrl-input" id="pais" style="width:120px;"><option value="">—</option></select>
           </div>
           <div class="frow">
             <span class="flbl">Ing. Responsable:</span>
             <input class="ctrl-input" type="text" id="ingResponsable" style="width:120px;" placeholder="—">
+          </div>
+          <div class="frow">
+            <span class="flbl">Revisión:</span>
+            <input class="ctrl-input" type="text" id="revision" style="width:120px;" placeholder="—">
           </div>
           <div class="frow">
             <span class="flbl">Fecha de creación:</span>
@@ -3853,6 +3905,54 @@ function _populateSettingsForm() {
 }
 // ── Base de datos: Calidades de Acero (funcional) — IMCA/AISC siguen placeholder ──
 const STEEL_GRADES_KEY = 'tsa_steel_grades_v1';
+// Lista de países (nombre en español, orden alfabético) — usada para llenar los
+// selects "PAÍS" del flyout de nueva torre (#s-pais) y del panel PROYECTO (#pais).
+// Pedido explícito del usuario: dropdown con todos los países en vez de texto libre
+// (2026-06-27).
+const PAISES_LIST = [
+  'Afganistán','Albania','Alemania','Andorra','Angola','Antigua y Barbuda',
+  'Arabia Saudita','Argelia','Argentina','Armenia','Australia','Austria',
+  'Azerbaiyán','Bahamas','Bangladés','Barbados','Baréin','Bélgica','Belice',
+  'Benín','Bielorrusia','Birmania','Bolivia','Bosnia y Herzegovina','Botsuana',
+  'Brasil','Brunéi','Bulgaria','Burkina Faso','Burundi','Bután','Cabo Verde',
+  'Camboya','Camerún','Canadá','Catar','Chad','Chile','China','Chipre',
+  'Ciudad del Vaticano','Colombia','Comoras','Corea del Norte','Corea del Sur',
+  'Costa de Marfil','Costa Rica','Croacia','Cuba','Dinamarca','Dominica',
+  'Ecuador','Egipto','El Salvador','Emiratos Árabes Unidos','Eritrea',
+  'Eslovaquia','Eslovenia','España','Estados Unidos','Estonia','Esuatini',
+  'Etiopía','Filipinas','Finlandia','Fiyi','Francia','Gabón','Gambia',
+  'Georgia','Ghana','Granada','Grecia','Guatemala','Guinea','Guinea-Bisáu',
+  'Guinea Ecuatorial','Guyana','Haití','Honduras','Hungría','India',
+  'Indonesia','Irak','Irán','Irlanda','Islandia','Islas Marshall',
+  'Islas Salomón','Israel','Italia','Jamaica','Japón','Jordania',
+  'Kazajistán','Kenia','Kirguistán','Kiribati','Kuwait','Laos','Lesoto',
+  'Letonia','Líbano','Liberia','Libia','Liechtenstein','Lituania',
+  'Luxemburgo','Macedonia del Norte','Madagascar','Malasia','Malaui',
+  'Maldivas','Malí','Malta','Marruecos','Mauricio','Mauritania','México',
+  'Micronesia','Moldavia','Mónaco','Mongolia','Montenegro','Mozambique',
+  'Namibia','Nauru','Nepal','Nicaragua','Níger','Nigeria','Noruega',
+  'Nueva Zelanda','Omán','Países Bajos','Pakistán','Palaos','Panamá',
+  'Papúa Nueva Guinea','Paraguay','Perú','Polonia','Portugal','Reino Unido',
+  'República Centroafricana','República Checa','República del Congo',
+  'República Democrática del Congo','República Dominicana','Ruanda',
+  'Rumanía','Rusia','Samoa','San Cristóbal y Nieves','San Marino',
+  'San Vicente y las Granadinas','Santa Lucía','Santo Tomé y Príncipe',
+  'Senegal','Serbia','Seychelles','Sierra Leona','Singapur','Siria',
+  'Somalia','Sri Lanka','Sudáfrica','Sudán','Sudán del Sur','Suecia',
+  'Suiza','Surinam','Tailandia','Tanzania','Tayikistán','Timor Oriental',
+  'Togo','Tonga','Trinidad y Tobago','Túnez','Turkmenistán','Turquía',
+  'Tuvalu','Ucrania','Uganda','Uruguay','Uzbekistán','Vanuatu','Venezuela',
+  'Vietnam','Yemen','Yibuti','Zambia','Zimbabue',
+];
+function _populatePaisSelects() {
+  const opts = PAISES_LIST.map(p => `<option value="${p}">${p}</option>`).join('');
+  ['s-pais', 'pais'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<option value="">—</option>${opts}`;
+  });
+}
+_populatePaisSelects();
+
 const DEFAULT_STEEL_GRADES = [
   { name: 'A37-24',    fy: 2390, fu: 3690, e: 2039000 },
   { name: 'A36',       fy: 2530, fu: 4080, e: 2039000 },
@@ -4689,8 +4789,10 @@ function getConfig() {
     location:       projectLocation,
     assetNumber:    document.getElementById('assetNumber').value,
     assetName:      document.getElementById('assetName').value,
+    cliente:        document.getElementById('cliente').value,
     pais:           document.getElementById('pais').value,
     ingResponsable: document.getElementById('ingResponsable').value,
+    revision:       document.getElementById('revision').value,
     fechaCreacion:  document.getElementById('fechaCreacion').value,
     secData:        secData.slice(),
     nodeOverrides:  JSON.parse(JSON.stringify(nodeOverrides)),
@@ -5470,8 +5572,10 @@ function generateTowerFromSetup() {
   if (guyPivotEl) guyPivotEl.checked = document.getElementById('s-guyPivot')?.checked || false;
   document.getElementById('assetNumber').value    = document.getElementById('s-assetnum').value;
   document.getElementById('assetName').value      = document.getElementById('s-asset').value;
+  document.getElementById('cliente').value        = document.getElementById('s-cliente').value;
   document.getElementById('pais').value           = document.getElementById('s-pais').value;
   document.getElementById('ingResponsable').value = document.getElementById('s-ing').value;
+  document.getElementById('revision').value       = document.getElementById('s-revision').value;
   document.getElementById('fechaCreacion').value  = document.getElementById('s-fecha').value;
   _updateFechaFmt();
 
@@ -5568,7 +5672,7 @@ function nuevoProyecto() {
   supportOverrides = {};
   revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
   aislarTramoSec = null;
-  ['s-assetnum','s-asset','s-pais','s-ing'].forEach(id => document.getElementById(id).value = '');
+  ['s-assetnum','s-asset','s-cliente','s-pais','s-ing','s-revision'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
   document.getElementById('s-tipo').value   = 'triangular';
   document.getElementById('s-height').value = '30';
@@ -5980,29 +6084,6 @@ function _reportPxPerMeter(cfg) {
   const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
   return _reportPxBudget(isGuyed) / totalH;
 }
-// Máximo de píxeles de alto que cabe de forma segura en 1 sola hoja carta (página -
-// encabezado - título de sección - aire) — usado para decidir cuántas hojas hacen
-// falta para una torre muy alta. Pedido explícito del usuario: "si es necesario puedes
-// dividir la estructura en 2 o 3 hojas" (2026-06-26).
-const MEM_MAX_PAGE_PX = 650;
-// Agrupa cfg.secData (de arriba hacia abajo) en tramos consecutivos que no excedan
-// MEM_MAX_PAGE_PX de alto cada uno, usando el mismo px/m global — cada grupo es
-// exactamente 1 hoja del esquema 8.1. Devuelve [{idxs:[...indices reales en secData,
-// orden arriba-abajo]}], con 1 solo grupo (todas las secciones) si la torre ya cabe.
-function _reportSplitSections(cfg) {
-  const pxPerM = _reportPxPerMeter(cfg);
-  const order = cfg.secData.map((_, i) => i).reverse();
-  const groups = [];
-  let cur = [], curPx = 0;
-  order.forEach(i => {
-    const h = +cfg.secData[i].h || 0;
-    const px = h * pxPerM;
-    if (cur.length && curPx + px > MEM_MAX_PAGE_PX) { groups.push(cur); cur = []; curPx = 0; }
-    cur.push(i); curPx += px;
-  });
-  if (cur.length) groups.push(cur);
-  return groups;
-}
 // range opcional = {zLo, zHi, secIdxSet} — recorta el dibujo a esa ventana de Z (usada
 // al dividir una torre muy alta en varias hojas). Sin range, se dibuja la torre
 // completa (comportamiento original).
@@ -6208,9 +6289,8 @@ function _reportElevationSvg(cfg, range) {
 // (RISA/TNX-style: tabla con "MARK" en vez de perfil completo por celda, y aparte una
 // MATERIAL LIST que traduce cada marca). Se asignan en el orden en que aparecen al
 // recorrer la tabla (de la sección más alta hacia abajo).
-// secIdxList opcional = índices reales de cfg.secData a incluir, ya en orden arriba-
-// abajo (usado al dividir una torre muy alta en varias hojas, ver _reportSplitSections
-// / MEM_MAX_PAGE_PX). Sin secIdxList, se muestran todas las secciones (comportamiento
+// secIdxList opcional = índices reales de cfg.secData a incluir, ya en orden
+// arriba-abajo. Sin secIdxList, se muestran todas las secciones (comportamiento
 // original).
 function _reportSectionVerticalTable(cfg, secIdxList) {
   const weights = _reportSectionWeights();
@@ -6394,30 +6474,49 @@ const MEM_CHAPTERS = [
   { num: 7, title: 'Combinaciones de Carga', subs: ['7.1 Tabla de Casos de Carga'], modulo: 'Combinaciones de Carga' },
 ];
 
-function _memHeaderFooterHtml(cfg, bodyHtml, pageNum, totalPages) {
-  const rev = revisionData.length ? revisionData[revisionData.length - 1] : null;
+// Ícono real de TSA (assets/icon.svg, embebido inline a tamaño chico) — el emoji 🏗
+// usado antes no era el ícono de la app — pedido explícito del usuario (2026-06-27).
+// icono real de la app (ico_TSA.png), reescalado a 48x48 y embebido en base64 
+// para no inflar el HTML standalone con el PNG original de 375KB -- pedido 
+// explicito del usuario de usar ESTE icono especifico, no el SVG generico 
+// usado antes (2026-06-27).
+const MEM_TSA_ICON_SVG = '<img src="data:image/png;base64,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" width=14 height=14 style="vertical-align:middle;flex-shrink:0;border-radius:2px;">';
+
+// Encabezado/pie ÚNICOS para todo el documento (paginación nativa: ya no hay "1 div =
+// 1 hoja", así que ya no existe un número de página de JS que mostrar — Chrome no
+// soporta encabezados/pies dinámicos por CSS en impresión, así que el pie pierde
+// "Página X de Y" como costo aceptado de este cambio (2026-06-27). Izquierda = tipo de
+// estructura + altura. Derecha = revisión (con prefijo "REV.") + fecha.
+function _memHeaderHtml(cfg) {
+  const seccionLabel = REPORT_TYPE_LABELS[cfg.type] || cfg.type;
   return `
-    <div class="mem-page-header">
-      <span>${cfg.assetName || cfg.assetNumber || 'Proyecto sin nombre'}</span>
+    <div class="mem-header-fixed">
+      <span>${seccionLabel} · ${cfg.height} m</span>
       <span>${_assetFileBase(cfg)}</span>
-      <span>${fmtDate(new Date().toISOString().slice(0, 10))}${rev ? ` · Rev. ${rev.version}` : ''}</span>
+      <span>${cfg.revision ? `REV. ${cfg.revision}` : '—'} · ${fmtDate(new Date().toISOString().slice(0, 10))}</span>
     </div>
-    ${bodyHtml}
-    <div class="mem-page-footer">Página ${pageNum} de ${totalPages}</div>
+  `;
+}
+function _memFooterHtml() {
+  return `
+    <div class="mem-footer-fixed">
+      <span>${MEM_TSA_ICON_SVG}</span>
+      <span>Generado en TSA - Tower Structural Analysis</span>
+    </div>
   `;
 }
 
 function _memCoverHtml(cfg) {
-  const rev = revisionData.length ? revisionData[revisionData.length - 1] : null;
   const seccionLabel = REPORT_TYPE_LABELS[cfg.type] || cfg.type;
+  const towerName = `${cfg.assetNumber || ''} ${cfg.assetName || ''}`.trim().toUpperCase() || 'TORRE SIN NOMBRE';
   const rows = [
     ['Proyecto', cfg.assetName || cfg.assetNumber || '—'],
-    ['Cliente', '—'],
+    ['Cliente', cfg.cliente || '—'],
     ['N.º de Trabajo', cfg.assetNumber || '—'],
-    ['Revisión', rev ? rev.version : '—'],
+    ['Revisión', cfg.revision || '—'],
     ['Diseñado por', cfg.ingResponsable || '—'],
-    ['Revisado por', rev ? rev.autor : '—'],
     ['Fecha', fmtDate(cfg.fechaCreacion) || '—'],
+    ['Coordenadas del Sitio', cfg.location && typeof cfg.location.lat === 'number' ? `${cfg.location.lat.toFixed(6)}, ${cfg.location.lng.toFixed(6)}` : '—'],
     ['Norma de Diseño', '—'],
     ['Método de Diseño', '—'],
     ['Sistema de Unidades', 'MKS'],
@@ -6427,10 +6526,9 @@ function _memCoverHtml(cfg) {
   return `
     <div class="mem-band">
       <div class="mem-band-title">Informe de Análisis Estructural</div>
-      <div class="mem-band-sub">Torre de Telecomunicaciones</div>
     </div>
     <div class="mem-cover-body">
-      <div class="mem-tower-name">${cfg.assetName || cfg.assetNumber || 'Torre sin nombre'}</div>
+      <div class="mem-tower-name">${towerName}</div>
       <table class="mem-meta">
         <tbody>${rows.map(([l, v]) => `<tr><th>${l}</th><td>${v}</td></tr>`).join('')}</tbody>
       </table>
@@ -6438,28 +6536,37 @@ function _memCoverHtml(cfg) {
   `;
 }
 
-function _memIndexHtml(pageOf) {
+// Sin paginación pre-calculada ya no hay "número de página" que mostrar en el índice
+// — en su lugar, cada entrada es un ENLACE interno (#sec-N / #sec-N-M) al título/
+// subtema real dentro del mismo documento, que el lector puede usar para saltar
+// directo tanto en pantalla como en el PDF (los lectores de PDF siguen los enlaces
+// internos #ancla generados a partir de HTML) — pedido explícito del usuario: "Como
+// no tenemos páginas, haz que el PDF tenga vinculado el índice con cada tema y
+// subtema" (2026-06-27).
+function _memAnchorId(label) {
+  const m = label.match(/^(\d+(?:\.\d+)?)/);
+  return m ? 'sec-' + m[1].replace(/\./g, '-') : null;
+}
+function _memIndexHtml() {
   const rows = [];
   MEM_CHAPTERS.forEach(ch => {
-    rows.push(['', `${ch.num}  ${ch.title}`, pageOf[`${ch.num}`]]);
-    ch.subs.forEach(s => rows.push(['sub', s, pageOf[`${ch.num}`]]));
+    rows.push(['', `${ch.num}  ${ch.title}`]);
+    ch.subs.forEach(s => rows.push(['sub', s]));
   });
-  rows.push(['', '8  Configuración de la Torre', pageOf['8.1']]);
-  rows.push(['sub', '8.1  Geometría de la Torre (Diagramas de Elevación)', pageOf['8.1']]);
-  rows.push(['sub', '8.2  Propiedades de Sección (Tablas de Materiales y Perfiles)', pageOf['8.2']]);
+  rows.push(['', '8  Configuración de la Torre']);
+  rows.push(['sub', '8.1  Geometría de la Torre (Diagramas de Elevación)']);
+  rows.push(['sub', '8.2  Propiedades de Sección (Tablas de Materiales y Perfiles)']);
   return `
     <div class="mem-index-title">Índice de Contenidos</div>
-    ${rows.map(([cls, label, page]) => `
-      <div class="mem-index-row ${cls}">
-        <span>${label}</span><span class="mem-index-leader"></span><span>${page}</span>
-      </div>`).join('')}
+    ${rows.map(([cls, label]) => `
+      <div class="mem-index-row ${cls}"><a href="#${_memAnchorId(label)}">${label}</a></div>`).join('')}
   `;
 }
 
 function _memChapterPendingHtml(ch) {
   return `
-    <div class="mem-chapter-title">${ch.num}. ${ch.title}</div>
-    ${ch.subs.map(s => `<div style="font-size:11px;color:#555;margin:4px 0;">${s}</div>`).join('')}
+    <div class="mem-chapter-title" id="sec-${ch.num}">${ch.num}. ${ch.title}</div>
+    ${ch.subs.map(s => `<div id="${_memAnchorId(s)}" style="font-size:12.5px;font-weight:700;color:#555;margin:5px 0;">${s}</div>`).join('')}
     <div class="rp-pending" style="margin-top:14px;">Pendiente — requiere módulo de ${ch.modulo} (no implementado todavía)</div>
   `;
 }
@@ -6479,51 +6586,58 @@ function _memChapter4Html(cfg) {
       </tbody>
     </table>` : `<p style="font-size:11px;color:#777;">Sin perfiles de catálogo asignados todavía.</p>`;
 
+  // 3 pares Sección|Peso por fila — con torres de muchas secciones (arriostradas
+  // altas), 1 fila por sección desbordaba la hoja (confirmado con harness: 21
+  // secciones empujaban la hoja ~125px más allá de 1 hoja carta) — pedido explícito
+  // del usuario tras confirmar "14 páginas en vez de 11" (2026-06-27).
   const weights = _reportSectionWeights();
-  const panelRows = cfg.secData.map((s, i) => `<tr><td>${i + 1}</td><td>${weights[i] != null ? weights[i].toFixed(1) : '—'}</td></tr>`).join('');
+  const weightEntries = cfg.secData.map((s, i) => [i + 1, weights[i] != null ? weights[i].toFixed(1) : '—']);
+  const PANEL_COLS = 3;
+  let panelRows = '';
+  for (let i = 0; i < weightEntries.length; i += PANEL_COLS) {
+    const chunk = weightEntries.slice(i, i + PANEL_COLS);
+    while (chunk.length < PANEL_COLS) chunk.push(['', '']);
+    panelRows += `<tr>${chunk.map(([n, w]) => `<td>${n}</td><td>${w}</td>`).join('')}</tr>`;
+  }
 
   return `
-    <div class="mem-chapter-title">4. ${ch.title}</div>
-    <h2 class="rp-h2" style="margin-top:0;">4.1 Lista de Materiales por Perfil</h2>
+    <div class="mem-chapter-title" id="sec-4">4. ${ch.title}</div>
+    <h2 class="rp-h2" id="sec-4-1" style="margin-top:0;">4.1 Lista de Materiales por Perfil</h2>
     ${takeoffHtml}
 
-    <h2 class="rp-h2">4.2 Desglose de Peso por Panel</h2>
+    <h2 class="rp-h2" id="sec-4-2">4.2 Desglose de Peso por Panel</h2>
     <table class="rp-table">
-      <thead><tr><th>Sección</th><th>Peso (Kg)</th></tr></thead>
+      <thead><tr>${'<th>Sección</th><th>Peso (Kg)</th>'.repeat(PANEL_COLS)}</tr></thead>
       <tbody>${panelRows}</tbody>
     </table>
 
-    <h2 class="rp-h2">4.3 Resumen de Peso Total</h2>
+    <h2 class="rp-h2" id="sec-4-3">4.3 Resumen de Peso Total</h2>
     <table class="rp-table"><tbody>
       <tr class="rp-total-row"><td>TOTAL ESTIMADO DE ACERO</td><td>${takeoffTotal.toFixed(1)} kg</td></tr>
     </tbody></table>
   `;
 }
 
-// Capítulo 8.1 — geometría/elevación. Regla de oro: el esquema de la torre SIEMPRE
-// cabe en 1 sola hoja carta — para torres muy altas (arriostradas con muchos niveles)
-// eso significa DIVIDIR el dibujo+tabla en 2 o 3 hojas consecutivas en vez de
-// encimarlo todo en 1 sola, manteniendo la MISMA escala (px/m) en todas — pedido
-// explícito del usuario tras confirmar que una arriostrada de 120m no cabía en 1 hoja
-// (2026-06-26). Devuelve un ARRAY de cuerpos de página (1 entrada si ya cabe).
-function _memChapter8_1Pages(cfg) {
-  const groups = _reportSplitSections(cfg);
-  const secZs = [0];
-  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
-  return groups.map((idxs, gi) => {
-    const maxIdx = Math.max(...idxs), minIdx = Math.min(...idxs);
-    const range = { zLo: secZs[minIdx], zHi: secZs[maxIdx + 1] };
-    const { html: propsTableHtml } = _reportSectionPropsTable(cfg, idxs);
-    const suffix = groups.length > 1 ? ` (hoja ${gi + 1} de ${groups.length})` : '';
-    return `
-      ${gi === 0 ? '<div class="mem-chapter-title">8. Configuración de la Torre</div>' : ''}
-      <h2 class="rp-h2" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)${suffix}</h2>
-      <div class="rp-elev-wrap">
-        ${_reportElevationSvg(cfg, range)}
-        <div style="flex:1;min-width:0;">${propsTableHtml}</div>
-      </div>
-    `;
-  });
+// Capítulo 8.1 — geometría/elevación. Con paginación nativa, ya no hace falta calcular
+// cuántas hojas hacen falta ni medir nada en el DOM: el esquema+tabla es UN SOLO bloque
+// continuo (con page-break-inside:avoid en .rp-elev-wrap para no partirlo a la mitad
+// si cabe completo en lo que resta de la hoja); si una torre es tan alta que el bloque
+// no cabe ni en 1 hoja completa, el propio navegador lo continúa en la(s) siguiente(s)
+// — el mismo motor que decide TODA la paginación, sin el cálculo previo en JS que
+// causaba el desajuste con hojas en blanco. Pedido explícito del usuario: "Primero
+// hagamos la paginación nativa" (2026-06-27).
+function _memChapter8_1Html(cfg) {
+  const order = cfg.secData.map((_, i) => i).reverse();
+  const { html: propsTableHtml } = _reportSectionPropsTable(cfg, order);
+  return `
+    <div class="mem-chapter-title" id="sec-8">8. Configuración de la Torre</div>
+    <h2 class="rp-h2" id="sec-8-1" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)</h2>
+    <div class="rp-elev-wrap">
+      ${_reportElevationSvg(cfg)}
+      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+    </div>
+    ${_memDisclaimerHtml()}
+  `;
 }
 
 // Capítulo 8.2 — propiedades de sección (vista en planta + calidades de acero
@@ -6534,7 +6648,7 @@ function _memChapter8_2Html(cfg) {
   const materialStrengthHtml = _buildMaterialStrengthHtml(calidadSet);
   const planSvg = _reportPlanSvg(cfg);
   return `
-    <h2 class="rp-h2" style="margin-top:0;">8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)</h2>
+    <h2 class="rp-h2" id="sec-8-2" style="margin-top:0;">8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)</h2>
     <div style="display:flex;gap:24px;align-items:flex-start;">
       ${planSvg}
       <div style="flex:1;min-width:0;">
@@ -6548,7 +6662,7 @@ function _memChapter8_2Html(cfg) {
 // hoja, ya no en un "page1" único como antes.
 function _memDisclaimerHtml() {
   return `
-    <div class="rp-pending" style="text-align:left;">
+    <div class="mem-disclaimer">
       <b>Aviso profesional:</b> TSA es una herramienta de modelado geométrico y preparación de datos.
       No realiza por sí sola el análisis estructural, las revisiones por código, ni emite ningún juicio
       de ingeniería. Todo proyecto generado con TSA debe ser revisado, calculado y validado por un
@@ -6557,45 +6671,36 @@ function _memDisclaimerHtml() {
   `;
 }
 
-// Ensambla las páginas en orden final (cover, índice, capítulos 1-7, 8.1, 8.2),
-// calculando el número de página REAL de cada capítulo para el índice — cada entrada
-// de "interior" es exactamente 1 hoja física (mismo patrón de "1 .report-page = 1
-// página" ya usado, evita depender de paginación automática del navegador para saber
-// el número de página).
+// Ensambla el documento en orden final (carátula, índice, capítulos 1-7, 8.1, 8.2)
+// como un flujo CONTINUO — cada capítulo es un .mem-section-block con
+// page-break-before:always (ver @media print), no un <div> de tamaño fijo
+// pre-calculado. La paginación real la decide el navegador, no este código.
 function _buildMemoriaPages(cfg) {
-  const interior = []; // { bodyHtml, pageKey }
+  const interior = [];
   MEM_CHAPTERS.forEach(ch => {
-    interior.push({ pageKey: `${ch.num}`, bodyHtml: ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch) });
+    interior.push(ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch));
   });
-  // 8.1 puede ocupar varias hojas (torres muy altas) — todas comparten la MISMA
-  // entrada de índice ('8.1', apuntando a la primera), el aviso profesional va solo en
-  // la última hoja de 8.1.
-  const ch81Pages = _memChapter8_1Pages(cfg);
-  ch81Pages.forEach((bodyHtml, i) => {
-    interior.push({ pageKey: i === 0 ? '8.1' : null, bodyHtml: bodyHtml + (i === ch81Pages.length - 1 ? _memDisclaimerHtml() : '') });
-  });
-  interior.push({ pageKey: '8.2', bodyHtml: _memChapter8_2Html(cfg) });
-
-  const totalPages = 2 + interior.length; // carátula + índice + interior
-  const pageOf = {};
-  interior.forEach((p, i) => { pageOf[p.pageKey] = 3 + i; });
+  interior.push(_memChapter8_1Html(cfg));
+  interior.push(_memChapter8_2Html(cfg));
 
   const pages = [];
-  pages.push(`<div class="report-page mem-cover">${_memCoverHtml(cfg)}</div>`);
-  pages.push(`<div class="report-page">${_memHeaderFooterHtml(cfg, _memIndexHtml(pageOf), 2, totalPages)}</div>`);
-  interior.forEach((p, i) => {
-    pages.push(`<div class="report-page">${_memHeaderFooterHtml(cfg, p.bodyHtml, 3 + i, totalPages)}</div>`);
+  pages.push(`<div class="mem-cover-block">${_memCoverHtml(cfg)}</div>`);
+  pages.push(`<div class="mem-section-block mem-index-block">${_memIndexHtml()}</div>`);
+  interior.forEach(bodyHtml => {
+    pages.push(`<div class="mem-section-block">${bodyHtml}</div>`);
   });
   return pages.join('');
 }
 
 // Documento standalone con SOLO el contenido de la memoria (sin el overlay oscuro del
 // modal, sin la barra de herramientas, sin el contenedor flex de la app) — reutiliza
-// el ÚNICO bloque <style> del documento principal tal cual (ya trae .report-page,
+// el ÚNICO bloque <style> del documento principal tal cual (ya trae .report-doc,
 // todas las .rp-*/.mem-*, y el @page/@media print de formato carta), así que no hay
 // que duplicar ni mantener una hoja de estilos paralela. Se abre en el navegador del
 // sistema para vista previa real + "Guardar como PDF" nativo, en vez de pelear con el
 // motor de impresión de QtWebEngine — pedido explícito del usuario (2026-06-26).
+// El encabezado/pie se imprimen UNA sola vez (fuera de .report-doc) y se repiten en
+// cada hoja física vía position:fixed en impresión / sticky en pantalla.
 function _buildStandaloneReportHTML(cfg) {
   const css = document.querySelector('style')?.textContent || '';
   const pagesHtml = _buildMemoriaPages(cfg);
@@ -6608,8 +6713,18 @@ function _buildStandaloneReportHTML(cfg) {
    y reporta 1 sola página aunque haya más contenido debajo — pedido explícito del
    usuario tras confirmar "solo sale la pag 1 para imprimir" (2026-06-26). */
 html, body { height: auto !important; overflow: visible !important; }
-body { background:#525659; padding:24px 0; display:block; }
-.report-page { margin:0 auto 24px; }
+/* El CSS copiado trae "body { color: var(--txt-pri); }" — pensado para el tema OSCURO
+   de la app (texto claro), pero aquí el fondo es blanco, así que ese texto claro queda
+   casi invisible. Por alguna razón la regla .report-doc{color:#1a1a1a} de la hoja
+   principal no se estaba aplicando en este documento (confirmado con harness: la
+   regla NO aparece en el CSSOM ni del documento vivo ni del reporte, aunque el texto
+   fuente es correcto — causa no identificada con certeza), así que se fija el color
+   directamente aquí, en el ÚLTIMO bloque de overrides (gana por orden de aparición
+   sobre la regla original del mismo selector "body") — pedido explícito del usuario
+   tras confirmar con una captura que el texto de la carátula salía casi invisible
+   (2026-06-27). */
+body { background:#525659; color:#1a1a1a; padding:0; display:block; }
+.report-doc { background:#fff !important; color:#1a1a1a !important; }
 #print-btn {
   position: fixed; top: 16px; right: 16px; z-index: 999;
   padding: 10px 18px; background: #0A1628; color: #fff; border: none;
@@ -6621,7 +6736,11 @@ body { background:#525659; padding:24px 0; display:block; }
 </style></head>
 <body>
 <button id="print-btn" onclick="window.print()">🖨 Guardar como PDF</button>
+${_memHeaderHtml(cfg)}
+<div class="report-doc">
 ${pagesHtml}
+</div>
+${_memFooterHtml()}
 </body></html>`;
 }
 
@@ -6629,12 +6748,16 @@ function printReport() {
   if (!projectGenerated) { showToast('⚠  Genere una torre antes de crear el reporte.'); return; }
   const cfg = getConfig();
   const html = _buildStandaloneReportHTML(cfg);
-  // Con qtBridge presente (app de escritorio) se delega a Python para abrirlo en el
-  // navegador del sistema — ahí la vista previa es real y el "Guardar como PDF" nativo
-  // del navegador respeta el tamaño carta de forma confiable, sin pelear con el motor
-  // de impresión de QtWebEngine.
+  const title = _assetFileBase(cfg).replace(/\s+/g, '_');
+  // printToPdf() de Qt (savePdfDirectly) se intentó y se revirtió — repetía los
+  // mismos problemas de márgenes/paginación que ya habían hecho abandonar ese camino
+  // antes; el motor de impresión de QtWebEngine no maneja bien este documento de 11
+  // hojas sin importar el CSS. Se vuelve a abrir en el navegador real del sistema,
+  // donde el contenido SÍ se renderiza correctamente — pedido explícito del usuario
+  // tras confirmar la regresión (2026-06-27). En el diálogo de impresión del
+  // navegador, elegir "Márgenes: Ninguno" evita el margen extra arriba de la
+  // carátula.
   if (qtBridge) {
-    const title = _assetFileBase(cfg).replace(/\s+/g, '_');
     qtBridge.previewReportInBrowser(html, `${title}.html`);
   } else {
     const blob = new Blob([html], { type: 'text/html' });
@@ -8034,8 +8157,10 @@ function loadProjectData(cfg, filename) {
     updateLocationThumb();
     set('assetNumber',    cfg.assetNumber);
     set('assetName',      cfg.assetName);
+    set('cliente',        cfg.cliente);
     set('pais',           cfg.pais);
     set('ingResponsable', cfg.ingResponsable);
+    set('revision',       cfg.revision);
     set('fechaCreacion',  cfg.fechaCreacion);
     _updateFechaFmt();
     projectGenerated = true;
