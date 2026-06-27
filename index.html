@@ -746,27 +746,44 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 .sec-modal-body::-webkit-scrollbar { width: 4px; }
 .sec-modal-body::-webkit-scrollbar-thumb { background: #263545; border-radius: 2px; }
 
-/* ── Modal: Reporte (vista previa estilo "hoja impresa" + impresión a PDF) ──────── */
-.report-modal-overlay {
-  display: none; position: fixed; inset: 0; z-index: 400;
-  background: rgba(3,8,16,.92); flex-direction: column;
-}
-.report-modal-overlay.open { display: flex; }
-.report-modal-toolbar {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 20px; background: var(--bg-bar); border-bottom: 1px solid var(--border);
-  color: var(--txt); font-size: 12px; font-weight: 700; letter-spacing: .5px;
-}
-.report-pages-scroll { flex: 1; overflow-y: auto; padding: 30px 0 60px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+/* ── Reporte (HTML standalone que se abre en el navegador, ver
+   _buildStandaloneReportHTML) — estas reglas .report-page/.rp-* las reutiliza ese
+   documento aparte tal cual (copia este <style> completo), ya no hay un modal dentro
+   de la app misma — pedido explícito del usuario de simplificar el flujo, el HTML que
+   se genera para el navegador ya funciona como visualizador (2026-06-26). ──────────── */
 .report-page {
-  /* Tamaño carta real (8.5x11in) — antes era un ancho arbitrario en px que no
-     correspondía a ningún tamaño de papel; la vista previa en pantalla debe verse como
-     una hoja carta, no solo el CSS de impresión (que no aplica en la vista normal del
-     modal) — pedido explícito del usuario (2026-06-26). */
+  /* Márgenes de la Memoria de Cálculo: superior 25mm, inferior 20mm, izq 25mm, der 20mm
+     (0.98in/0.79in/0.98in/0.79in) — pedido explícito del usuario (2026-06-26). */
   width: 8.5in; min-height: 11in; box-sizing: border-box; background: #fff; color: #1a1a1a;
-  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 0.5in 0.6in;
-  font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.5;
+  box-shadow: 0 0 30px rgba(0,0,0,.5); padding: 0.98in 0.79in 0.79in 0.98in;
+  font-family: Arial, 'Segoe UI', sans-serif; line-height: 1.5; position: relative;
 }
+.report-page.mem-cover { padding: 0; }
+.mem-band {
+  background: #1B3A6B; color: #fff; height: 60mm; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.mem-band-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.mem-band-sub { font-size: 12pt; margin-top: 6px; }
+.mem-cover-body { padding: 0.79in 0.98in; }
+.mem-tower-name { text-align: center; font-size: 16pt; font-weight: 700; color: #1B3A6B; margin: 18px 0 22px; }
+table.mem-meta { width: 100%; border-collapse: collapse; font-size: 10pt; }
+table.mem-meta th { text-align: left; font-weight: 700; padding: 5px 10px 5px 0; white-space: nowrap; width: 1%; }
+table.mem-meta td { text-align: left; padding: 5px 0; }
+.mem-page-header {
+  display: flex; justify-content: space-between; font-size: 9pt; color: #444;
+  border-bottom: 1px solid #999; padding-bottom: 6px; margin-bottom: 16px;
+}
+.mem-page-footer {
+  position: absolute; bottom: 0.4in; left: 0; width: 100%; text-align: center;
+  font-size: 9pt; color: #555;
+}
+.mem-index-title { font-size: 16pt; font-weight: 700; color: #1B3A6B; margin: 0 0 20px; text-align: center; }
+.mem-index-row { display: flex; align-items: baseline; font-size: 10.5pt; margin: 6px 0; }
+.mem-index-row.sub { font-size: 10pt; color: #444; margin-left: 18px; }
+.mem-index-leader { flex: 1; border-bottom: 1px dotted #999; margin: 0 6px; height: 1em; }
+.mem-chapter-title { font-size: 14pt; font-weight: 700; color: #1B3A6B; margin: 0 0 14px; }
 .rp-cover { text-align: center; margin-bottom: 10px; }
 .rp-cover-brand { font-size: 11px; letter-spacing: 1.5px; color: #00698A; font-weight: 700; margin-bottom: 14px; }
 .rp-title { font-size: 22px; margin: 0 0 4px; color: #0A1628; }
@@ -800,19 +817,16 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 .rp-disclaimer { font-size: 10px; color: #555; background: #f7f7f7; border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-top: 16px; }
 .rp-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
 @media print {
-  @page { size: letter; margin: 0.4in; }
-  body * { visibility: hidden; }
-  .report-modal-overlay, .report-modal-overlay * { visibility: visible; }
-  .report-modal-toolbar { display: none !important; }
-  /* display:block (no flex) en TODA la cadena de ancestros — un contenedor flex en medio
-     hace que Chrome ignore page-break-after y exporte todo en 1 sola hoja de PDF, que es
-     justo lo que reportó el usuario — pedido explícito tras esa falla (2026-06-26). */
-  .report-modal-overlay { position: static !important; background: none !important; display: block !important; }
-  .report-pages-scroll { overflow: visible !important; padding: 0 !important; display: block !important; gap: 0 !important; }
-  #report-page-content { display: block !important; gap: 0 !important; }
+  /* margin:0 en @page — el margen real lo da el padding propio de .report-page (ver
+     regla base), que YA representa la hoja física completa de 8.5x11in con sus
+     márgenes 25/20/25/20mm simulados por padding interno. Forzar un margen de @page
+     ADEMÁS de ese padding duplicaría el margen y correría el contenido — pedido
+     explícito del usuario al definir la Memoria de Cálculo (2026-06-26). */
+  @page { size: letter; margin: 0; background: #fff; }
+  html, body { background: #fff !important; }
   .report-page {
     box-shadow: none !important; margin: 0 auto !important; page-break-after: always;
-    min-height: 0 !important; width: 7.7in !important; padding: 0 !important;
+    min-height: 0 !important;
   }
   .report-page:last-child { page-break-after: auto; }
 }
@@ -1325,7 +1339,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     <div class="side-spacer"></div>
 
     <!-- Reporte -->
-    <button class="side-btn" onclick="openReportModal()">
+    <button class="side-btn" onclick="printReport()">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="4" y="2" width="14" height="18" rx="2"/>
         <line x1="7" y1="8"  x2="15" y2="8"/>
@@ -1914,20 +1928,6 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="btn-cancel" onclick="closeFeedbackModal()">Cancelar</button>
       <button class="btn-apply" onclick="submitFeedback()">Enviar</button>
     </div>
-  </div>
-</div>
-
-<!-- ── Modal: Reporte (vista previa HTML, imprimir/guardar como PDF) ──────────────── -->
-<div class="report-modal-overlay" id="report-modal-overlay">
-  <div class="report-modal-toolbar">
-    <span>VISTA PREVIA — REPORTE</span>
-    <div style="display:flex;gap:10px;">
-      <button class="btn-apply" onclick="printReport()">🖨 Guardar como PDF</button>
-      <button class="btn-cancel" onclick="closeReportModal()">Cerrar</button>
-    </div>
-  </div>
-  <div class="report-pages-scroll">
-    <div id="report-page-content" style="display:flex;flex-direction:column;gap:30px;align-items:center;"></div>
   </div>
 </div>
 
@@ -6027,9 +6027,16 @@ function _reportElevationSvg(cfg) {
   // misma Z — se interpola Y-de-pierna-vs-Z y se acepta el nodo si su Y real coincide.
   let faceYAt = null;
   if (legCols.size >= 2) {
+    // Se usa el nodo de MAYOR Z (no menor) para identificar el Y real de cada columna
+    // — en arriostradas con "torre con pivote" (guyPivot) las piernas convergen TODAS
+    // a Y=0 en la base (pirámide del pivote), así que comparar por el nodo más bajo
+    // hace que las 3 columnas "empaten" en Y=0 y se elija una pareja que en realidad
+    // no comparte cara más arriba — bug real confirmado con datos (Y=0.866 vs Y=-0.433
+    // a partir de z=3, pese a Y=0 idéntico en z=0). El tope casi nunca converge a un
+    // punto (a diferencia de la base con pivote), así que es el extremo confiable.
     const colInfo = [...legCols.values()].map(idxs => {
       let baseIdx = [...idxs][0];
-      idxs.forEach(i => { if (data.nodes[i].z < data.nodes[baseIdx].z) baseIdx = i; });
+      idxs.forEach(i => { if (data.nodes[i].z > data.nodes[baseIdx].z) baseIdx = i; });
       return { idxs, y: data.nodes[baseIdx].y };
     });
     // Buscar el PAR de piernas cuyo Y en la base sea más parecido entre sí — NO
@@ -6060,12 +6067,14 @@ function _reportElevationSvg(cfg) {
   const onFaceNode = idx => !faceYAt || Math.abs(data.nodes[idx].y - faceYAt(data.nodes[idx].z)) < FACE_TOL;
   const onFace = m => onFaceNode(m.ni) && onFaceNode(m.nj);
 
-  // Solo pierna/diagonal/retenida — el resto (tensor, horizTensor, horizPuntal del
-  // triángulo estabilizador, etc.) son bracing interno del estabilizador, no parte de
-  // la cara/celosía ni de las retenidas reales, y colaban líneas grisáceo-azules cerca
-  // del fuste cerca del nivel del estabilizador que el usuario confundió con "retenidas
-  // en azul" — pedido explícito tras revisar su captura (2026-06-26).
-  const ELEV_TYPES = new Set(['leg', 'diagonal', 'guy']);
+  // Pierna/diagonal/horizontal/retenida — el resto (tensor, horizTensor, horizPuntal
+  // del triángulo estabilizador, etc.) es bracing interno del estabilizador, no parte
+  // de la cara/celosía ni de las retenidas reales, y colaban líneas grisáceo-azules
+  // cerca del fuste que el usuario confundió con "retenidas en azul". 'horizontal' SÍ
+  // es celosía real (los anillos horizontales de cada bahía) — quedó excluido por error
+  // al agregar este filtro, causando que no se vieran las horizontales de ninguna
+  // sección — corregido tras reporte explícito del usuario (2026-06-26).
+  const ELEV_TYPES = new Set(['leg', 'diagonal', 'horizontal', 'guy']);
   // Por nivel de retenida solo se dibuja LA UNA con el anclaje más "de lado" (mayor X) —
   // con 3+ anclajes por nivel, más de uno puede caer en x>0 sin ser realmente "de
   // perfil"; el de X chico se proyecta casi vertical, pegado al fuste, y es justo esa
@@ -6121,6 +6130,12 @@ function _reportElevationSvg(cfg) {
     ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${zReal.toFixed(1)}m</text>`;
     ticks += `<text x="${(cx + tickHalfW + 4).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${apertura(zReal, secIdx).toFixed(2)}</text>`;
   });
+  // Leyendas de encabezado — "Altura" a la izquierda, "Apertura" a la derecha, justo
+  // arriba de la marca de la sección más alta — pedido explícito del usuario
+  // (2026-06-26).
+  const legendY = padTop - 8;
+  ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Altura</text>`;
+  ticks += `<text x="${(cx + tickHalfW + 4).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Apertura</text>`;
   return `<svg class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
 }
 // Tabla vertical "planos llave" — una fila por sección, de arriba hacia abajo (igual
@@ -6301,100 +6316,99 @@ function _reportPlanSvg(cfg) {
   }
   return `<svg viewBox="0 0 ${W} ${H}" style="width:200px;height:200px;border:1px solid #ddd;flex-shrink:0;">${content}</svg>`;
 }
-function _renderReportPage2HTML(cfg) {
-  const { html: propsTableHtml, calidadSet } = _reportSectionPropsTable(cfg);
-  const materialStrengthHtml = _buildMaterialStrengthHtml(calidadSet);
-  const planSvg = _reportPlanSvg(cfg);
+// ════════════════════════════════════════════════════════════════════════════════
+// MEMORIA DE CÁLCULO — documento de 8 capítulos en formato carta (reemplaza el
+// reporte anterior de 3 hojas). Estructura, márgenes, carátula/índice y la regla del
+// capítulo 8 siempre al final vienen del spec entregado por el usuario (2026-06-26) —
+// ver memoria de proyecto project_tsa_memoria_calculo.md. Capítulos sin módulo de
+// datos todavía (viento/EPA, sísmico, antenas, combinaciones de carga, códigos de
+// elementos) se marcan "Pendiente" en vez de inventar valores.
+// ════════════════════════════════════════════════════════════════════════════════
+const MEM_CHAPTERS = [
+  { num: 1, title: 'Información General', subs: ['1.1 Alcance', '1.2 Datos del Sitio', '1.3 Historial de Revisiones'], modulo: 'Información General' },
+  { num: 2, title: 'Parámetros de Diseño', subs: ['2.1 Norma de Diseño y Normas Referenciadas', '2.2 Materiales', '2.3 Parámetros de Viento', '2.4 Parámetros de Hielo', '2.5 Parámetros Sísmicos'], modulo: 'Parámetros de Diseño (Viento/Hielo/Sismo)' },
+  { num: 3, title: 'Cargas', subs: ['3.1 Listado de Antenas', '3.2 Soportes y Montajes', '3.3 Escalerillas de Cable y Plataformas', '3.4 Resumen de Carga Muerta', '3.5 Inventario de Antenas y Equipos'], modulo: 'Cargas/Antenas' },
+  { num: 4, title: 'Lista de Materiales (Solo Estructura)', subs: ['4.1 Lista de Materiales por Perfil', '4.2 Desglose de Peso por Panel', '4.3 Resumen de Peso Total'] },
+  { num: 5, title: 'Listado de Códigos de Elementos', subs: [], modulo: 'Códigos de Elementos' },
+  { num: 6, title: 'Análisis de Carga de Viento (EPA)', subs: ['6.1 Cálculo de EPA — Último', '6.2 Cálculo de EPA — Servicio', '6.3 Cargas de Viento en Accesorios', '6.4 Resumen de Cortante Basal y Momento de Vuelco'], modulo: 'Viento (EPA)' },
+  { num: 7, title: 'Combinaciones de Carga', subs: ['7.1 Tabla de Casos de Carga'], modulo: 'Combinaciones de Carga' },
+];
+
+function _memHeaderFooterHtml(cfg, bodyHtml, pageNum, totalPages) {
+  const rev = revisionData.length ? revisionData[revisionData.length - 1] : null;
   return `
-    <h2 class="rp-h2">Elevación y propiedades de la torre (MKS)</h2>
-    <div class="rp-elev-wrap">
-      ${_reportElevationSvg(cfg)}
-      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+    <div class="mem-page-header">
+      <span>${cfg.assetName || cfg.assetNumber || 'Proyecto sin nombre'}</span>
+      <span>${_assetFileBase(cfg)}</span>
+      <span>${fmtDate(new Date().toISOString().slice(0, 10))}${rev ? ` · Rev. ${rev.version}` : ''}</span>
     </div>
+    ${bodyHtml}
+    <div class="mem-page-footer">Página ${pageNum} de ${totalPages}</div>
+  `;
+}
 
-    <div style="display:flex;gap:24px;align-items:flex-start;margin-top:14px;">
-      ${planSvg}
-      <div style="flex:1;min-width:0;">
-        ${materialStrengthHtml ? `<h2 class="rp-h2" style="margin-top:0;">Material Strength</h2>${materialStrengthHtml}` : ''}
-      </div>
+function _memCoverHtml(cfg) {
+  const rev = revisionData.length ? revisionData[revisionData.length - 1] : null;
+  const seccionLabel = REPORT_TYPE_LABELS[cfg.type] || cfg.type;
+  const rows = [
+    ['Proyecto', cfg.assetName || cfg.assetNumber || '—'],
+    ['Cliente', '—'],
+    ['N.º de Trabajo', cfg.assetNumber || '—'],
+    ['Revisión', rev ? rev.version : '—'],
+    ['Diseñado por', cfg.ingResponsable || '—'],
+    ['Revisado por', rev ? rev.autor : '—'],
+    ['Fecha', fmtDate(cfg.fechaCreacion) || '—'],
+    ['Norma de Diseño', '—'],
+    ['Método de Diseño', '—'],
+    ['Sistema de Unidades', 'MKS'],
+    ['Altura de la Torre', `${cfg.height} m`],
+    ['Sección Transversal', seccionLabel],
+  ];
+  return `
+    <div class="mem-band">
+      <div class="mem-band-title">Informe de Análisis Estructural</div>
+      <div class="mem-band-sub">Torre de Telecomunicaciones</div>
     </div>
-
-    <h2 class="rp-h2">Carga de diseño de accesorios (appurtenances)</h2>
-    <div class="rp-pending">Pendiente — requiere módulo de Cargas/Antenas (no implementado todavía)</div>
-
-    <h2 class="rp-h2">Notas de diseño y reacciones</h2>
-    <div class="rp-pending">Pendiente — requiere módulo de Cargas de Viento / Análisis (no implementado todavía)</div>
-
-    <div class="rp-footer">
-      <span>Hoja 2 de 2</span>
-      <span>Generado por TSA — Tower Structural Analysis</span>
+    <div class="mem-cover-body">
+      <div class="mem-tower-name">${cfg.assetName || cfg.assetNumber || 'Torre sin nombre'}</div>
+      <table class="mem-meta">
+        <tbody>${rows.map(([l, v]) => `<tr><th>${l}</th><td>${v}</td></tr>`).join('')}</tbody>
+      </table>
     </div>
   `;
 }
 
-function openReportModal() {
-  if (!projectGenerated) { showToast('⚠  Genere una torre antes de crear el reporte.'); return; }
-  const cfg = getConfig();
-  document.getElementById('report-page-content').innerHTML =
-    `<div class="report-page">${_renderReportHTML()}</div>` +
-    `<div class="report-page">${_renderReportPage2HTML(cfg)}</div>`;
-  document.getElementById('report-modal-overlay').classList.add('open');
-  if (qtBridge && qtBridge.debugPageSize) qtBridge.debugPageSize();
-}
-function closeReportModal() {
-  document.getElementById('report-modal-overlay').classList.remove('open');
-}
-function printReport() {
-  // window.print() dentro de QWebEngineView (app de escritorio) no hace nada — no hay
-  // diálogo de impresión nativo a menos que el lado Qt llame explícitamente a
-  // printToPdf(). Con qtBridge presente (app de escritorio) se delega a Python, que sí
-  // puede escribir el PDF a disco con tamaño carta forzado — pedido explícito del
-  // usuario tras confirmar que "Guardar como PDF" no hacía nada en la app (2026-06-26).
-  if (qtBridge) {
-    const title = _assetFileBase(getConfig()).replace(/\s+/g, '_');
-    qtBridge.savePdfDialog(`${title}.pdf`);
-  } else {
-    window.print();
-  }
+function _memIndexHtml(pageOf) {
+  const rows = [];
+  MEM_CHAPTERS.forEach(ch => {
+    rows.push(['', `${ch.num}  ${ch.title}`, pageOf[`${ch.num}`]]);
+    ch.subs.forEach(s => rows.push(['sub', s, pageOf[`${ch.num}`]]));
+  });
+  rows.push(['', '8  Configuración de la Torre', pageOf['8.1']]);
+  rows.push(['sub', '8.1  Geometría de la Torre (Diagramas de Elevación)', pageOf['8.1']]);
+  rows.push(['sub', '8.2  Propiedades de Sección (Tablas de Materiales y Perfiles)', pageOf['8.2']]);
+  return `
+    <div class="mem-index-title">Índice de Contenidos</div>
+    ${rows.map(([cls, label, page]) => `
+      <div class="mem-index-row ${cls}">
+        <span>${label}</span><span class="mem-index-leader"></span><span>${page}</span>
+      </div>`).join('')}
+  `;
 }
 
-function _renderReportHTML() {
-  const cfg = getConfig();
-  renderer.render(scene, camera);
-  const img = renderer.domElement.toDataURL('image/png');
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const isMono = cfg.type === 'monopole';
-  const g = name => steelGrades.find(x => x.name === name);
+function _memChapterPendingHtml(ch) {
+  return `
+    <div class="mem-chapter-title">${ch.num}. ${ch.title}</div>
+    ${ch.subs.map(s => `<div style="font-size:11px;color:#555;margin:4px 0;">${s}</div>`).join('')}
+    <div class="rp-pending" style="margin-top:14px;">Pendiente — requiere módulo de ${ch.modulo} (no implementado todavía)</div>
+  `;
+}
 
-  const geomRows = isMono ? [
-    ['Altura total', `${cfg.height} m`],
-    ['Apertura inferior / superior', `${cfg.baseW} m / ${cfg.topW} m`],
-    ['Tramos inclinados / rectos', `${cfg.nInc} / ${cfg.nStr}`],
-  ] : cfg.type === 'guyed' ? [
-    ['Altura total', `${cfg.height} m`],
-    ['Apertura del fuste', `${cfg.shaftW} m`],
-    ['Niveles de retenidas', `${cfg.guyLevels}`],
-    ['Torre con pivote', cfg.guyPivot ? 'Sí' : 'No'],
-  ] : [
-    ['Altura total', `${cfg.height} m`],
-    ['Apertura base / superior', `${cfg.baseW} m / ${cfg.topW} m`],
-    ['Número de secciones', `${cfg.nsec}`],
-  ];
-
-  const seccionesRows = isMono
-    ? cfg.secData.map((s, i) => {
-        const gr = g(s.monoFy);
-        return `<tr><td>${i + 1}</td><td>${i < cfg.nInc ? 'Inclinado' : 'Recto'}</td><td>${s.h} m</td>
-          <td>${s.monoSides >= 24 ? 'Redondo' : s.monoSides + ' lados'}</td>
-          <td>${s.monoThk === '-' ? '—' : s.monoThk + ' mm'}</td>
-          <td>${gr ? `${gr.name} (Fy ${gr.fy})` : '—'}</td></tr>`;
-      }).join('')
-    : cfg.secData.map((s, i) => {
-        const prof = (val, cal) => { if (!val || val === '-') return '—'; const gr = g(cal); return gr ? `${val} <small>(${gr.name})</small>` : val; };
-        return `<tr><td>${i + 1}</td><td>${s.diag}</td><td>x${s.bays}</td><td>${s.h} m</td>
-          <td>${prof(s.M, s.MCal)}</td><td>${prof(s.D, s.DCal)}</td></tr>`;
-      }).join('');
-
+// Capítulo 4 — única sección con datos reales fuera del capítulo 8: reutiliza el
+// takeoff de acero (perfil/calidad/longitud/peso) y el desglose de peso por sección ya
+// calculados para el resto de la app.
+function _memChapter4Html(cfg) {
+  const ch = MEM_CHAPTERS.find(c => c.num === 4);
   const { rows: takeoffRows, total: takeoffTotal } = _reportSteelTakeoff();
   const takeoffHtml = takeoffRows.length ? `
     <table class="rp-table">
@@ -6402,82 +6416,155 @@ function _renderReportHTML() {
       <tbody>
         ${takeoffRows.map(r => `<tr><td>${r.profile}</td><td>${r.calidad || '—'}</td><td>${r.length.toFixed(1)}</td>
           <td>${r.pesoUnit != null ? r.pesoUnit.toFixed(2) : '—'}</td><td>${r.pesoTotal != null ? r.pesoTotal.toFixed(1) : '—'}</td></tr>`).join('')}
-        <tr class="rp-total-row"><td colspan="4">TOTAL ESTIMADO DE ACERO</td><td>${takeoffTotal.toFixed(1)} kg</td></tr>
       </tbody>
     </table>` : `<p style="font-size:11px;color:#777;">Sin perfiles de catálogo asignados todavía.</p>`;
 
-  // Niveles de retenidas (altura+cable, uno por nivel) y anillos de anclaje (radio/azimut,
-  // agrupados de 3 en 3) son listas independientes — varios niveles pueden compartir el
-  // mismo anillo de anclaje, no hay una correspondencia 1 a 1 entre ambas.
-  const retenidasHtml = (cfg.type === 'guyed') ? `
-    <h2 class="rp-h2">Retenidas</h2>
-    ${cfg.guyHeights.length ? `
-    <table class="rp-table">
-      <thead><tr><th>Nivel</th><th>Altura</th><th>Cable</th><th>Calidad</th><th>Tensión</th></tr></thead>
-      <tbody>
-        ${cfg.guyHeights.map((h, i) => {
-          const cd = cfg.guyCableData[i];
-          return `<tr><td>${i + 1}</td><td>${h} m</td><td>${cd?.diam || '—'}</td>
-            <td>${cd?.diamData?.calidad || '—'}</td><td>${cd?.tensionPct ?? '—'}%</td></tr>`;
-        }).join('')}
-      </tbody>
-    </table>` : `<p style="font-size:11px;color:#777;">Sin niveles de retenidas definidos.</p>`}
-    ${cfg.guyAnchorData.length ? `
-    <table class="rp-table">
-      <thead><tr><th>Anillo de anclaje</th><th>Elevación</th><th>Radio</th><th>Azimut</th></tr></thead>
-      <tbody>
-        ${cfg.guyAnchorData.map((a, i) => `<tr><td>${Math.floor(i / 3) + 1}</td><td>${a.elev} m</td><td>${a.radio} m</td><td>${a.azimut}°</td></tr>`).join('')}
-      </tbody>
-    </table>` : ''}` : '';
+  const weights = _reportSectionWeights();
+  const panelRows = cfg.secData.map((s, i) => `<tr><td>${i + 1}</td><td>${weights[i] != null ? weights[i].toFixed(1) : '—'}</td></tr>`).join('');
 
   return `
-    <div class="rp-cover">
-      <div class="rp-cover-brand">TSA — TOWER STRUCTURAL ANALYSIS</div>
-      <h1 class="rp-title">Reporte de Modelado Estructural</h1>
-      <div class="rp-sub">${[cfg.assetNumber, cfg.assetName].filter(Boolean).join(' ') || 'Proyecto sin nombre'}</div>
-      ${img ? `<img class="rp-cover-img" src="${img}" alt="Vista de la torre">` : ''}
-    </div>
-
-    <h2 class="rp-h2">Datos generales del proyecto</h2>
-    <table class="rp-table">
-      <tbody>
-        <tr><th>Asset Number</th><td>${cfg.assetNumber || '—'}</td><th>Asset Name</th><td>${cfg.assetName || '—'}</td></tr>
-        <tr><th>País</th><td>${cfg.pais || '—'}</td><th>Ingeniero responsable</th><td>${cfg.ingResponsable || '—'}</td></tr>
-        <tr><th>Fecha de creación</th><td>${fmtDate(cfg.fechaCreacion) || '—'}</td><th>Tipo de estructura</th><td>${REPORT_TYPE_LABELS[cfg.type] || cfg.type}</td></tr>
-        <tr><th>Ubicación</th><td colspan="3">${cfg.location ? `${cfg.location.lat.toFixed(6)}, ${cfg.location.lng.toFixed(6)}` : '—'}</td></tr>
-      </tbody>
-    </table>
-
-    <h2 class="rp-h2">Resumen geométrico</h2>
-    <table class="rp-table"><tbody>
-      ${geomRows.map(([l, v]) => `<tr><th>${l}</th><td>${v}</td></tr>`).join('')}
-    </tbody></table>
-
-    <h2 class="rp-h2">${isMono ? 'Detalle por tramo' : 'Detalle por sección'}</h2>
-    <table class="rp-table">
-      <thead>${isMono
-        ? '<tr><th>Tramo</th><th>Tipo</th><th>Altura</th><th>Forma</th><th>Espesor</th><th>Fy</th></tr>'
-        : '<tr><th>Sección</th><th>Patrón</th><th>Bahías</th><th>Altura</th><th>M (piernas)</th><th>D (diagonales)</th></tr>'}</thead>
-      <tbody>${seccionesRows}</tbody>
-    </table>
-
-    <h2 class="rp-h2">Resumen de perfiles utilizados</h2>
+    <div class="mem-chapter-title">4. ${ch.title}</div>
+    <h2 class="rp-h2" style="margin-top:0;">4.1 Lista de Materiales por Perfil</h2>
     ${takeoffHtml}
 
-    ${retenidasHtml}
+    <h2 class="rp-h2">4.2 Desglose de Peso por Panel</h2>
+    <table class="rp-table">
+      <thead><tr><th>Sección</th><th>Peso (Kg)</th></tr></thead>
+      <tbody>${panelRows}</tbody>
+    </table>
 
-    <div class="rp-disclaimer">
+    <h2 class="rp-h2">4.3 Resumen de Peso Total</h2>
+    <table class="rp-table"><tbody>
+      <tr class="rp-total-row"><td>TOTAL ESTIMADO DE ACERO</td><td>${takeoffTotal.toFixed(1)} kg</td></tr>
+    </tbody></table>
+  `;
+}
+
+// Capítulo 8.1 — geometría/elevación. Regla de oro: el esquema de la torre SIEMPRE
+// cabe en 1 sola hoja carta (ya validado con el presupuesto de píxeles compartido de
+// _reportElevationSvg/_reportSectionVerticalTable); si la tabla de propiedades no
+// cupiera junto al diagrama se movería a 8.2, pero en la práctica ambos comparten
+// hoja sin problema.
+function _memChapter8_1Html(cfg) {
+  const { html: propsTableHtml } = _reportSectionPropsTable(cfg);
+  return `
+    <div class="mem-chapter-title">8. Configuración de la Torre</div>
+    <h2 class="rp-h2" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)</h2>
+    <div class="rp-elev-wrap">
+      ${_reportElevationSvg(cfg)}
+      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+    </div>
+  `;
+}
+
+// Capítulo 8.2 — propiedades de sección (vista en planta + calidades de acero
+// realmente usadas). Sigue al 8.1 en su propia hoja — pedido explícito del usuario
+// (golden rule: tablas extra a otra página si no caben con el diagrama).
+function _memChapter8_2Html(cfg) {
+  const { calidadSet } = _reportSectionPropsTable(cfg);
+  const materialStrengthHtml = _buildMaterialStrengthHtml(calidadSet);
+  const planSvg = _reportPlanSvg(cfg);
+  return `
+    <h2 class="rp-h2" style="margin-top:0;">8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)</h2>
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+      ${planSvg}
+      <div style="flex:1;min-width:0;">
+        ${materialStrengthHtml ? `<h2 class="rp-h2" style="margin-top:0;">Material Strength</h2>${materialStrengthHtml}` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Aviso profesional — vive en la carátula/Información General en vez de en cada
+// hoja, ya no en un "page1" único como antes.
+function _memDisclaimerHtml() {
+  return `
+    <div class="rp-pending" style="text-align:left;">
       <b>Aviso profesional:</b> TSA es una herramienta de modelado geométrico y preparación de datos.
       No realiza por sí sola el análisis estructural, las revisiones por código, ni emite ningún juicio
       de ingeniería. Todo proyecto generado con TSA debe ser revisado, calculado y validado por un
       ingeniero estructurista responsable antes de utilizarse en construcción real.
     </div>
-
-    <div class="rp-footer">
-      <span>Hoja 1 de 2 · Generado el ${fmtDate(todayIso)}</span>
-      <span>Generado por TSA — Tower Structural Analysis</span>
-    </div>
   `;
+}
+
+// Ensambla las páginas en orden final (cover, índice, capítulos 1-7, 8.1, 8.2),
+// calculando el número de página REAL de cada capítulo para el índice — cada entrada
+// de "interior" es exactamente 1 hoja física (mismo patrón de "1 .report-page = 1
+// página" ya usado, evita depender de paginación automática del navegador para saber
+// el número de página).
+function _buildMemoriaPages(cfg) {
+  const interior = []; // { bodyHtml, pageKey }
+  MEM_CHAPTERS.forEach(ch => {
+    interior.push({ pageKey: `${ch.num}`, bodyHtml: ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch) });
+  });
+  interior.push({ pageKey: '8.1', bodyHtml: _memChapter8_1Html(cfg) + _memDisclaimerHtml() });
+  interior.push({ pageKey: '8.2', bodyHtml: _memChapter8_2Html(cfg) });
+
+  const totalPages = 2 + interior.length; // carátula + índice + interior
+  const pageOf = {};
+  interior.forEach((p, i) => { pageOf[p.pageKey] = 3 + i; });
+
+  const pages = [];
+  pages.push(`<div class="report-page mem-cover">${_memCoverHtml(cfg)}</div>`);
+  pages.push(`<div class="report-page">${_memHeaderFooterHtml(cfg, _memIndexHtml(pageOf), 2, totalPages)}</div>`);
+  interior.forEach((p, i) => {
+    pages.push(`<div class="report-page">${_memHeaderFooterHtml(cfg, p.bodyHtml, 3 + i, totalPages)}</div>`);
+  });
+  return pages.join('');
+}
+
+// Documento standalone con SOLO el contenido de la memoria (sin el overlay oscuro del
+// modal, sin la barra de herramientas, sin el contenedor flex de la app) — reutiliza
+// el ÚNICO bloque <style> del documento principal tal cual (ya trae .report-page,
+// todas las .rp-*/.mem-*, y el @page/@media print de formato carta), así que no hay
+// que duplicar ni mantener una hoja de estilos paralela. Se abre en el navegador del
+// sistema para vista previa real + "Guardar como PDF" nativo, en vez de pelear con el
+// motor de impresión de QtWebEngine — pedido explícito del usuario (2026-06-26).
+function _buildStandaloneReportHTML(cfg) {
+  const css = document.querySelector('style')?.textContent || '';
+  const pagesHtml = _buildMemoriaPages(cfg);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${_assetFileBase(cfg)}</title>
+<style>${css}
+/* El CSS copiado trae "html, body { height:100%; overflow:hidden; }" — pensado para
+   la app de una sola pantalla (sin scroll de documento), pero aquí recorta el
+   contenido a 1 sola altura de viewport: el motor de impresión solo "ve" esa porción
+   y reporta 1 sola página aunque haya más contenido debajo — pedido explícito del
+   usuario tras confirmar "solo sale la pag 1 para imprimir" (2026-06-26). */
+html, body { height: auto !important; overflow: visible !important; }
+body { background:#525659; padding:24px 0; display:block; }
+.report-page { margin:0 auto 24px; }
+#print-btn {
+  position: fixed; top: 16px; right: 16px; z-index: 999;
+  padding: 10px 18px; background: #0A1628; color: #fff; border: none;
+  border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.4);
+}
+#print-btn:hover { background: #16243D; }
+@media print { #print-btn { display: none !important; } }
+</style></head>
+<body>
+<button id="print-btn" onclick="window.print()">🖨 Guardar como PDF</button>
+${pagesHtml}
+</body></html>`;
+}
+
+function printReport() {
+  if (!projectGenerated) { showToast('⚠  Genere una torre antes de crear el reporte.'); return; }
+  const cfg = getConfig();
+  const html = _buildStandaloneReportHTML(cfg);
+  // Con qtBridge presente (app de escritorio) se delega a Python para abrirlo en el
+  // navegador del sistema — ahí la vista previa es real y el "Guardar como PDF" nativo
+  // del navegador respeta el tamaño carta de forma confiable, sin pelear con el motor
+  // de impresión de QtWebEngine.
+  if (qtBridge) {
+    const title = _assetFileBase(cfg).replace(/\s+/g, '_');
+    qtBridge.previewReportInBrowser(html, `${title}.html`);
+  } else {
+    const blob = new Blob([html], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  }
 }
 
 // ── Monopolo: propiedades de sección para MEMBER PROPERTY PRISMATIC ─────────────
