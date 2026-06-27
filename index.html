@@ -5972,13 +5972,48 @@ function _reportSectionWeights() {
 // tabla y en el esquema, y las líneas de cada inicio de sección coinciden con el límite
 // de fila de la tabla. Pedido explícito del usuario (2026-06-26).
 function _reportPxBudget(isGuyed) { return isGuyed ? 1800 : 600; }
-function _reportElevationSvg(cfg) {
+// Px/metro GLOBAL (independiente de si se dibuja la torre completa o solo un tramo) —
+// con esto, dividir la torre en varias hojas no cambia la escala visual entre páginas,
+// solo recorta la ventana de Z que se dibuja en cada una.
+function _reportPxPerMeter(cfg) {
+  const isGuyed = cfg?.type === 'guyed';
+  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  return _reportPxBudget(isGuyed) / totalH;
+}
+// Máximo de píxeles de alto que cabe de forma segura en 1 sola hoja carta (página -
+// encabezado - título de sección - aire) — usado para decidir cuántas hojas hacen
+// falta para una torre muy alta. Pedido explícito del usuario: "si es necesario puedes
+// dividir la estructura en 2 o 3 hojas" (2026-06-26).
+const MEM_MAX_PAGE_PX = 650;
+// Agrupa cfg.secData (de arriba hacia abajo) en tramos consecutivos que no excedan
+// MEM_MAX_PAGE_PX de alto cada uno, usando el mismo px/m global — cada grupo es
+// exactamente 1 hoja del esquema 8.1. Devuelve [{idxs:[...indices reales en secData,
+// orden arriba-abajo]}], con 1 solo grupo (todas las secciones) si la torre ya cabe.
+function _reportSplitSections(cfg) {
+  const pxPerM = _reportPxPerMeter(cfg);
+  const order = cfg.secData.map((_, i) => i).reverse();
+  const groups = [];
+  let cur = [], curPx = 0;
+  order.forEach(i => {
+    const h = +cfg.secData[i].h || 0;
+    const px = h * pxPerM;
+    if (cur.length && curPx + px > MEM_MAX_PAGE_PX) { groups.push(cur); cur = []; curPx = 0; }
+    cur.push(i); curPx += px;
+  });
+  if (cur.length) groups.push(cur);
+  return groups;
+}
+// range opcional = {zLo, zHi, secIdxSet} — recorta el dibujo a esa ventana de Z (usada
+// al dividir una torre muy alta en varias hojas). Sin range, se dibuja la torre
+// completa (comportamiento original).
+function _reportElevationSvg(cfg, range) {
   const data = _towerData;
   if (!data || !data.nodes.length) return '';
   const isGuyed = cfg?.type === 'guyed';
   const xs = data.nodes.map(n => n.x), zs = data.nodes.map(n => n.z);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const globalMinZ = Math.min(...zs), globalMaxZ = Math.max(...zs);
+  const zLo = range ? range.zLo : globalMinZ, zHi = range ? range.zHi : globalMaxZ;
   const W = 260, padX = 34, padBottom = 16;
   // El margen ARRIBA debe igualar la altura del thead de la tabla (90px, encabezados
   // rotados) — son 2 elementos flex hermanos alineados arriba (align-items:flex-start),
@@ -5986,21 +6021,19 @@ function _reportElevationSvg(cfg) {
   // fila de datos de la tabla (después del thead), no a los 16px de antes — pedido
   // explícito del usuario tras ver el desalineamiento real (flechas en su captura).
   const padTop = 90;
-  const spanX = Math.max(0.01, maxX - minX), spanZ = Math.max(0.01, maxZ - minZ);
-  // H se deriva del presupuesto compartido (no de un valor fijo) — el contenido (sin
-  // contar el padding) mide exactamente PX_BUDGET, igual que la suma de alturas de fila
-  // de la tabla. Solo se usa la escala por Z (se ignora el ancho) para que 1 m vertical
-  // mida lo mismo en la tabla y en el esquema, sin distorsión por el ancho de la torre.
-  const PX_BUDGET = _reportPxBudget(isGuyed);
-  const H = PX_BUDGET + padTop + padBottom;
-  const scale = PX_BUDGET / spanZ;
+  const spanX = Math.max(0.01, maxX - minX);
+  // scale usa SIEMPRE el px/m global (no el de esta ventana) — así una torre dividida
+  // en 2-3 hojas mantiene la misma escala visual en todas, solo cambia cuánto Z entra
+  // en cada una.
+  const scale = _reportPxPerMeter(cfg);
+  const H = (zHi - zLo) * scale + padTop + padBottom;
   // En arriostradas solo se dibujan las retenidas del lado derecho (anclaje x>0) — el
   // fuste centrado deja la mitad izquierda del viewBox vacía y recorta las retenidas
   // antes de tiempo. Se recorre el centro hacia la izquierda para darles más espacio
   // a la derecha — pedido explícito del usuario (2026-06-26).
   const cx = isGuyed ? W * 0.25 : W / 2, baseY = H - padBottom;
   const px = x => cx + (x - (minX + maxX) / 2) * scale;
-  const py = z => baseY - (z - minZ) * scale;
+  const py = z => baseY - (z - zLo) * scale;
   const colorFor = m => m.type === 'guy' ? '#C9A227' : m.type === 'stabarm' ? '#2E8B57'
     : m.type === 'leg' ? '#0A1628' : m.type === 'diagonal' ? '#2E8B57' : '#7A8B9A';
 
@@ -6101,7 +6134,26 @@ function _reportElevationSvg(cfg) {
       return;
     }
     const a = data.nodes[m.ni], b = data.nodes[m.nj];
+    // Si se está dibujando solo una ventana de Z (torre dividida en varias hojas),
+    // se omite el miembro que no toca esa ventana en absoluto — los que SÍ la tocan
+    // (incluso parcial, a caballo entre 2 hojas) se dejan pasar; el viewBox del SVG
+    // recorta automáticamente lo que cae fuera.
+    if (range && (Math.max(a.z, b.z) < zLo - 1e-6 || Math.min(a.z, b.z) > zHi + 1e-6)) return;
     lines += `<line x1="${px(a.x).toFixed(1)}" y1="${py(a.z).toFixed(1)}" x2="${px(b.x).toFixed(1)}" y2="${py(b.z).toFixed(1)}" stroke="${colorFor(m)}" stroke-width="0.7"/>`;
+    // Diámetro + calidad de la retenida, en texto paralelo a su línea — 1 por nivel,
+    // junto al punto de anclaje a la torre (m.nj, el extremo que SÍ cae en esta hoja
+    // si el nivel pertenece a ella) — pedido explícito del usuario (2026-06-26).
+    if (m.type === 'guy' && (!range || (b.z >= zLo - 1e-6 && b.z <= zHi + 1e-6))) {
+      const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+      const label = cd?.diamData ? `${cd.diamData.name}" ${cd.diamData.calidad}` : '';
+      if (label) {
+        const x1 = px(a.x), y1 = py(a.z), x2 = px(b.x), y2 = py(b.z);
+        const t = 0.18; // cerca del anclaje a la torre, sin encimarse con el fuste
+        const lx = x2 + (x1 - x2) * t, ly = y2 + (y1 - y2) * t;
+        const angleDeg = Math.atan2(y1 - y2, x1 - x2) * 180 / Math.PI;
+        lines += `<text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" font-size="5.5" fill="#7A5C00" transform="rotate(${angleDeg.toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})">${label}</text>`;
+      }
+    }
   });
   // Marcas en cada INICIO DE SECCIÓN (no en cada corte de bahía) — para que coincidan
   // con los límites de fila de la tabla (una fila por sección, ver
@@ -6124,7 +6176,11 @@ function _reportElevationSvg(cfg) {
   let ticks = '';
   const tickHalfW = isGuyed ? 26 : (W / 2 - padX + 5);
   secZs.forEach((zReal, k) => {
-    const y = py(minZ + zReal);
+    const zAbs = globalMinZ + zReal;
+    // Si es una ventana de Z (torre dividida), solo se marcan los límites de sección
+    // que caen dentro de ESTA hoja.
+    if (range && (zAbs < zLo - 1e-6 || zAbs > zHi + 1e-6)) return;
+    const y = py(zAbs);
     const secIdx = Math.max(0, k - 1);
     ticks += `<line x1="${(cx - tickHalfW).toFixed(1)}" y1="${y.toFixed(1)}" x2="${(cx + tickHalfW).toFixed(1)}" y2="${y.toFixed(1)}" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>`;
     ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${(y + 2.5).toFixed(1)}" font-size="6.5" fill="#666">${zReal.toFixed(1)}m</text>`;
@@ -6152,7 +6208,11 @@ function _reportElevationSvg(cfg) {
 // (RISA/TNX-style: tabla con "MARK" en vez de perfil completo por celda, y aparte una
 // MATERIAL LIST que traduce cada marca). Se asignan en el orden en que aparecen al
 // recorrer la tabla (de la sección más alta hacia abajo).
-function _reportSectionVerticalTable(cfg) {
+// secIdxList opcional = índices reales de cfg.secData a incluir, ya en orden arriba-
+// abajo (usado al dividir una torre muy alta en varias hojas, ver _reportSplitSections
+// / MEM_MAX_PAGE_PX). Sin secIdxList, se muestran todas las secciones (comportamiento
+// original).
+function _reportSectionVerticalTable(cfg, secIdxList) {
   const weights = _reportSectionWeights();
   const isGuyed = cfg.type === 'guyed';
   const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
@@ -6175,7 +6235,7 @@ function _reportSectionVerticalTable(cfg) {
   // (2026-06-26). rowH usa el MISMO presupuesto de píxeles que el esquema, para que el
   // límite de cada fila coincida con la línea de esa sección en el dibujo.
   const PX_BUDGET = _reportPxBudget(isGuyed);
-  const order = cfg.secData.map((_, i) => i).reverse();   // de arriba hacia abajo
+  const order = secIdxList || cfg.secData.map((_, i) => i).reverse();   // de arriba hacia abajo
   let rowsHtml = '';
   order.forEach(i => {
     const s = cfg.secData[i];
@@ -6205,7 +6265,7 @@ function _reportSectionVerticalTable(cfg) {
 // Equivalente para Monopolo — columnas propias (sin Piernas/Diagonales/etc., el eje es
 // un tubo continuo): Diámetro, Espesor, Lados, Calidad, Peso. Mismo criterio de filas
 // de arriba hacia abajo con Nivel/Apertura por límite de tramo.
-function _reportMonopoleVerticalTable(cfg) {
+function _reportMonopoleVerticalTable(cfg, secIdxList) {
   const g = name => steelGrades.find(x => x.name === name);
   const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
   const calidadSet = new Set();
@@ -6213,7 +6273,7 @@ function _reportMonopoleVerticalTable(cfg) {
   // tramo, mismo presupuesto de píxeles que el esquema. Mismo criterio que la tabla de
   // lattice/guyed (2026-06-26).
   const PX_BUDGET = _reportPxBudget(false);
-  const order = cfg.secData.map((_, i) => i).reverse();
+  const order = secIdxList || cfg.secData.map((_, i) => i).reverse();
   let rowsHtml = '';
   order.forEach(i => {
     const s = cfg.secData[i];
@@ -6239,8 +6299,8 @@ function _reportMonopoleVerticalTable(cfg) {
   </table>`;
   return { html, calidadSet };
 }
-function _reportSectionPropsTable(cfg) {
-  return cfg.type === 'monopole' ? _reportMonopoleVerticalTable(cfg) : _reportSectionVerticalTable(cfg);
+function _reportSectionPropsTable(cfg, secIdxList) {
+  return cfg.type === 'monopole' ? _reportMonopoleVerticalTable(cfg, secIdxList) : _reportSectionVerticalTable(cfg, secIdxList);
 }
 // MATERIAL STRENGTH — calidades de acero realmente usadas (no el catálogo completo),
 // con su Fy, en pares Grade|Yield por fila.
@@ -6441,20 +6501,29 @@ function _memChapter4Html(cfg) {
 }
 
 // Capítulo 8.1 — geometría/elevación. Regla de oro: el esquema de la torre SIEMPRE
-// cabe en 1 sola hoja carta (ya validado con el presupuesto de píxeles compartido de
-// _reportElevationSvg/_reportSectionVerticalTable); si la tabla de propiedades no
-// cupiera junto al diagrama se movería a 8.2, pero en la práctica ambos comparten
-// hoja sin problema.
-function _memChapter8_1Html(cfg) {
-  const { html: propsTableHtml } = _reportSectionPropsTable(cfg);
-  return `
-    <div class="mem-chapter-title">8. Configuración de la Torre</div>
-    <h2 class="rp-h2" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)</h2>
-    <div class="rp-elev-wrap">
-      ${_reportElevationSvg(cfg)}
-      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
-    </div>
-  `;
+// cabe en 1 sola hoja carta — para torres muy altas (arriostradas con muchos niveles)
+// eso significa DIVIDIR el dibujo+tabla en 2 o 3 hojas consecutivas en vez de
+// encimarlo todo en 1 sola, manteniendo la MISMA escala (px/m) en todas — pedido
+// explícito del usuario tras confirmar que una arriostrada de 120m no cabía en 1 hoja
+// (2026-06-26). Devuelve un ARRAY de cuerpos de página (1 entrada si ya cabe).
+function _memChapter8_1Pages(cfg) {
+  const groups = _reportSplitSections(cfg);
+  const secZs = [0];
+  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
+  return groups.map((idxs, gi) => {
+    const maxIdx = Math.max(...idxs), minIdx = Math.min(...idxs);
+    const range = { zLo: secZs[minIdx], zHi: secZs[maxIdx + 1] };
+    const { html: propsTableHtml } = _reportSectionPropsTable(cfg, idxs);
+    const suffix = groups.length > 1 ? ` (hoja ${gi + 1} de ${groups.length})` : '';
+    return `
+      ${gi === 0 ? '<div class="mem-chapter-title">8. Configuración de la Torre</div>' : ''}
+      <h2 class="rp-h2" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)${suffix}</h2>
+      <div class="rp-elev-wrap">
+        ${_reportElevationSvg(cfg, range)}
+        <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+      </div>
+    `;
+  });
 }
 
 // Capítulo 8.2 — propiedades de sección (vista en planta + calidades de acero
@@ -6498,7 +6567,13 @@ function _buildMemoriaPages(cfg) {
   MEM_CHAPTERS.forEach(ch => {
     interior.push({ pageKey: `${ch.num}`, bodyHtml: ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch) });
   });
-  interior.push({ pageKey: '8.1', bodyHtml: _memChapter8_1Html(cfg) + _memDisclaimerHtml() });
+  // 8.1 puede ocupar varias hojas (torres muy altas) — todas comparten la MISMA
+  // entrada de índice ('8.1', apuntando a la primera), el aviso profesional va solo en
+  // la última hoja de 8.1.
+  const ch81Pages = _memChapter8_1Pages(cfg);
+  ch81Pages.forEach((bodyHtml, i) => {
+    interior.push({ pageKey: i === 0 ? '8.1' : null, bodyHtml: bodyHtml + (i === ch81Pages.length - 1 ? _memDisclaimerHtml() : '') });
+  });
   interior.push({ pageKey: '8.2', bodyHtml: _memChapter8_2Html(cfg) });
 
   const totalPages = 2 + interior.length; // carátula + índice + interior
