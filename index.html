@@ -263,6 +263,13 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,.45);
 }
 .icon-btn:hover .icon-tip, .btn:hover .icon-tip { opacity: 1; visibility: visible; }
+/* Ícono de información inline (ej. junto a "Velocidad Regional"/"Velocidad Última" en
+   Diseño por Viento) — mismo .icon-tip de arriba, pero el disparador de hover es este
+   ícono chico, no un botón. */
+.tf-info-icon { position: relative; display: inline-flex; cursor: help; color: var(--txt-sec); }
+.tf-info-icon:hover { color: var(--accent); }
+.tf-info-icon:hover .icon-tip { opacity: 1; visibility: visible; }
+.tf-info-icon .icon-tip { right: auto; left: 50%; transform: translateX(-50%); white-space: normal; width: 170px; }
 .set-color { width: 50px; height: 26px; padding: 2px; border: 1px solid var(--border); border-radius: 4px; background: #071326; cursor: pointer; }
 .db-tab {
   background: transparent; border: none; border-bottom: 2px solid transparent;
@@ -458,6 +465,17 @@ body {
   min-width: 0;
 }
 #viewer-wrap canvas { display: block; width: 100%; height: 100%; }
+.view-opts {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 20;
+  display: flex; gap: 4px; background: rgba(10,22,40,.85); border: 1px solid #1E3A5F;
+  border-radius: 8px; padding: 4px; backdrop-filter: blur(4px);
+}
+.vo {
+  padding: 6px 14px; font-size: 11px; font-weight: 600; color: var(--txt-sec);
+  border-radius: 6px; cursor: pointer; user-select: none; transition: background .15s, color .15s;
+}
+.vo:hover { background: rgba(255,255,255,.08); color: var(--txt); }
+.vo.active { background: var(--cyan); color: #04141F; }
 
 #v-overlay {
   position: absolute;
@@ -499,6 +517,22 @@ body {
   flex-direction: column;
 }
 .torre-flyout.open { display: flex; }
+/* Diseño por Viento necesita más ancho que Nueva Torre — los 2 checks de Velocidad (con
+   sus íconos de info) y el grid 2x2 de H/L/x/Dirección quedaban apretados a 268px,
+   pedido explícito del usuario (2026-06-28: "Hacer más ancho el menú para que quepan
+   todos los campos"). Solo afecta a #viento-flyout (selector por id, más específico que
+   .torre-flyout) — Nueva Torre sigue en 268px. */
+#viento-flyout { width: 380px; }
+/* Quitar el atributo step NO oculta las flechas de spinner (son el control nativo del
+   navegador para type="number", aparecen siempre salvo que se oculten por CSS) — el
+   usuario las señaló en una captura tras el cambio anterior, hay que ocultarlas de
+   verdad (2026-06-28). */
+#viento-flyout input[type=number]::-webkit-outer-spin-button,
+#viento-flyout input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#viento-flyout input[type=number] { -moz-appearance: textfield; }
 .tf-preview-panel {
   position: absolute;
   left: 320px;       /* justo después del torre-flyout (52px sidebar + 268px ancho) */
@@ -538,6 +572,21 @@ body {
 
 .tf-sect  { font: 600 10px 'Segoe UI', sans-serif; color: var(--txt-sec);
             letter-spacing: .5px; padding: 10px 14px 4px; }
+/* Título de SECCIÓN (no sub-sección) en un flyout con varias secciones — ej. Diseño por
+   Viento: Configuración General, Parámetros de Viento, y las que se agreguen después.
+   Todas las secciones de este nivel usan el mismo formato prominente (banda con icono)
+   — distinto del .tf-sect plano de las sub-secciones de otros flyouts (ej. Nueva Torre).
+   El usuario confirmó que TODAS las secciones de nivel superior deben verse igual de
+   visibles, no solo la primera (2026-06-28: "Parámetros de viento es otra sección,
+   hazla igual visible como configuración"). */
+.tf-sect-general {
+  display: flex; align-items: center; gap: 7px;
+  margin: 10px 14px 2px; padding: 7px 10px;
+  background: rgba(45, 212, 255, .08); border-left: 3px solid var(--accent);
+  border-radius: 4px; font: 600 11px 'Segoe UI', sans-serif; color: var(--accent);
+  letter-spacing: .4px;
+}
+.tf-sect-general svg { width: 14px; height: 14px; flex-shrink: 0; }
 .tf-body  { display: flex; flex-direction: column; gap: 9px; padding: 4px 14px 10px; }
 .tf-row   { display: flex; flex-direction: column; gap: 3px; }
 .tf-lbl   { font-size: 10px; font-weight: 600; color: var(--txt-sec); letter-spacing: .3px; }
@@ -548,6 +597,11 @@ body {
   transition: border-color .15s;
 }
 .tf-input:focus { outline: none; border-color: var(--accent); }
+/* Campo de solo lectura (ej. Tipo de Estructura en Diseño por Viento — refleja el tipo
+   de torre del proyecto, no es editable ahí) — mismo tamaño que .tf-input pero sin
+   affordance de control interactivo, pedido explícito del usuario (2026-06-28: "Tipo de
+   estructura no es seleccionable. Solo se debe mostrar."). */
+.tf-input-readonly { color: var(--txt-sec); cursor: default; user-select: none; }
 .tf-sep { height: 1px; background: var(--border); margin: 4px 14px; }
 
 /* Generar Torre button */
@@ -1337,7 +1391,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="icon-btn" id="vbtn-zoomin"  onclick="zoomIn()">⊕<span class="icon-tip">Zoom In</span></button>
       <button class="icon-btn" id="vbtn-zoomout" onclick="zoomOut()">⊖<span class="icon-tip">Zoom Out</span></button>
       <button class="icon-btn" id="vbtn-zoomwin" onclick="startZoomWindow()">⛶<span class="icon-tip">Zoom Window</span></button>
-      <button class="icon-btn" id="vbtn-fitview" onclick="fitView()">⤢<span class="icon-tip">Ajustar pantalla</span></button>
+      <button class="icon-btn" id="vbtn-fitview" onclick="refitView()">⤢<span class="icon-tip">Ajustar pantalla</span></button>
       <button class="icon-btn" id="vbtn-orbit"   onclick="toggleAutoOrbit()">&#8635;<span class="icon-tip">Orbitar</span></button>
       <button class="icon-btn" id="vbtn-nodelabels" onclick="toggleNodeLabels()">🏷<span class="icon-tip">Nodos</span></button>
       <button class="icon-btn" id="vbtn-staadlabels" onclick="toggleStaadLabels()">#<span class="icon-tip">Barras</span></button>
@@ -1379,13 +1433,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Torre</span>
     </button>
 
-    <!-- Análisis -->
-    <button class="side-btn">
-      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="3,16 7,10 11,13 15,6 19,9"/>
-        <line x1="3" y1="19" x2="19" y2="19"/>
+    <!-- Viento -->
+    <button class="side-btn" onclick="openVientoFlyout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.59 4.59A2 2 0 1 1 11 8H2"/>
+        <path d="M12.59 11.59A2 2 0 1 1 14 15H2"/>
+        <path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/>
       </svg>
-      <span class="side-tip">Análisis</span>
+      <span class="side-tip">Viento</span>
     </button>
 
     <!-- Optimización -->
@@ -1551,6 +1606,107 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <svg id="tf-preview-svg" viewBox="0 0 200 260" preserveAspectRatio="xMidYMid meet" style="width:100%;flex:1;min-height:0;"></svg>
     </div>
 
+    <!-- Diseño por Viento — mismo estilo que "Nueva Torre" (flyout pegado al sidebar,
+         deja la torre activa/visible a la derecha) en vez de modal centrado, pedido
+         explícito del usuario (2026-06-28). -->
+    <div class="torre-flyout" id="viento-flyout">
+      <div class="tf-header">
+        <span>Diseño por Viento <span style="color:var(--txt-sec);font-weight:400;">(En desarrollo)</span></span>
+        <button onclick="closeVientoFlyout()">✕</button>
+      </div>
+      <div class="tf-scroll">
+        <div class="tf-sect-general">
+          <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 1v4M11 17v4M3.5 5.5l2.8 2.8M14.7 14.7l2.8 2.8M1 11h4M17 11h4M3.5 16.5l2.8-2.8M14.7 7.3l2.8-2.8"/>
+            <circle cx="11" cy="11" r="3.5"/>
+          </svg>
+          CONFIGURACIÓN GENERAL
+        </div>
+        <div class="tf-body">
+          <div class="tf-row"><span class="tf-lbl">CÓDIGO DE DISEÑO</span>
+            <select class="tf-input" id="viento-codigo">
+              <option value="ANSI_TIA_H">ANSI/TIA H</option>
+              <option value="CFE2020" disabled>CFE 2020 (En proceso)</option>
+            </select></div>
+          <div class="tf-row"><span class="tf-lbl">TIPO DE ESTRUCTURA</span>
+            <div class="tf-input tf-input-readonly" id="viento-tipo-display">—</div></div>
+          <div class="tf-row"><span class="tf-lbl">CATEGORÍA DE RIESGO</span>
+            <select class="tf-input" id="viento-catriesgo">
+              <option value="I">Categoría I (Riesgo Bajo)</option>
+              <option value="II">Categoría II (Riesgo Normal)</option>
+              <option value="III">Categoría III (Riesgo Sustancial)</option>
+              <option value="IV">Categoría IV (Riesgo Escencial)</option>
+            </select></div>
+          <div class="tf-row"><span class="tf-lbl">CATEGORÍA DE EXPOSICIÓN</span>
+            <select class="tf-input" id="viento-catexp">
+              <option value="B">B (Urbano/Suburbano)</option>
+              <option value="C">C (Terreno Abierto)</option>
+              <option value="D">D (Líneas Costeras)</option>
+            </select></div>
+        </div>
+
+        <div class="tf-sect-general">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.59 4.59A2 2 0 1 1 11 8H2"/>
+            <path d="M12.59 11.59A2 2 0 1 1 14 15H2"/>
+            <path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/>
+          </svg>
+          PARÁMETROS DE VIENTO
+        </div>
+        <div class="tf-body">
+          <div class="tf-row"><span class="tf-lbl">VELOCIDAD DE VIENTO (km/hr)</span>
+            <input class="tf-input" type="number" id="viento-velocidad" min="0" placeholder="0">
+            <div style="display:flex;gap:14px;margin-top:2px;">
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-sec);cursor:pointer;">
+                <input type="checkbox" id="viento-vel-regional" onchange="_toggleVelTipo('regional')">
+                Velocidad Regional
+                <span class="tf-info-icon">ⓘ<span class="icon-tip">Velocidad sin afectar por la categoría de riesgo</span></span>
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt-sec);cursor:pointer;">
+                <input type="checkbox" id="viento-vel-ultima" onchange="_toggleVelTipo('ultima')">
+                Velocidad Última
+                <span class="tf-info-icon">ⓘ<span class="icon-tip">Velocidad afectada por la categoría de riesgo</span></span>
+              </label>
+            </div>
+          </div>
+          <div class="tf-row"><span class="tf-lbl">VELOCIDAD OPERACIONAL (km/hr)</span>
+            <input class="tf-input" type="number" id="viento-velop" min="0" value="97.2"></div>
+          <div class="tf-row"><span class="tf-lbl">ALTURA SOBRE NIVEL DEL MAR — ASNM (m)</span>
+            <input class="tf-input" type="number" id="viento-asnm" placeholder="0"></div>
+          <div class="tf-row"><span class="tf-lbl">CATEGORÍA TOPOGRÁFICA</span>
+            <select class="tf-input" id="viento-topocat" onchange="_onTopoCatChange()">
+              <option value="plano">Plano</option>
+              <option value="escarpado">Escarpado</option>
+              <option value="colina">Colina</option>
+              <option value="colina_cima_plana">Colina de cima plana</option>
+              <option value="cresta">Cresta</option>
+              <option value="cresta_cima_plana">Cresta de cima plana</option>
+            </select></div>
+          <div class="tf-row" id="viento-topo-extra" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div><span class="tf-lbl">H (m)</span>
+                <input class="tf-input" type="number" id="viento-topo-h"></div>
+              <div><span class="tf-lbl">L (m)</span>
+                <input class="tf-input" type="number" id="viento-topo-l"></div>
+              <div><span class="tf-lbl">x (m)</span>
+                <input class="tf-input" type="number" id="viento-topo-x"></div>
+              <div><span class="tf-lbl">DIRECCIÓN</span>
+                <select class="tf-input" id="viento-topo-dir">
+                  <option value="favor">A favor del viento</option>
+                  <option value="contra">En contra del viento</option>
+                </select></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="gen-btn-wrap">
+        <button class="gen-btn" onclick="saveVientoFlyout()">
+          <svg viewBox="0 0 22 22" fill="currentColor"><polygon points="4,3 18,11 4,19"/></svg>
+          <span>Guardar</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Home dropdown menu -->
     <div class="home-menu" id="home-menu">
       <div class="home-menu-title">ARCHIVO</div>
@@ -1605,6 +1761,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
   <!-- 3-D Viewer -->
   <div id="viewer-wrap">
+    <div class="view-opts">
+      <div class="vo active" data-view="3d" onclick="setView('3d')">3D</div>
+      <div class="vo" data-view="xy" onclick="setView('xy')">Planta XY</div>
+      <div class="vo" data-view="xz" onclick="setView('xz')">Alzado XZ</div>
+      <div class="vo" data-view="yz" onclick="setView('yz')">Alzado YZ</div>
+    </div>
   </div>
 
   <!-- Right Panel -->
@@ -2376,7 +2538,12 @@ function genMonopole(cfg) {
       curRing = prevRing;
     } else {
       curRing = ringAt(z, sides, rStart);
-      closeRing(curRing, sides, sec);   // anillo nuevo (z=0, cambio de lados o escalón) — cerrar aquí
+      // 'monothk', no el 'horizontal' por defecto — esta arista es geometría visual del
+      // polígono (igual que la pared de espesor), no una barra horizontal real con
+      // perfil de catálogo. Con el default, estos segmentos se marcaban "sin perfil/
+      // calidad" y parpadeaban al exportar — mismo bug que la pared de espesor, pedido
+      // explícito del usuario tras seguir viéndolo después del primer fix (2026-06-28).
+      closeRing(curRing, sides, sec, 'monothk');   // anillo nuevo (z=0, cambio de lados o escalón) — cerrar aquí
       addThicknessRing(curRing, z, sides, rStart, sec);
     }
     for (let b = 0; b < bays; b++) {
@@ -2385,7 +2552,7 @@ function genMonopole(cfg) {
       const nextRing = ringAt(z, sides, r);
       for (let j = 0; j < sides; j++)
         members.push({ni: curRing[j], nj: nextRing[j], type: 'leg', sec});
-      closeRing(nextRing, sides, sec);
+      closeRing(nextRing, sides, sec, 'monothk');
       addThicknessRing(nextRing, z, sides, r, sec);
       curRing = nextRing;
       prevR = r;
@@ -2398,19 +2565,32 @@ function genMonopole(cfg) {
 // Eje del monopolo — SOLO para exportación/análisis (no para el visor 3D): 1 nodo por
 // límite de tramo (ignora bahías, lados, espesor) y 1 barra por tramo entre ellos, sobre
 // el centro (x=0, y=0). Reutiliza la misma altura por tramo que genMonopole().
+// Eje del Monopolo para STAAD — los tramos AHUSADOS (sec < cfg.nInc, diámetro variable)
+// se subdividen internamente en segmentos de máx. 0.5m (cada uno con su propio nodo y
+// member, etiquetado m.seg) para que STAAD pueda analizar el ahusado con un perfil PIPE
+// escalonado en vez de 1 sola barra con propiedades promediadas para todo el tramo. Los
+// tramos RECTOS (diámetro constante) NO se subdividen — 1 solo segmento basta, no hay
+// nada que refinar. Esto es solo para el export STAAD — no afecta la malla visual del
+// visor 3D (genMixed/closeRing), que sigue dibujando el polígono completo como siempre.
+// Pedido explícito del usuario (2026-06-28).
 function genMonopoleAxis(cfg) {
   const {nodes, members} = initBuffers();
   const nTot = cfg.nInc + cfg.nStr;
   if (nTot === 0) return {nodes, members};
   const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
   let z = 0;
-  const axisNodes = [addNode(nodes, 0, 0, 0)];
+  let prevNode = addNode(nodes, 0, 0, 0);
   for (let sec = 0; sec < nTot; sec++) {
-    z += secH(sec);
-    axisNodes.push(addNode(nodes, 0, 0, z));
-  }
-  for (let i = 0; i < axisNodes.length - 1; i++) {
-    members.push({ni: axisNodes[i], nj: axisNodes[i+1], type: 'leg', sec: i});
+    const h = secH(sec);
+    const isInc = sec < cfg.nInc;
+    const nSeg = isInc ? Math.max(1, Math.ceil(h / 0.5)) : 1;
+    const segH = h / nSeg;
+    for (let k = 0; k < nSeg; k++) {
+      z += segH;
+      const node = addNode(nodes, 0, 0, z);
+      members.push({ni: prevNode, nj: node, type: 'leg', sec, seg: k});
+      prevNode = node;
+    }
   }
   return {nodes, members};
 }
@@ -3141,6 +3321,18 @@ camera.up.set(0, 0, 1);   // Z-up: la altura de la torre va en el eje Z
 // derecha y +Y hacia arriba en pantalla (y en el inset de ejes) — Z sigue siendo la altura.
 camera.position.set(-50, -50, 25);
 
+// Cámara ortográfica — usada SOLO por Planta XY / Alzado XZ / Alzado YZ (ver setView).
+// Una de perspectiva no sirve para esas vistas: por más que se ajuste la distancia, los
+// nodos lejos del plano focal (base/cima de una torre alta) se ven más chicos por
+// foreshortening — efecto inevitable de la perspectiva, NO un bug de encuadre. La
+// ortográfica no tiene esa distorsión, igual que cualquier vista de planta/alzado en un
+// CAD — pedido explícito del usuario tras confirmar que el ajuste de FOV/distancia con
+// la cámara de perspectiva no alcanzaba (2026-06-28).
+const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 2000);
+// activeCamera = la cámara que de verdad se usa para renderizar/raycasting en cada
+// instante — "camera" (perspectiva) en 3D, "orthoCamera" en Planta/Alzados.
+let activeCamera = camera;
+
 // preserveDrawingBuffer: true — necesario para poder leer los píxeles del canvas con
 // toDataURL() en takeScreenshot(); sin esto el buffer puede llegar vacío.
 const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
@@ -3173,7 +3365,8 @@ let primaryGrid = null;
 let secondaryGrid = null;
 let _gridZ = 0;
 let _towerData = null;   // datos del último renderTower (nodes, members)
-let _hlMesh    = null;   // LineSegments del elemento seleccionado
+let _hlMesh    = [];   // LineSegments del elemento(s) seleccionado(s) — normalmente 1, pero
+                        // varios para la pared del monopolo (ver _highlightMember)
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const sun = new THREE.DirectionalLight(0xffffff, 0.5);
 sun.position.set(40,40,80);
@@ -3201,12 +3394,13 @@ const _rotQuat = new THREE.Quaternion().setFromUnitVectors(camera.up, new THREE.
 const _rotQuatInverse = _rotQuat.clone().invert();
 const ARROW_ROTATE_STEP = 0.05; // radianes por pulsación
 function _rotateCameraBy(deltaTheta, deltaPhi) {
-  const offset = camera.position.clone().sub(controls.target).applyQuaternion(_rotQuat);
+  if (!controls.enableRotate) return;   // Planta/Alzados: misma regla que el mouse (sin rotar)
+  const offset = activeCamera.position.clone().sub(controls.target).applyQuaternion(_rotQuat);
   const spherical = new THREE.Spherical().setFromVector3(offset);
   spherical.theta -= deltaTheta;
   spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi - deltaPhi));
   offset.setFromSpherical(spherical).applyQuaternion(_rotQuatInverse);
-  camera.position.copy(controls.target).add(offset);
+  activeCamera.position.copy(controls.target).add(offset);
   controls.update();
 }
 window.addEventListener('keydown', e => {
@@ -3244,7 +3438,10 @@ function towerBounds() {
 // (0,0,15), de fábrica), pero con la distancia calibrada al tamaño REAL de la torre actual
 // — así una torre de 120m no queda diminuta/lejana como con el ángulo fijo de siempre.
 const _INITIAL_VIEW_DIR = new THREE.Vector3(-50, -50, 10).normalize();
-function fitView() {
+// dir opcional — dirección (desde el centro hacia la cámara) a encuadrar; por default
+// la vista isométrica de fábrica. Usada solo por la vista "3D" (ver setView) — Planta/
+// Alzados usan fitOrthoView() con la cámara ortográfica (orthoCamera), no esta.
+function fitView(dir = _INITIAL_VIEW_DIR) {
   const b = towerBounds();
   if (!b) return;
   // Radio de la esfera que envuelve TODA la caja (torre + vientos/anclajes) y distancia
@@ -3262,13 +3459,104 @@ function fitView() {
   const distH = sphereRadius / Math.sin(halfFovH);
   const dist = Math.max(distV, distH) * 1.08;
   controls.target.copy(b.center);
-  camera.position.copy(b.center).addScaledVector(_INITIAL_VIEW_DIR, dist);
+  camera.position.copy(b.center).addScaledVector(dir, dist);
   controls.update();
   // La niebla (FogExp2) estaba calibrada para la distancia de cámara de fábrica (~71.4) —
   // a mayor distancia (torres muy altas o vientos muy abiertos) el mismo density desvanecía
   // todo el color. Se reescala para que density*distancia se mantenga constante.
   scene.fog.density = _BASE_FOG_DENSITY * _BASE_FOG_DIST / dist;
 }
+
+// Botones "3D / Planta XY / Alzado XZ / Alzado YZ" centrados arriba del canvas — pedido
+// explícito del usuario (2026-06-28). Planta XY/Alzado XZ/Alzado YZ usan orthoCamera
+// (ver definición junto a "camera" arriba): con una cámara de perspectiva, por más que
+// se ajuste la distancia, los nodos lejos del plano focal (base/cima de una torre alta,
+// vistos desde arriba) se ven más chicos por foreshortening — efecto inevitable de la
+// perspectiva. La ortográfica no tiene esa distorsión. Rotación desactivada en las 3
+// vistas ortogonales (solo pan/zoom) para no salirse del encuadre por accidente.
+const _VIEW_DIRS = {
+  xy: new THREE.Vector3(0, 0, 1),    // Planta — mirando hacia abajo por Z
+  xz: new THREE.Vector3(0, -1, 0),   // Alzado frontal (plano X-Z)
+  yz: new THREE.Vector3(1, 0, 0),    // Alzado lateral (plano Y-Z)
+};
+// "Arriba" en pantalla por vista: en Planta se usa +Y (no Z, paralelo a la vista) para
+// que la cara paralela a XZ (en -Y, por la negación de signo de addNode) quede abajo —
+// pedido explícito del usuario (2026-06-28). En los alzados, Z (la altura) sigue arriba.
+const _VIEW_UPS = {
+  xy: new THREE.Vector3(0, 1, 0),
+  xz: new THREE.Vector3(0, 0, 1),
+  yz: new THREE.Vector3(0, 0, 1),
+};
+let _orthoHalfHeight = null;   // mitad de la altura visible (mundo) en la vista ortográfica activa
+function _applyOrthoFrustum() {
+  if (_orthoHalfHeight == null) return;
+  const aspect = (wrap.clientWidth || 1) / (wrap.clientHeight || 1);
+  const h = _orthoHalfHeight;
+  orthoCamera.left = -h * aspect; orthoCamera.right = h * aspect;
+  orthoCamera.top = h; orthoCamera.bottom = -h;
+  orthoCamera.zoom = 1;
+  orthoCamera.updateProjectionMatrix();
+}
+// dimW/dimH — extensión relevante de la torre en cada eje de pantalla (ancho/alto); a
+// diferencia de fitView(), NO se usa la diagonal 3D completa — esas 2 vistas solo
+// muestran 2 de los 3 ejes, usar la diagonal 3D completa (incluida la altura en Planta)
+// deja la torre diminuta en el canvas (reporte del usuario, 2026-06-28: "y maximizada").
+function fitOrthoView(dir, up, dimW, dimH) {
+  const b = towerBounds();
+  if (!b) return;
+  orthoCamera.up.copy(up);
+  const farDist = b.size.length() + 100;
+  orthoCamera.position.copy(b.center).addScaledVector(dir, farDist);
+  orthoCamera.near = 0.1;
+  orthoCamera.far = farDist * 2 + 100;
+  controls.target.copy(b.center);
+  const aspect = (wrap.clientWidth || 1) / (wrap.clientHeight || 1);
+  _orthoHalfHeight = Math.max(dimH / 2, (dimW / 2) / aspect) * 1.08;
+  _applyOrthoFrustum();
+  orthoCamera.updateProjectionMatrix();
+  controls.update();
+  // La niebla (FogExp2) está calibrada para la distancia cámara→target de la PERSPECTIVA
+  // (fitView la reescala cada vez) — la ortográfica se posiciona lejos a propósito (solo
+  // para no recortar la torre, no por zoom), así que con esa niebla sin ajustar la vista
+  // se ve apagada/turbia ("se ven opacas", reporte del usuario 2026-06-28). No tiene
+  // sentido recalibrarla para la ortográfica (la distancia ahí es arbitraria, no afecta
+  // el encuadre) — se desactiva del todo en Planta/Alzados y fitView() la reactiva al
+  // volver a "3D".
+  scene.fog.density = 0;
+}
+let _currentViewKey = '3d';
+function setView(viewKey) {
+  _currentViewKey = viewKey;
+  document.querySelectorAll('.view-opts .vo').forEach(el => el.classList.toggle('active', el.dataset.view === viewKey));
+  if (viewKey === '3d') {
+    activeCamera = camera;
+    controls.object = camera;
+    controls.enableRotate = true;
+    fitView(_INITIAL_VIEW_DIR);
+    return;
+  }
+  const dir = _VIEW_DIRS[viewKey];
+  if (!dir) return;
+  const b = towerBounds();
+  let dimW = 1, dimH = 1;
+  if (b) {
+    if (viewKey === 'xy') { dimW = b.size.x; dimH = b.size.y; }
+    else if (viewKey === 'xz') { dimW = b.size.x; dimH = b.size.z; }
+    else if (viewKey === 'yz') { dimW = b.size.y; dimH = b.size.z; }
+  }
+  activeCamera = orthoCamera;
+  controls.object = orthoCamera;
+  controls.enableRotate = false;
+  fitOrthoView(dir, _VIEW_UPS[viewKey], dimW, dimH);
+}
+// Reencuadrar respetando la vista activa (3D/Planta/Alzados) — usado por todo lo que
+// antes llamaba fitView() a ciegas (aislar tramo, doble clic, tecla F, cargar proyecto,
+// generar torre...). Llamar fitView() directo desde esos lugares reposicionaba la
+// cámara de PERSPECTIVA y reactivaba la niebla, pero si la vista activa era Planta/
+// Alzado (cámara ortográfica) ese reencuadre no se veía Y la niebla volvía encendida —
+// "se vuelven a ver opacas las secciones" al aislar un tramo, reporte del usuario
+// (2026-06-28). setView() ya hace lo correcto para cualquier modo, incluido '3d'.
+function refitView() { setView(_currentViewKey); }
 
 // Aislar/restaurar un tramo desde su tarjeta en DETALLE POR SECCIÓN. refresh() vuelve a
 // dibujar solo ese tramo (ver filtro en renderTower), y fitView() reusa towerBounds()
@@ -3277,7 +3565,7 @@ function fitView() {
 function toggleAislarTramo(i) {
   aislarTramoSec = (aislarTramoSec === i) ? null : i;
   refresh();
-  fitView();
+  refitView();
   buildSectionRows(secData.length);
 }
 function toggleAutoOrbit() {
@@ -3461,8 +3749,15 @@ new MutationObserver(() => {
 
 // ── Zoom In / Zoom Out / Zoom Window ────────────────────────────────
 function _zoomStep(factor) {
-  const dir = camera.position.clone().sub(controls.target).multiplyScalar(factor);
-  camera.position.copy(controls.target).add(dir);
+  // Ortográfica: el "zoom" no es distancia (no afecta el tamaño aparente en una
+  // proyección ortográfica) — es la propiedad .zoom del frustum.
+  if (activeCamera.isOrthographicCamera) {
+    activeCamera.zoom /= factor;
+    activeCamera.updateProjectionMatrix();
+  } else {
+    const dir = activeCamera.position.clone().sub(controls.target).multiplyScalar(factor);
+    activeCamera.position.copy(controls.target).add(dir);
+  }
   controls.update();
 }
 // Sensibilidad del zoom: a mayor appSettings.zoomSpeed, mayor el paso por click
@@ -3526,13 +3821,20 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (w > 5 && h > 5) {
     const cx = (_zoomWinStart.x + ex) / 2, cy = (_zoomWinStart.y + ey) / 2;
     const ndc = new THREE.Vector2((cx/cr.width)*2-1, -(cy/cr.height)*2+1);
-    _raycaster.setFromCamera(ndc, camera);
-    const dist = camera.position.distanceTo(controls.target);
+    _raycaster.setFromCamera(ndc, activeCamera);
+    const dist = activeCamera.position.distanceTo(controls.target) || 1;
     const newTarget = _raycaster.ray.at(dist, new THREE.Vector3());
     const factor = Math.max(w/cr.width, h/cr.height, 0.05);
-    const dir = camera.position.clone().sub(controls.target).normalize();
     controls.target.copy(newTarget);
-    camera.position.copy(newTarget).addScaledVector(dir, dist*factor);
+    if (activeCamera.isOrthographicCamera) {
+      // Ortográfica: re-encuadrar es escalar .zoom, no mover la posición (no afecta el
+      // tamaño aparente en una proyección ortográfica).
+      activeCamera.zoom /= factor;
+      activeCamera.updateProjectionMatrix();
+    } else {
+      const dir = activeCamera.position.clone().sub(controls.target).normalize();
+      activeCamera.position.copy(newTarget).addScaledVector(dir, dist*factor);
+    }
     controls.update();
   }
   wrap.removeChild(_zoomWinBox);
@@ -3549,7 +3851,7 @@ let _lastMid = 0;
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.button !== 1) return;
   const now = Date.now();
-  if (now - _lastMid < 350) { fitView(); _lastMid = 0; }
+  if (now - _lastMid < 350) { refitView(); _lastMid = 0; }
   else { _lastMid = now; }
 });
 
@@ -3658,7 +3960,8 @@ function renderTower(data) {
     c.material && c.material.dispose();
     towerGroup.remove(c);
   });
-  if (_hlMesh) { _hlMesh.geometry.dispose(); _hlMesh.material.dispose(); scene.remove(_hlMesh); _hlMesh = null; }
+  _hlMesh.forEach(o => { o.geometry.dispose(); o.material.dispose(); scene.remove(o); });
+  _hlMesh = [];
   closeMemberInfo();
 
   // Agrupa piernas/diagonales por (tipo, paridad de tramo); horizontales y guys por tipo
@@ -3813,6 +4116,7 @@ function resizeRenderer() {
   const w=wrap.clientWidth, h=wrap.clientHeight;
   camera.aspect = w/h;
   camera.updateProjectionMatrix();
+  _applyOrthoFrustum();   // recalcula el frustum ortográfico con el nuevo aspect (si está activo)
   renderer.setSize(w, h, false);
   labelRenderer.setSize(w, h);
   if (primaryGrid) primaryGrid.material.resolution.set(w, h);
@@ -3823,10 +4127,10 @@ function resizeRenderer() {
   controls.update();
   const w=wrap.clientWidth, h=wrap.clientHeight;
   renderer.setViewport(0,0,w,h);
-  renderer.render(scene,camera);
-  camera.getWorldDirection(_axisDir);
+  renderer.render(scene,activeCamera);
+  activeCamera.getWorldDirection(_axisDir);
   axisCamera.position.copy(_axisDir).multiplyScalar(-3.2);
-  axisCamera.up.copy(camera.up);
+  axisCamera.up.copy(activeCamera.up);
   axisCamera.lookAt(0,0,0);
   axisRenderer.render(axisScene, axisCamera);
   updateAxisLabels();
@@ -4041,10 +4345,22 @@ function renderSteelGradesTable() {
       Estas calidades alimentan los selectores de Calidad en el modal de cada sección/tramo y el Fy de Monopolo.
     </div>`;
 }
-// Opciones <option> para un <select> de calidad — reutilizado en todos los perfiles
+// Opciones <option> para un <select> de calidad — reutilizado en TODAS las pestañas
+// donde se pide calidad de acero (perfil por sección/tramo, Fy de Monopolo, etc.), así
+// que este único cambio alinea todas a la vez. El texto de cada <option> se rellena con
+// &nbsp; (no colapsa como un espacio normal en HTML) para que el nombre y los valores
+// de Fy/Fu queden en columnas fijas — sin esto, nombres de distinta longitud ("A36" vs
+// "A572 Gr50") corrían el Fy/Fu de cada fila a una posición distinta, fácil de
+// confundir entre sí — pedido explícito del usuario con una captura (2026-06-28). Se
+// necesita además fuente monoespaciada en el <select> (CSS) para que el relleno se vea
+// realmente alineado en pantalla.
 function steelGradeOptions(selected) {
+  const NBSP = String.fromCharCode(160);   // &nbsp; real — un ' ' escapado mal se
+                                            // queda como texto literal, mejor explícito.
+  const padName = s => { s = String(s); return s + NBSP.repeat(Math.max(0, 10 - s.length)); };
+  const padNum  = n => { n = String(n); return NBSP.repeat(Math.max(0, 5 - n.length)) + n; };
   return '<option value="-">— sin calidad —</option>' +
-    steelGrades.map(g => `<option value="${g.name}"${g.name===selected?' selected':''}>${g.name} — Fy ${g.fy}, Fu ${g.fu} kg/cm²</option>`).join('');
+    steelGrades.map(g => `<option value="${g.name}"${g.name===selected?' selected':''}>${padName(g.name)} Fy${padNum(g.fy)}${NBSP}${NBSP}Fu${padNum(g.fu)} kg/cm²</option>`).join('');
 }
 // Texto de lectura ("Calidad: A36 (Fy 2530 kg/cm²)") mostrado bajo cada campo de perfil.
 // withPrefix=false omite "Calidad: " — para usarse donde ya hay una etiqueta "CALIDAD" aparte.
@@ -4620,6 +4936,88 @@ function closeSettingsModal(e) {
   if (e && e.target !== document.getElementById('settings-modal-overlay')) return;
   document.getElementById('settings-modal-overlay').classList.remove('open');
 }
+// ── Diseño por Viento ─────────────────────────────────────────────
+// Entrega: "Configuración General" + "Parámetros de Viento" (pedido explícito del
+// usuario, 2026-06-28) — sin persistencia en el proyecto todavía (no se guarda en
+// getConfig()/loadProjectData()), se agregará cuando se definan las demás secciones.
+let windData = {
+  codigo: 'ANSI_TIA_H',
+  catRiesgo: 'II',
+  catExposicion: 'C',
+  velocidad: null,
+  velTipo: 'regional',     // 'regional' | 'ultima' — mutuamente excluyentes (confirmado con el usuario)
+  velOperacional: 97.2,
+  asnm: null,
+  topoCat: 'plano',
+  topoH: null, topoL: null, topoX: null, topoDir: 'favor',
+};
+// Mismas etiquetas que el selector real de Tipo (ttype/s-tipo) — Tipo de Estructura aquí
+// es de SOLO LECTURA (refleja la torre del proyecto, no se selecciona aparte), pedido
+// explícito del usuario (2026-06-28: "Tipo de estructura no es seleccionable. Solo se
+// debe mostrar.").
+const _VIENTO_TIPO_LABELS = {
+  triangular: 'Autosoportada 3 piernas', square: 'Autosoportada 4 piernas',
+  guyed: 'Arriostrada', monopole: 'Monopolo',
+};
+// "Velocidad Regional"/"Velocidad Última" son mutuamente excluyentes — describen QUÉ es
+// el mismo valor de "Velocidad de viento" (uno u otro, no ambos), confirmado con el
+// usuario (2026-06-28) a pesar de implementarse como 2 checkboxes, no radio buttons.
+function _toggleVelTipo(which) {
+  const regional = document.getElementById('viento-vel-regional');
+  const ultima = document.getElementById('viento-vel-ultima');
+  if (which === 'regional' && regional.checked) ultima.checked = false;
+  else if (which === 'ultima' && ultima.checked) regional.checked = false;
+}
+// Los campos H/L/x/Dirección (factor topográfico Kzt) no aplican a terreno "Plano" —
+// pedido explícito del usuario ("Aplica lo siguiente menos a Plano").
+function _onTopoCatChange() {
+  const v = document.getElementById('viento-topocat').value;
+  document.getElementById('viento-topo-extra').style.display = (v === 'plano') ? 'none' : 'block';
+}
+// Flyout, no modal — pegado al sidebar igual que "Nueva Torre" (.torre-flyout), así la
+// torre queda activa/visible a la derecha mientras se ajusta el viento (pedido explícito
+// del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
+function openVientoFlyout() {
+  closeTorreFlyout();   // ambos comparten la misma posición en pantalla — no abrir los 2 a la vez
+  document.getElementById('viento-codigo').value = windData.codigo;
+  const tipoActual = document.getElementById('ttype')?.value;
+  document.getElementById('viento-tipo-display').textContent = _VIENTO_TIPO_LABELS[tipoActual] || '—';
+  document.getElementById('viento-catriesgo').value = windData.catRiesgo;
+  document.getElementById('viento-catexp').value = windData.catExposicion;
+  document.getElementById('viento-velocidad').value = windData.velocidad ?? '';
+  document.getElementById('viento-vel-regional').checked = windData.velTipo === 'regional';
+  document.getElementById('viento-vel-ultima').checked = windData.velTipo === 'ultima';
+  document.getElementById('viento-velop').value = windData.velOperacional ?? 97.2;
+  document.getElementById('viento-asnm').value = windData.asnm ?? '';
+  document.getElementById('viento-topocat').value = windData.topoCat;
+  document.getElementById('viento-topo-h').value = windData.topoH ?? '';
+  document.getElementById('viento-topo-l').value = windData.topoL ?? '';
+  document.getElementById('viento-topo-x').value = windData.topoX ?? '';
+  document.getElementById('viento-topo-dir').value = windData.topoDir;
+  _onTopoCatChange();
+  document.getElementById('viento-flyout').classList.add('open');
+}
+function closeVientoFlyout() {
+  document.getElementById('viento-flyout').classList.remove('open');
+}
+function saveVientoFlyout() {
+  windData = {
+    codigo:        document.getElementById('viento-codigo').value,
+    catRiesgo:     document.getElementById('viento-catriesgo').value,
+    catExposicion: document.getElementById('viento-catexp').value,
+    velocidad:      +document.getElementById('viento-velocidad').value || null,
+    velTipo:        document.getElementById('viento-vel-ultima').checked ? 'ultima' : 'regional',
+    velOperacional: +document.getElementById('viento-velop').value || 97.2,
+    asnm:           +document.getElementById('viento-asnm').value || null,
+    topoCat:        document.getElementById('viento-topocat').value,
+    topoH:   +document.getElementById('viento-topo-h').value || null,
+    topoL:   +document.getElementById('viento-topo-l').value || null,
+    topoX:   +document.getElementById('viento-topo-x').value || null,
+    topoDir: document.getElementById('viento-topo-dir').value,
+  };
+  closeVientoFlyout();
+}
+
 function saveSettingsModal() {
   appSettings = {
     colors: {
@@ -4663,7 +5061,7 @@ function setupKeyboardShortcuts() {
     if (e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleStaadLabels(); return; }
     if (e.shiftKey && e.key.toLowerCase() === 'x') { e.preventDefault(); toggleProfileLabels(); return; }
     if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); toggleApoyosLabels(); return; }
-    if (e.key === 'f' || e.key === 'F') { fitView(); }
+    if (e.key === 'f' || e.key === 'F') { refitView(); }
     else if (e.key === 'Escape') { closeMemberInfo(); }
   });
 }
@@ -4906,6 +5304,10 @@ function applyTypeLock(tipo) {
 function onTypeChange() {
   const v = document.getElementById('ttype').value;
   const isGuyed = v === 'guyed';
+  // Incremento más fino (0.1 en vez de 0.5) para diámetro base/tope en Monopolo —
+  // pedido explícito del usuario (2026-06-28).
+  document.getElementById('baseW').step = v === 'monopole' ? '0.1' : '0.5';
+  document.getElementById('topW').step  = v === 'monopole' ? '0.1' : '0.5';
   document.getElementById('geom-sect-title').textContent = v === 'monopole' ? 'GEOMETRÍA DEL MONOPOLO' : 'GEOMETRÍA DE LA TORRE';
   document.getElementById('detalle-sect-title').textContent = v === 'monopole' ? 'DETALLE POR TRAMO' : 'DETALLE POR SECCIÓN';
   document.getElementById('guyed-params').classList.toggle('show', isGuyed);
@@ -5061,6 +5463,10 @@ function _drawSetupFrontView(svgEl, data) {
 function onSetupTipoChange() {
   const v = document.getElementById('s-tipo').value;
   const isMono = v === 'monopole';
+  // Incremento más fino (0.1 en vez de 0.5) para diámetro base/tope en Monopolo —
+  // pedido explícito del usuario (2026-06-28).
+  document.getElementById('s-baseW').step = isMono ? '0.1' : '0.5';
+  document.getElementById('s-topW').step  = isMono ? '0.1' : '0.5';
   const hide = (id, on) => document.getElementById(id).style.display = on ? '' : 'none';
   hide('s-row-base',  v !== 'guyed');
   hide('s-row-top',   v !== 'guyed' && v !== 'monopole' ? true : v === 'monopole');
@@ -5662,7 +6068,7 @@ function generateTowerFromSetup() {
 
   _applyDefaultLabels();
   renderTower(generateTower(getConfig()));  // sin overrides — torre recién generada
-  fitView();
+  refitView();
   document.getElementById('status').textContent =
     `Torre generada · ${document.getElementById('s-asset').value || '—'}`;
   resetHistory();
@@ -5676,6 +6082,7 @@ function closeTorreFlyout() {
 function switchToTorre() {
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
+  closeVientoFlyout();   // comparte la misma posición en pantalla que torre-flyout
   if (projectGenerated) {
     // Ya hay torre — mostrar info panel, cerrar flyout
     closeTorreFlyout();
@@ -6034,7 +6441,7 @@ function takeScreenshot() {
     showToast('⚠  Genere una torre antes de tomar el screenshot.');
     return;
   }
-  renderer.render(scene, camera);
+  renderer.render(scene, activeCamera);
   const dataUrl = renderer.domElement.toDataURL('image/png');
   const cfg = getConfig();
   const base = _assetFileBase(cfg);
@@ -6407,7 +6814,7 @@ function _reportSectionVerticalTable(cfg, secIdxList) {
         if (val) { const cal = calFn(s); if (cal && cal !== '-') calidadSet.add(cal); }
         return `<td>${val ? `<span>${val}</span>` : ''}</td>`;
       }).join('')}
-      <td>${w}</td>
+      <td>${w ? `<span>${w}</span>` : ''}</td>
     </tr>`;
   });
   const headers = ['Sección', ...cols.map(c => c[0]), 'Peso (Kg)'];
@@ -6585,6 +6992,13 @@ function _memFooterHtml() {
   `;
 }
 
+// Mismas etiquetas que el selector de Código de Diseño en Diseño por Viento (CFE2020
+// queda deshabilitado ahí, "En proceso" — no debería poder llegar aquí con ese valor,
+// pero se cubre por las dudas). El método de diseño se deriva del código — pedido
+// explícito del usuario (2026-06-28: "Si es TIA H el método es LRFD") — no es un campo
+// capturado aparte.
+const _VIENTO_CODIGO_LABELS = { ANSI_TIA_H: 'ANSI/TIA H', CFE2020: 'CFE 2020' };
+const _VIENTO_METODO_POR_CODIGO = { ANSI_TIA_H: 'LRFD' };
 function _memCoverHtml(cfg) {
   const seccionLabel = REPORT_TYPE_LABELS[cfg.type] || cfg.type;
   const towerName = `${cfg.assetNumber || ''} ${cfg.assetName || ''}`.trim().toUpperCase() || 'TORRE SIN NOMBRE';
@@ -6596,8 +7010,8 @@ function _memCoverHtml(cfg) {
     ['Diseñado por', cfg.ingResponsable || '—'],
     ['Fecha', fmtDate(cfg.fechaCreacion) || '—'],
     ['Coordenadas del Sitio', cfg.location && typeof cfg.location.lat === 'number' ? `${cfg.location.lat.toFixed(6)}, ${cfg.location.lng.toFixed(6)}` : '—'],
-    ['Norma de Diseño', '—'],
-    ['Método de Diseño', '—'],
+    ['Código de Diseño', _VIENTO_CODIGO_LABELS[windData.codigo] || '—'],
+    ['Método de Diseño', _VIENTO_METODO_POR_CODIGO[windData.codigo] || '—'],
     ['Sistema de Unidades', 'MKS'],
     ['Altura de la Torre', `${cfg.height} m`],
     ['Sección Transversal', seccionLabel],
@@ -6645,7 +7059,7 @@ function _memIndexHtml() {
 function _memChapterPendingHtml(ch) {
   return `
     <div class="mem-chapter-title" id="sec-${ch.num}">${ch.num}. ${ch.title}</div>
-    ${ch.subs.map(s => `<div id="${_memAnchorId(s)}" style="font-size:12.5px;font-weight:700;color:#555;margin:5px 0;">${s}</div>`).join('')}
+    ${ch.subs.map(s => `<div id="${_memAnchorId(s)}" style="font-size:12.5px;font-weight:700;color:#1B3A6B;margin:5px 0;">${s}</div>`).join('')}
     <div class="rp-pending" style="margin-top:14px;">Pendiente — requiere módulo de ${ch.modulo} (no implementado todavía)</div>
   `;
 }
@@ -6929,37 +7343,18 @@ function printReport() {
   }
 }
 
-// ── Monopolo: propiedades de sección para MEMBER PROPERTY PRISMATIC ─────────────
-// Aproximación de ingeniería (polígono regular de pared delgada / tubo circular
-// exacto) — validar contra cálculo certificado antes de usar en diseño real.
+// ── Monopolo: radio (medio, local al rango z dado) para MEMBER PROPERTY PIPE OD/ID en
+// el export STAAD — ver _resolveMemberPropertyLine/genMonopoleAxis. El polígono (n
+// lados) se toma inscrito en esta circunferencia (mismo radio que ubica sus vértices
+// en la malla visual), sin distinción especial por número de lados.
 function _monopoleSectionRadius(cfg, sec, zStart, zEnd, zInc) {
   const isInc = sec < cfg.nInc;
   const apFijo = secData[sec]?.monoAp;
   if (!isInc && apFijo != null) return apFijo / 2;
   const r0 = cfg.baseW / 2, r1 = cfg.topW / 2;
   const taperR = z => { const t = zInc > 0 ? Math.min(z / zInc, 1) : 1; return r0 + (r1 - r0) * t; };
-  // Radio promedio del tramo (start/end) — exacto si el ahusado es lineal, como aquí.
+  // Radio promedio del tramo/segmento (start/end) — exacto si el ahusado es lineal, como aquí.
   return (taperR(zStart) + taperR(zEnd)) / 2;
-}
-function _monopolePrismaticProps(sd, r) {
-  if (!sd || !r) return null;
-  const tmm = parseFloat(sd.monoThk);
-  if (!tmm || tmm <= 0) return null;
-  const t = tmm / 1000;             // mm -> m
-  const sides = +sd.monoSides || 24;
-  if (sides >= 24) {
-    // Redondo: tubo de pared gruesa EXACTO (no aproximación de pared delgada).
-    const Ro = r, Ri = Math.max(0, r - t);
-    const A = Math.PI * (Ro*Ro - Ri*Ri);
-    const I = Math.PI/4 * (Ro**4 - Ri**4);
-    return { A, Iz: I, Iy: I };
-  }
-  // Polígono regular de n lados, pared delgada (aproximación válida para n>=8).
-  const n = sides;
-  const s = 2 * r * Math.sin(Math.PI / n);
-  const A = n * t * s;
-  const I = Math.PI * r*r*r * t;
-  return { A, Iz: I, Iy: I };
 }
 
 // Comprime una lista de IDs (miembro o nodo) al formato "TO" de STAAD — ej. [1,2,3,4,5,8,9]
@@ -7514,7 +7909,20 @@ function setSupportOverride(idx, type) {
 function _findMissingProfileMembers() {
   if (!_towerData) return { sinPerfil: [], sinCalidad: [], sinPerfilRet: [], sinCalidadRet: [], all: [] };
   const sinPerfil = [], sinCalidad = [], sinPerfilRet = [], sinCalidadRet = [];
+  // En Monopolo, type:'leg' son las aristas VERTICALES del polígono visual del fuste
+  // (no piernas reales con perfil de catálogo, a diferencia de lattice/guyed) — sin
+  // esta exclusión también parpadeaban al exportar, mismo bug que 'monothk' de abajo.
+  const isMonoTower = document.getElementById('ttype')?.value === 'monopole';
   _towerData.members.forEach(m => {
+    // La pared del monopolo (type:'monothk') es geometría tubular visual, no un
+    // perfil de catálogo — se construye con muchos segmentos de línea (un polígono
+    // por tramo), y sin esta exclusión cada segmento se marcaba individualmente como
+    // "sin perfil/calidad", generando un objeto de parpadeo POR SEGMENTO al exportar
+    // (decenas de líneas parpadeando a la vez en vez de una sola barra). Mismo
+    // criterio ya usado en _reportSteelTakeoff — pedido explícito del usuario
+    // (2026-06-28).
+    if (m.type === 'monothk') return;
+    if (isMonoTower && m.type === 'leg') return;
     const { profile, calidadName } = getMemberProfile(m);
     // Los campos *Cal de secData se inicializan en '-' (mismo criterio que los de perfil,
     // ver buildSectionRows) — getMemberProfile() devuelve ese '-' tal cual, sin normalizar
@@ -7644,7 +8052,12 @@ function _checkProfilesAndExportSTAAD() {
 // (horizPuntal/horizTensor, por ahora). Reglas dadas paso a paso — ver memoria
 // feedback_tsa_staad_groups.
 function _exportGroupName(m, sec) {
-  if (m.type === 'leg') return `_SEC${sec+1}_M`;
+  // Monopolo: cada segmento (subdivisión interna del tramo, ver genMonopoleAxis) es su
+  // propio grupo _SECi_F1, _SECi_F2... — en vez de un solo grupo _SECi_M para todo el
+  // tramo, para poder asignarle a cada uno su propio perfil PIPE OD/ID (diámetro medio
+  // local) — pedido explícito del usuario (2026-06-28). Los 'leg' de lattice/guyed
+  // (sin m.seg) siguen usando _SECi_M como siempre.
+  if (m.type === 'leg') return m.seg != null ? `_SEC${sec+1}_F${m.seg+1}` : `_SEC${sec+1}_M`;
   if (m.type === 'diagonal') return m.principal !== false ? `_SEC${sec+1}_D` : `_SEC${sec+1}_Ds`;
   if (m.type === 'horizontal') {
     if (m.principal === false) return `_SEC${sec+1}_Hs`;
@@ -7835,6 +8248,25 @@ async function _doExportSTAAD() {
     return `${memberNewId[origIdx]} ${nodeNewId[m.ni]} ${nodeNewId[m.nj]}`;
   }), 79, '; ', ';');
 
+  // En Monopolo, cada sección puede tener N segmentos propios (_SECi_F1.._SECi_FN, ver
+  // genMonopoleAxis/_exportGroupName) — N varía según el tramo (ahusados se subdividen,
+  // rectos no), así que el orden FIJO de sufijos (_SEC_GROUP_ORDER, pensado para
+  // M/D/Ds/etc. de lattice/guyed) no los conoce de antemano. Se calcula aquí, a partir
+  // de los grupos REALMENTE generados, el sufijo Fmax más alto usado en todo el export,
+  // y se usa ESTA lista en vez de _SEC_GROUP_ORDER para los 3 lugares que recorren
+  // grupos por sección (materiales en CONSTANTS, GROUP DEFINITION, MEMBER PROPERTY) —
+  // misma lógica que el resto de tipos de torre, pedido explícito del usuario
+  // (2026-06-28).
+  let _groupOrderForExport = _SEC_GROUP_ORDER;
+  if (cfg.type === 'monopole') {
+    let maxSeg = 0;
+    Object.keys(groupRanges).forEach(k => {
+      const mm = k.match(/_F(\d+)$/);
+      if (mm) maxSeg = Math.max(maxSeg, +mm[1]);
+    });
+    _groupOrderForExport = Array.from({length: maxSeg}, (_, i) => `F${i+1}`);
+  }
+
   // ── MATERIALES — DEFINE MATERIAL START con un ISOTROPIC por calidad de acero usada
   // en miembros estructurales/estabilizador (vía steelGrades, kg/cm² ×10000 → kg/m²),
   // más un ISOTROPIC CABLE fijo si hay retenidas — pedido explícito del usuario
@@ -7861,7 +8293,7 @@ async function _doExportSTAAD() {
     bucket.ids.push(...ids);
   }
   memberSecs.forEach(sec => {
-    _SEC_GROUP_ORDER.forEach(suf => {
+    _groupOrderForExport.forEach(suf => {
       const gname = `_SEC${sec+1}_${suf}`;
       const repIdx = groupRep[gname];
       if (repIdx != null) _collectMaterialGroup(gname, repIdx);
@@ -7918,7 +8350,7 @@ async function _doExportSTAAD() {
     out += `MEMBER\n`;
     memberSecs.forEach(sec => {
       out += `*\n*SECCION ${sec+1}\n*\n`;
-      _SEC_GROUP_ORDER.forEach(suf => {
+      _groupOrderForExport.forEach(suf => {
         const ids = groupRanges[`_SEC${sec+1}_${suf}`];
         if (ids?.length) out += `_SEC${sec+1}_${suf} ${_staadIdRanges(ids)}\n`;
       });
@@ -7959,14 +8391,21 @@ async function _doExportSTAAD() {
       // (2026-06-26), va en el mismo bloque MEMBER PROPERTY AMERICAN que el resto.
       return { kind: 'table', text: `TABLE ST PIPE OD ${(inches * 0.0254).toFixed(6)} ID 0` };
     }
+    // Monopolo: PIPE OD/ID con el diámetro medio LOCAL de cada segmento (zStart/zEnd ya
+    // son los del segmento, no los de todo el tramo, gracias a genMonopoleAxis) — un
+    // perfil tubular escalonado real en vez de propiedades PRISMATIC promediadas para
+    // todo el tramo. El polígono (n lados) se toma inscrito en la circunferencia de ese
+    // radio (mismo radio ya usado para dibujar los vértices del polígono visual) — sin
+    // ajuste adicional por número de lados, pedido explícito del usuario (2026-06-28).
     if (cfg.type === 'monopole' && m.type === 'leg') {
       const sd = secData[m.sec];
       const zStart = Math.min(nodes[m.ni].z, nodes[m.nj].z);
       const zEnd   = Math.max(nodes[m.ni].z, nodes[m.nj].z);
       const r = _monopoleSectionRadius(cfg, m.sec, zStart, zEnd, zIncMono);
-      const props = _monopolePrismaticProps(sd, r);
-      if (!props) return null;
-      return { kind: 'prismatic', text: `PRISMATIC AX ${props.A.toFixed(6)} IZ ${props.Iz.toFixed(8)} IY ${props.Iy.toFixed(8)}` };
+      const tmm = parseFloat(sd?.monoThk);
+      if (!r || !tmm || tmm <= 0) return null;
+      const od = 2 * r, id = Math.max(0, od - 2 * (tmm / 1000));
+      return { kind: 'table', text: `TABLE ST PIPE OD ${od.toFixed(6)} ID ${id.toFixed(6)}` };
     }
     const gp = getMemberProfile(m);
     if (!gp.profile || gp.profile === '—' || gp.isCableCal) return null;
@@ -7981,7 +8420,7 @@ async function _doExportSTAAD() {
   const prisYDBlock    = [];  // líneas PRIS YD, mismo criterio
   memberSecs.forEach(sec => {
     const secAmerican = [], secPrisYD = [];
-    _SEC_GROUP_ORDER.forEach(suf => {
+    _groupOrderForExport.forEach(suf => {
       const gname = `_SEC${sec+1}_${suf}`;
       const repIdx = groupRep[gname];
       if (repIdx == null) return;
@@ -8022,13 +8461,6 @@ async function _doExportSTAAD() {
     out += `MEMBER PROPERTY\n`;
     out += prisYDBlock.join('');
   }
-  // MEMBER TENSION (cables de retenida) — los IDs ya están en groupRanges (grupos RNi),
-  // solo se concatenan en orden de nivel.
-  const cableTensionIds = memberLevels.flatMap(lvl => groupRanges[`_RN${lvl}`] || []);
-  if (cableTensionIds.length) {
-    out += `MEMBER TENSION\n${_staadIdRanges(cableTensionIds)}\n`;
-  }
-
   // ── CONSTANTS — una línea MATERIAL <calidad> MEMB <rangos de ID> por calidad
   // (acero) + una para CABLE, SIN E/DENSITY/POISSON ALL (ya quedan definidos dentro de
   // cada ISOTROPIC en MATERIALES) — formato final dado explícitamente por el usuario
@@ -8046,6 +8478,14 @@ async function _doExportSTAAD() {
   });
   if (cableIds.length) {
     out += _staadWrapGroups(['MATERIAL CABLE MEMB', ..._staadIdRangeParts(cableIds)], 79, ' ', ' -');
+  }
+
+  // MEMBER TENSION (cables de retenida) — los IDs ya están en groupRanges (grupos RNi),
+  // solo se concatenan en orden de nivel. Va DESPUÉS de los materiales dentro de
+  // CONSTANTS (no en MEMBER PROPERTY) — pedido explícito del usuario (2026-06-28).
+  const cableTensionIds = memberLevels.flatMap(lvl => groupRanges[`_RN${lvl}`] || []);
+  if (cableTensionIds.length) {
+    out += `MEMBER TENSION\n${_staadIdRanges(cableTensionIds)}\n`;
   }
 
   // ── TENSIONES INICIALES — un bloque MEMBER CABLE con la tensión inicial de cada
@@ -8348,7 +8788,7 @@ function loadProjectData(cfg, filename) {
       buildSectionRows(cfg.nInc + cfg.nStr);
       refresh();
     }
-    fitView();
+    refitView();
     document.getElementById('status').textContent = `Proyecto cargado: ${filename}`;
     resetHistory();
   } catch {
@@ -9577,7 +10017,7 @@ function _pickMember(e) {
     ((e.clientX - rect.left) / rect.width)  *  2 - 1,
    -((e.clientY - rect.top)  / rect.height) *  2 + 1
   );
-  _raycaster.setFromCamera(ndc, camera);
+  _raycaster.setFromCamera(ndc, activeCamera);
   const targets = towerGroup.children.filter(c =>
     c instanceof THREE.LineSegments && c.userData.members && c.userData.members.length
   );
@@ -9607,11 +10047,23 @@ function _makeHighlightLine(p1, p2, color, linewidth = 4) {
   });
   return new THREE.LineSegments2(geo, mat);
 }
+// La pared del monopolo (type:'monothk') visualmente son muchos segmentos de línea (un
+// polígono por tramo), pero conceptualmente es UNA sola barra (el tubo de esa sección) —
+// al seleccionar cualquier segmento, se resaltan TODOS los de su misma sección (mismo
+// monoThk/monoSides/monoFy, así que "muestran los mismos datos" sin importar cuál se
+// haya clicleado) en vez de solo el segmento individual. El panel de información sigue
+// mostrando los datos de ESE único miembro clicleado (representativos de toda la
+// sección) — pedido explícito del usuario (2026-06-28).
 function _highlightMember(m) {
-  if (_hlMesh) { _hlMesh.geometry.dispose(); _hlMesh.material.dispose(); scene.remove(_hlMesh); }
-  const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
-  _hlMesh = _makeHighlightLine(ni, nj, 0x00D4FF);
-  scene.add(_hlMesh);
+  _hlMesh.forEach(o => { o.geometry.dispose(); o.material.dispose(); scene.remove(o); });
+  const toHighlight = m.type === 'monothk'
+    ? _towerData.members.filter(o => o.type === 'monothk' && o.sec === m.sec)
+    : [m];
+  _hlMesh = toHighlight.map(o => {
+    const line = _makeHighlightLine(_towerData.nodes[o.ni], _towerData.nodes[o.nj], 0x00D4FF);
+    scene.add(line);
+    return line;
+  });
 }
 
 // ── Selección cruzada tabla ↔ visor 3D — elegir un nodo/barra/retenida en la tabla
@@ -9703,7 +10155,18 @@ function getMemberProfile(m) {
     profile = (cd && cd.estabTensorHorizPerfil && cd.estabTensorHorizPerfil !== '-') ? cd.estabTensorHorizPerfil : '—';
     calidadName = cd?.estabTensorHorizPerfilCal || null;
   } else if (sd) {
-    if (m.type==='leg') { profile = (sd.M && sd.M!=='-') ? sd.M : '—'; calidadName = sd.MCal; }
+    // Monopolo: el fuste ('leg', subdividido en segmentos para STAAD — ver
+    // genMonopoleAxis) no usa sd.M/sd.MCal (campos de lattice) — usa monoFy. Se
+    // detecta por la presencia de monoFy en la sección (campo exclusivo de Monopolo),
+    // sin necesitar acceso a cfg.type aquí — bug real: sin esto, _collectMaterialGroup
+    // (CONSTANTS) no encontraba ninguna calidad para los grupos _SECi_Fk, dejando el
+    // monopolo SIN material asignado en el .std (2026-06-28).
+    // OJO: secData SIEMPRE trae monoFy (placeholder '-' para torres no-monopolo, no
+    // null/undefined) — sin el chequeo "!== '-'" esta rama atrapaba TAMBIÉN los 'leg'
+    // de lattice/guyed, devolviendo calidadName='-' en vez de sd.MCal real. Bug real
+    // confirmado con harness (2026-06-28).
+    if (m.type==='leg' && sd.monoFy != null && sd.monoFy !== '-') { profile = '—'; calidadName = sd.monoFy; }
+    else if (m.type==='leg') { profile = (sd.M && sd.M!=='-') ? sd.M : '—'; calidadName = sd.MCal; }
     else if (m.type==='diagonal') {
       profile = isPrincipal
         ? ((sd.D  && sd.D!=='-')  ? sd.D  : '—')
@@ -9744,15 +10207,26 @@ function showMemberInfo(m, cx, cy) {
   const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
   const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
   const len = fmtNum(Math.sqrt(dx*dx+dy*dy+dz*dz));
-  const typeNames = {leg:'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', puntal:'PUNTAL', tensor:'TENSOR', horizPuntal:'HORIZONTAL PUNTAL', horizTensor:'HORIZONTAL TENSOR', monothk:'PARED (ESPESOR)'};
+  // En Monopolo no hay "piernas" (un solo fuste central, no varias columnas) — pedido
+  // explícito del usuario (2026-06-28).
+  const isMonoTower = document.getElementById('ttype')?.value === 'monopole';
+  const typeNames = {leg: isMonoTower ? 'FUSTE' : 'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', puntal:'PUNTAL', tensor:'TENSOR', horizPuntal:'HORIZONTAL PUNTAL', horizTensor:'HORIZONTAL TENSOR', monothk:'PARED (ESPESOR)'};
   document.getElementById('mi-type').textContent = typeNames[m.type] || m.type.toUpperCase();
   const { profile, calidadName, isCableCal, isPrincipal, sec } = getMemberProfile(m);
   const calidadText = isCableCal ? (calidadName || '—') : calLabelText(calidadName, false);
+  // El fuste/pared del Monopolo (type 'leg'/'monothk' en esa torre) no tiene "perfil"
+  // de catálogo — en su lugar se muestra la FORMA de la sección (lados del polígono o
+  // "Redondo") y la calidad real (secData.monoFy, no sd.MCal que no aplica aquí) —
+  // pedido explícito del usuario (2026-06-28).
+  const isMonoShaft = isMonoTower && (m.type === 'leg' || m.type === 'monothk');
+  const sd = sec != null ? secData[sec] : null;
+  const forma = sd ? (sd.monoSides >= 24 ? 'Redondo' : `${sd.monoSides || ''} lados`) : '—';
+  const monoGrade = sd ? steelGrades.find(g => g.name === sd.monoFy) : null;
   const rows = [
     ['Tramo',     sec != null ? `${sec+1}` : '—'],
     ['Categoría', isPrincipal ? 'Principal' : 'Secundario'],
-    ['Perfil',    profile],
-    ['Calidad',   calidadText],
+    [isMonoShaft ? 'Forma' : 'Perfil', isMonoShaft ? forma : profile],
+    ['Calidad',   isMonoShaft ? (monoGrade ? monoGrade.name : '—') : calidadText],
     ['Longitud',  `${len} m`],
     ['ID perfil', _profileId(m)],
   ];
@@ -9790,7 +10264,8 @@ function _profileId(m) {
 function closeMemberInfo() {
   const panel = document.getElementById('mi-panel');
   if (panel) panel.style.display = 'none';
-  if (_hlMesh) { _hlMesh.geometry.dispose(); _hlMesh.material.dispose(); scene.remove(_hlMesh); _hlMesh = null; }
+  _hlMesh.forEach(o => { o.geometry.dispose(); o.material.dispose(); scene.remove(o); });
+  _hlMesh = [];
 }
 
 let _toastTimer = null;
