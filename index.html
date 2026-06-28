@@ -764,17 +764,20 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 .report-doc {
   width: 8.5in; margin: 24px auto; background: #fff; color: #1a1a1a;
   box-shadow: 0 0 30px rgba(0,0,0,.5); font-family: Arial, 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  line-height: 1.5; position: relative; z-index: 10;
 }
-/* min-height 9.2in, no 11in — con @page margin real (0.98in arriba + 0.79in abajo =
-   1.77in) el área de contenido disponible por hoja es 11-1.77=9.23in, no 11in. Forzar
-   11in de alto en el bloque hacía que se desbordara ~1.77in a una segunda hoja casi
-   vacía justo después de la carátula — bug real confirmado con captura del usuario
+/* min-height 11in — la carátula es la única hoja con @page :first {margin:0} (ver
+   @media print), así que para ELLA el área disponible SÍ es 11in completo (a
+   diferencia de las demás hojas, que usan el margen estándar de @page y caben en
+   9.23in). Con z-index:10 en .report-doc (mayor al 1 de header/pie fijos), el fondo de
+   la carátula pinta POR ENCIMA del encabezado/pie en esa hoja específica, ocultándolos
+   visualmente — la carátula nunca debió mostrarlos, pedido explícito del usuario
    (2026-06-27). */
-.mem-cover-block { min-height: 9.2in; box-sizing: border-box; page-break-after: always; }
-/* Márgenes de la Memoria de Cálculo: superior 25mm, inferior 20mm, izq 25mm, der 20mm
-   (0.98in/0.79in/0.98in/0.79in) — pedido explícito del usuario (2026-06-26). */
-.mem-section-block { padding: 0.98in 0.79in 0.79in 0.98in; box-sizing: border-box; page-break-before: always; }
+.mem-cover-block { min-height: 11in; box-sizing: border-box; page-break-after: always; }
+/* Márgenes de la Memoria de Cálculo: 12.5mm arriba/abajo, 20mm a los lados — pedido
+   explícito del usuario (2026-06-27, ajustado desde el esquema asimétrico original de
+   25/20/25/20mm del 2026-06-26). */
+.mem-section-block { padding: 12.5mm 20mm 12.5mm 20mm; box-sizing: border-box; page-break-before: always; }
 .mem-section-block.mem-index-block { page-break-before: auto; }
 .mem-band {
   background: #1B3A6B; color: #fff; height: 60mm; box-sizing: border-box;
@@ -782,7 +785,7 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   text-align: center;
 }
 .mem-band-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.mem-cover-body { padding: 0.79in 0.98in; }
+.mem-cover-body { padding: 12.5mm 20mm; }
 .mem-tower-name { text-align: center; font-size: 16pt; font-weight: 700; color: #1B3A6B; margin: 18px 0 22px; }
 table.mem-meta { width: 100%; border-collapse: collapse; font-size: 10pt; }
 table.mem-meta th { text-align: left; font-weight: 700; padding: 5px 10px 5px 0; white-space: nowrap; width: 1%; }
@@ -792,14 +795,19 @@ table.mem-meta td { text-align: left; padding: 5px 0; }
 .mem-header-fixed, .mem-footer-fixed {
   display: flex; justify-content: space-between; font-size: 7.5pt; background: #fff;
 }
-.mem-header-fixed { color: #444; border-bottom: 1px solid #999; padding: 8px 0.79in 6px 0.98in; }
-.mem-footer-fixed { color: #555; align-items: center; padding: 6px 0.79in 8px 0.98in; }
-.mem-index-title { font-size: 15pt; font-weight: 700; color: #1B3A6B; margin: 0 0 12px; text-align: center; }
-.mem-index-row { display: flex; align-items: baseline; font-size: 9.5pt; margin: 4px 0; }
+.mem-header-fixed { color: #444; border-bottom: 1px solid #999; padding: 8px 20mm 6px 20mm; }
+.mem-footer-fixed { color: #555; align-items: center; padding: 6px 20mm 8px 20mm; }
+.mem-index-title { font-size: 17pt; font-weight: 700; color: #1B3A6B; margin: 16px 0 16px; text-align: center; }
+.mem-index-row { display: flex; align-items: baseline; font-size: 11pt; margin: 5px 0; }
 .mem-index-row a { color: inherit; text-decoration: none; }
 .mem-index-row a:hover { text-decoration: underline; }
-.mem-index-row.sub { font-size: 9pt; color: #444; margin-left: 18px; }
-.mem-chapter-title { font-size: 14pt; font-weight: 700; color: #1B3A6B; margin: 0 0 14px; }
+.mem-index-row.sub { font-size: 10.5pt; color: #444; margin-left: 18px; }
+/* margin-top genuino (antes 0) — el título de capítulo es casi siempre el PRIMER
+   elemento de su hoja (justo debajo del encabezado fijo), y con 0 quedaba muy pegado
+   a él — pedido explícito del usuario tras confirmarlo con captura, el mismo
+   problema que ya se había corregido puntualmente en 8.2 y en las hojas de
+   continuación de 8.1 (2026-06-27). */
+.mem-chapter-title { font-size: 14pt; font-weight: 700; color: #1B3A6B; margin: 16px 0 14px; }
 .rp-cover { text-align: center; margin-bottom: 10px; }
 .rp-cover-brand { font-size: 11px; letter-spacing: 1.5px; color: #00698A; font-weight: 700; margin-bottom: 14px; }
 .rp-title { font-size: 22px; margin: 0 0 4px; color: #0A1628; }
@@ -813,14 +821,14 @@ table.rp-table .rp-total-row td { font-weight: 700; background: #eef2f7; }
 table.rp-table-transposed th:first-child { width: 130px; background: #f5f5f5; white-space: nowrap; }
 table.rp-table-transposed td { text-align: center; font-size: 10px; }
 .rp-elev-wrap { display: flex; gap: 8px; align-items: flex-start; page-break-inside: avoid; }
-.rp-elev-svg { flex-shrink: 0; width: 260px; border: 1px solid #ddd; }
+.rp-elev-svg { flex-shrink: 0; width: 330px; border: 1px solid #ddd; }
 /* Tabla vertical de detalle por sección (estilo "planos llave") — una fila por sección/
    límite de elevación, de arriba hacia abajo igual que la torre, encabezados de columna
    rotados 90° para que entren muchas columnas angostas sin ensanchar la tabla. */
-table.rp-key-table { width: auto; border-collapse: collapse; font-size: 9px; table-layout: fixed; }
-table.rp-key-table th, table.rp-key-table td { border: 1px solid #ccc; padding: 0 2px; text-align: center; vertical-align: middle; overflow: visible; }
+table.rp-key-table { width: auto; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+table.rp-key-table th, table.rp-key-table td { border: 1px solid #ccc; padding: 0 3px; text-align: center; vertical-align: middle; overflow: visible; }
 table.rp-key-table thead th {
-  height: 90px; background: #eef2f7; font-weight: 600; white-space: nowrap;
+  height: 92px; background: #eef2f7; font-weight: 600; white-space: nowrap;
   vertical-align: bottom; padding-bottom: 4px;
 }
 table.rp-key-table thead th span, table.rp-key-table tbody td span {
@@ -836,6 +844,13 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
    midiendo scrollHeight con harness) — pedido explícito tras "14 páginas en vez de
    11" del usuario (2026-06-27). */
 .mem-disclaimer { font-size: 9px; color: #777; background: #f7f7f7; border: 1px dashed #ccc; border-radius: 4px; padding: 7px 9px; margin-top: 8px; line-height: 1.3; }
+/* La última hoja del capítulo 8 (8.2) usa esta clase para que el aviso profesional se
+   ancle al fondo de ESA hoja, justo antes del pie de página, en vez de quedar pegado
+   al contenido de arriba con mucho espacio vacío debajo — pedido explícito del
+   usuario (2026-06-27). 961px = alto disponible de 1 hoja con el margen de 12.5mm
+   arriba/abajo (11in - 2*12.5mm). */
+.mem-fill-block { min-height: 961px; box-sizing: border-box; position: relative; }
+.mem-fill-block .mem-disclaimer { position: absolute; bottom: 0; left: 0; right: 0; margin-top: 0; }
 .rp-footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #888; display: flex; justify-content: space-between; }
 @media screen {
   /* En pantalla, el encabezado/pie quedan pegados (sticky) arriba/abajo del
@@ -845,26 +860,36 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   .mem-footer-fixed { position: sticky; bottom: 0; z-index: 5; }
 }
 @media print {
-  /* Mismos márgenes que tenía .report-page antes (25/20/25/20mm), pero ahora vía
-     @page real (se repite en CADA hoja física automáticamente, a diferencia del
-     padding por <div> que dependía de mi propio cálculo de cuántas hojas hacían
-     falta). El encabezado/pie usan position:fixed con un offset NEGATIVO para caber
-     DENTRO de ese margen (arriba/abajo del área de contenido) en cada hoja — Chrome
-     repite los elementos fixed en cada página impresa. Pedido explícito del usuario
-     tras 2 intentos fallidos con hojas pre-calculadas: "Primero hagamos la
-     paginación nativa" (2026-06-27). */
-  @page { size: letter; margin: 0.98in 0.79in 0.79in 0.98in; background: #fff; }
+  /* Márgenes de la hoja vía @page real (se repite en CADA hoja física
+     automáticamente): 12.5mm arriba/abajo, 20mm a los lados — pedido explícito del
+     usuario (2026-06-27). El encabezado/pie usan position:fixed con top:0/bottom:0
+     (SIN offset negativo) — Chrome repite los elementos fixed en cada página
+     impresa, dentro del margen que @page ya reserva (12.5mm, de sobra para un
+     encabezado/pie de ~7-8mm). Un offset NEGATIVO causaba que el encabezado y el
+     pie aparecieran INVERTIDOS (el pie arriba, el encabezado abajo) — bug real
+     confirmado con captura del usuario, parece que Chrome "envuelve" un valor
+     negativo fuera del área de página en vez de simplemente recortarlo (2026-06-27).
+     Pedido explícito del usuario tras 2 intentos fallidos con hojas pre-calculadas:
+     "Primero hagamos la paginación nativa" (2026-06-27). */
+  @page { size: letter; margin: 12.5mm 20mm 12.5mm 20mm; background: #fff; }
   html, body { background: #fff !important; }
   /* Sin esto, Chrome no imprime fondos/colores de elementos (la banda azul de la
      carátula salía en blanco/gris al guardar como PDF) — por defecto omite los
      "background graphics" al imprimir salvo que se fuerce explícitamente. */
   * { print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
   .report-doc { box-shadow: none !important; margin: 0; width: auto; }
+  /* margen NEGATIVO exactamente igual al de @page — independiente de si Chrome
+     respeta bien "@page :first" (un primer intento con eso no funcionó), esto saca a
+     la carátula de su caja de contenido normal y la extiende directo hasta el borde
+     físico de la hoja en las 4 direcciones, pintando por encima de donde cae el
+     encabezado/pie (z-index en .mem-cover-block) y ocultándolos ahí — la carátula
+     nunca debió mostrarlos, pedido explícito del usuario (2026-06-27). */
+  .mem-cover-block { margin: -12.5mm -20mm -12.5mm -20mm; }
   .mem-header-fixed {
-    position: fixed; top: -0.55in; left: 0; right: 0; padding: 0 0.79in 6px 0.98in;
+    position: fixed; top: 0.3in; left: 0; right: 0; padding: 0 20mm 6px 20mm; z-index: 1;
   }
   .mem-footer-fixed {
-    position: fixed; bottom: -0.45in; left: 0; right: 0; padding: 6px 0.79in 0 0.98in;
+    position: fixed; bottom: 0.25in; left: 0; right: 0; padding: 6px 20mm 0 20mm; z-index: 1;
   }
   .mem-cover-block { page-break-after: always; }
   .mem-section-block { page-break-before: always; }
@@ -6025,11 +6050,16 @@ function takeScreenshot() {
 // ══════════════════════════════════════════════════════════════════
 const REPORT_TYPE_LABELS = { triangular: 'Autosoportada 3 piernas', square: 'Autosoportada 4 piernas', guyed: 'Arriostrada (guyed)', monopole: 'Monopolo' };
 
+// Tipos de la torre principal — excluye 'guy' (cable, no perfil de acero) y los
+// accesorios de retenida (estabilizadores/puntales/tensores), que ahora tienen su
+// propia sección en 4.1 (ver _reportGuyAccessoryTakeoff) — pedido explícito del
+// usuario para no mezclarlos con la lista de materiales de la torre (2026-06-27).
+const GUY_ACCESSORY_TYPES = new Set(['stabarm', 'puntal', 'tensor', 'horizPuntal', 'horizTensor']);
 function _reportSteelTakeoff() {
   if (!_towerData) return { rows: [], total: 0 };
   const totals = {};
   _towerData.members.forEach(m => {
-    if (m.type === 'monothk') return;   // pared del monopolo: geometría tubular, no perfil de catálogo
+    if (m.type === 'monothk' || GUY_ACCESSORY_TYPES.has(m.type)) return;   // pared del monopolo: geometría tubular, no perfil de catálogo
     const { profile, calidadName, isCableCal } = getMemberProfile(m);
     if (!profile || profile === '—' || isCableCal) return;
     const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
@@ -6044,6 +6074,41 @@ function _reportSteelTakeoff() {
   }).sort((a, b) => a.profile.localeCompare(b.profile));
   const total = rows.reduce((s, r) => s + (r.pesoTotal || 0), 0);
   return { rows, total };
+}
+
+// Cables de retenida (peso por longitud instalada, catálogo de cables — kg/m propio,
+// no un perfil de acero) + accesorios de retenida (estabilizadores/puntales/tensores,
+// SÍ son perfiles de acero, mismo criterio que _reportSteelTakeoff) — sección propia
+// dentro de 4.1, separada de la lista de materiales de la torre principal porque son
+// materiales/conceptos distintos — pedido explícito del usuario (2026-06-27).
+function _reportGuyAccessoryTakeoff() {
+  if (!_towerData) return { cableRows: [], accessoryRows: [], accessoryTotal: 0 };
+  const cableTotals = {}, accTotals = {};
+  _towerData.members.forEach(m => {
+    const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+    const len = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+    if (m.type === 'guy') {
+      const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+      if (!cd?.diamData) return;
+      const key = cd.diam + '|' + cd.diamData.calidad;
+      if (!cableTotals[key]) cableTotals[key] = { profile: cd.diam, calidad: cd.diamData.calidad, length: 0, pesoUnit: cd.diamData.peso };
+      cableTotals[key].length += len;
+    } else if (GUY_ACCESSORY_TYPES.has(m.type)) {
+      const { profile, calidadName } = getMemberProfile(m);
+      if (!profile || profile === '—') return;
+      const key = profile + '|' + (calidadName || '');
+      if (!accTotals[key]) accTotals[key] = { profile, calidad: calidadName, length: 0 };
+      accTotals[key].length += len;
+    }
+  });
+  const cableRows = Object.values(cableTotals).map(t => ({ ...t, pesoTotal: t.pesoUnit != null ? t.pesoUnit * t.length : null }))
+    .sort((a, b) => a.profile.localeCompare(b.profile));
+  const accessoryRows = Object.values(accTotals).map(t => {
+    const pesoUnit = _profileWeightPerMeter(t.profile);
+    return { ...t, pesoUnit, pesoTotal: pesoUnit != null ? pesoUnit * t.length : null };
+  }).sort((a, b) => a.profile.localeCompare(b.profile));
+  const accessoryTotal = accessoryRows.reduce((s, r) => s + (r.pesoTotal || 0), 0);
+  return { cableRows, accessoryRows, accessoryTotal };
 }
 
 // Peso de acero (kg) usado en cada sección — mismo criterio que _reportSteelTakeoff
@@ -6204,6 +6269,9 @@ function _reportElevationSvg(cfg, range) {
       if (!cur || x > cur) bestGuyByLevel.set(m.guyLevel, x);
     });
   }
+  // Declarado aquí (no donde se usa más abajo para los ticks) porque la etiqueta de
+  // cada retenida también lo necesita, y ese bloque corre ANTES en el archivo.
+  const tickHalfW = isGuyed ? 26 : (W / 2 - padX + 5);
   let lines = '';
   data.members.forEach(m => {
     if (!ELEV_TYPES.has(m.type)) return;
@@ -6229,7 +6297,14 @@ function _reportElevationSvg(cfg, range) {
       const label = cd?.diamData ? `${cd.diamData.name}" ${cd.diamData.calidad}` : '';
       if (label) {
         const x1 = px(a.x), y1 = py(a.z), x2 = px(b.x), y2 = py(b.z);
-        const t = 0.18; // cerca del anclaje a la torre, sin encimarse con el fuste
+        // La etiqueta empieza justo después de donde termina el texto de Apertura (no
+        // a un % fijo de la línea) — línea de referencia vertical INTERNA (no se
+        // dibuja) en x = fin del texto de Apertura; t = dónde esa línea cruza la
+        // retenida. Pedido explícito del usuario tras ver que la etiqueta quedaba
+        // desalineada con la columna de Apertura (2026-06-27).
+        const aperturaTextEndX = cx + tickHalfW + 4 + 20;
+        let t = (x1 !== x2) ? (aperturaTextEndX - x2) / (x1 - x2) : 0.18;
+        t = Math.max(0.05, Math.min(0.85, t));
         const lx = x2 + (x1 - x2) * t, ly = y2 + (y1 - y2) * t;
         const angleDeg = Math.atan2(y1 - y2, x1 - x2) * 180 / Math.PI;
         lines += `<text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" font-size="5.5" fill="#7A5C00" transform="rotate(${angleDeg.toFixed(1)} ${lx.toFixed(1)} ${ly.toFixed(1)})">${label}</text>`;
@@ -6255,7 +6330,6 @@ function _reportElevationSvg(cfg, range) {
     return isGuyed ? cfg.shaftW : (cfg.baseW + (cfg.topW - cfg.baseW) * (zAt / totalH));
   };
   let ticks = '';
-  const tickHalfW = isGuyed ? 26 : (W / 2 - padX + 5);
   secZs.forEach((zReal, k) => {
     const zAbs = globalMinZ + zReal;
     // Si es una ventana de Z (torre dividida), solo se marcan los límites de sección
@@ -6319,7 +6393,12 @@ function _reportSectionVerticalTable(cfg, secIdxList) {
   let rowsHtml = '';
   order.forEach(i => {
     const s = cfg.secData[i];
-    const rowH = Math.max(16, Math.round((s.h / totalH) * PX_BUDGET));
+    // Piso de 85px (no 16px) — esta tabla usa texto ROTADO en cada celda (estilo
+    // "planos llave"); un valor típico como "L4X4X1/4" necesita ~80-90px de alto
+    // girado 90°, sin importar qué tan chico sea el presupuesto proporcional. Un piso
+    // más bajo dejaba que el texto se encimara entre filas — descubierto al ver que
+    // reducir el presupuesto no reducía el desborde real en absoluto (2026-06-27).
+    const rowH = Math.max(85, Math.round((s.h / totalH) * PX_BUDGET));
     const w = weights[i] != null ? weights[i].toFixed(1) : '';
     rowsHtml += `<tr style="height:${rowH}px;">
       <td>${i + 1}</td>
@@ -6335,7 +6414,7 @@ function _reportSectionVerticalTable(cfg, secIdxList) {
   // Anchos angostos por columna — el texto rotado 90° solo necesita el ancho de una
   // línea de texto, no una columna ancha. Sección y Peso van horizontales (sin rotar)
   // y necesitan un poco más de aire. Pedido explícito del usuario (2026-06-26).
-  const colWidths = [22, ...cols.map(() => 20), 38];
+  const colWidths = [22, ...cols.map(() => 20), 22];
   const html = `<table class="rp-key-table">
     <thead><tr>${headers.map((h, i) => `<th style="width:${colWidths[i]}px;"><span>${h}</span></th>`).join('')}</tr></thead>
     <tbody>${rowsHtml}</tbody>
@@ -6468,7 +6547,7 @@ const MEM_CHAPTERS = [
   { num: 1, title: 'Información General', subs: ['1.1 Alcance', '1.2 Datos del Sitio', '1.3 Historial de Revisiones'], modulo: 'Información General' },
   { num: 2, title: 'Parámetros de Diseño', subs: ['2.1 Norma de Diseño y Normas Referenciadas', '2.2 Materiales', '2.3 Parámetros de Viento', '2.4 Parámetros de Hielo', '2.5 Parámetros Sísmicos'], modulo: 'Parámetros de Diseño (Viento/Hielo/Sismo)' },
   { num: 3, title: 'Cargas', subs: ['3.1 Listado de Antenas', '3.2 Soportes y Montajes', '3.3 Escalerillas de Cable y Plataformas', '3.4 Resumen de Carga Muerta', '3.5 Inventario de Antenas y Equipos'], modulo: 'Cargas/Antenas' },
-  { num: 4, title: 'Lista de Materiales (Solo Estructura)', subs: ['4.1 Lista de Materiales por Perfil', '4.2 Desglose de Peso por Panel', '4.3 Resumen de Peso Total'] },
+  { num: 4, title: 'Lista de Materiales (Solo Estructura)', subs: ['4.1 Lista de Materiales por Perfil', '4.2 Desglose de Peso por Secciones', '4.3 Resumen de Peso Total'] },
   { num: 5, title: 'Listado de Códigos de Elementos', subs: [], modulo: 'Códigos de Elementos' },
   { num: 6, title: 'Análisis de Carga de Viento (EPA)', subs: ['6.1 Cálculo de EPA — Último', '6.2 Cálculo de EPA — Servicio', '6.3 Cargas de Viento en Accesorios', '6.4 Resumen de Cortante Basal y Momento de Vuelco'], modulo: 'Viento (EPA)' },
   { num: 7, title: 'Combinaciones de Carga', subs: ['7.1 Tabla de Casos de Carga'], modulo: 'Combinaciones de Carga' },
@@ -6586,6 +6665,20 @@ function _memChapter4Html(cfg) {
       </tbody>
     </table>` : `<p style="font-size:11px;color:#777;">Sin perfiles de catálogo asignados todavía.</p>`;
 
+  // Cables de retenida + accesorios (estabilizadores/puntales/tensores) — sección
+  // propia dentro de 4.1, separada de la lista de materiales de la torre principal
+  // (son materiales/conceptos distintos) — pedido explícito del usuario (2026-06-27).
+  const { cableRows, accessoryRows, accessoryTotal } = _reportGuyAccessoryTakeoff();
+  const guySectionHtml = (cableRows.length || accessoryRows.length) ? `
+    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Cables de Retenida, Estabilizadores, Puntales y Tensores</h3>
+    <table class="rp-table">
+      <thead><tr><th>Perfil / Diámetro</th><th>Calidad</th><th>Longitud total (m)</th><th>Peso unitario (kg/m)</th><th>Peso total (kg)</th></tr></thead>
+      <tbody>
+        ${[...cableRows, ...accessoryRows].map(r => `<tr><td>${r.profile}</td><td>${r.calidad || '—'}</td><td>${r.length.toFixed(1)}</td>
+          <td>${r.pesoUnit != null ? r.pesoUnit.toFixed(2) : '—'}</td><td>${r.pesoTotal != null ? r.pesoTotal.toFixed(1) : '—'}</td></tr>`).join('')}
+      </tbody>
+    </table>` : '';
+
   // 3 pares Sección|Peso por fila — con torres de muchas secciones (arriostradas
   // altas), 1 fila por sección desbordaba la hoja (confirmado con harness: 21
   // secciones empujaban la hoja ~125px más allá de 1 hoja carta) — pedido explícito
@@ -6600,12 +6693,18 @@ function _memChapter4Html(cfg) {
     panelRows += `<tr>${chunk.map(([n, w]) => `<td>${n}</td><td>${w}</td>`).join('')}</tr>`;
   }
 
+  // El total de acero SÍ incluye los accesorios de retenida (estabilizadores/
+  // puntales/tensores, son perfiles de acero) pero NO los cables (otro material,
+  // wire rope, no perfil estructural) — pedido explícito del usuario (2026-06-27).
+  const totalAcero = takeoffTotal + accessoryTotal;
+
   return `
     <div class="mem-chapter-title" id="sec-4">4. ${ch.title}</div>
     <h2 class="rp-h2" id="sec-4-1" style="margin-top:0;">4.1 Lista de Materiales por Perfil</h2>
     ${takeoffHtml}
+    ${guySectionHtml}
 
-    <h2 class="rp-h2" id="sec-4-2">4.2 Desglose de Peso por Panel</h2>
+    <h2 class="rp-h2" id="sec-4-2">4.2 Desglose de peso por secciones</h2>
     <table class="rp-table">
       <thead><tr>${'<th>Sección</th><th>Peso (Kg)</th>'.repeat(PANEL_COLS)}</tr></thead>
       <tbody>${panelRows}</tbody>
@@ -6613,48 +6712,95 @@ function _memChapter4Html(cfg) {
 
     <h2 class="rp-h2" id="sec-4-3">4.3 Resumen de Peso Total</h2>
     <table class="rp-table"><tbody>
-      <tr class="rp-total-row"><td>TOTAL ESTIMADO DE ACERO</td><td>${takeoffTotal.toFixed(1)} kg</td></tr>
+      <tr class="rp-total-row"><td>TOTAL ESTIMADO DE ACERO SIN CONEXIONES</td><td>${totalAcero.toFixed(1)} kg</td></tr>
     </tbody></table>
   `;
 }
 
-// Capítulo 8.1 — geometría/elevación. Con paginación nativa, ya no hace falta calcular
-// cuántas hojas hacen falta ni medir nada en el DOM: el esquema+tabla es UN SOLO bloque
-// continuo (con page-break-inside:avoid en .rp-elev-wrap para no partirlo a la mitad
-// si cabe completo en lo que resta de la hoja); si una torre es tan alta que el bloque
-// no cabe ni en 1 hoja completa, el propio navegador lo continúa en la(s) siguiente(s)
-// — el mismo motor que decide TODA la paginación, sin el cálculo previo en JS que
-// causaba el desajuste con hojas en blanco. Pedido explícito del usuario: "Primero
-// hagamos la paginación nativa" (2026-06-27).
-function _memChapter8_1Html(cfg) {
+// Capítulo 8.1 — geometría/elevación. El SVG del esquema NO se puede partir entre
+// hojas (a diferencia del texto, es un elemento atómico) y la tabla usa texto ROTADO
+// por celda que necesita ~85px de alto por fila sin importar el presupuesto — con
+// torres de muchas secciones, el conjunto esquema+tabla puede superar 1 sola hoja.
+// Se divide en VARIOS BLOQUES (cada uno su propio .mem-section-block con salto de
+// página, igual que cualquier otro capítulo), midiendo el alto REAL en el navegador
+// para decidir cuántas secciones entran por bloque — a diferencia del intento previo
+// con páginas pre-calculadas, aquí cada bloque es independiente: si la medición no es
+// perfecta, el navegador simplemente continúa el contenido en la siguiente hoja (no
+// hay un conteo de "página X de Y" qué desincronizar). Pedido explícito del usuario
+// tras confirmar que el conjunto esquema+tabla de una arriostrada de 21 secciones no
+// cabía en 1 hoja: "Haz una división en el SVG tal que quepan n secciones... y que la
+// tabla también se divida... respetando que cada sección coincida con su
+// correspondiente fila" (2026-06-27).
+function _reportMeasureWrapHeight(html) {
+  const probe = document.createElement('div');
+  probe.style.position = 'fixed'; probe.style.visibility = 'hidden';
+  probe.style.left = '-9999px'; probe.style.top = '0'; probe.style.width = '8.5in';
+  probe.innerHTML = html;
+  document.body.appendChild(probe);
+  const h = probe.scrollHeight;
+  document.body.removeChild(probe);
+  return h;
+}
+function _memChapter8_1Bodies(cfg) {
   const order = cfg.secData.map((_, i) => i).reverse();
-  const { html: propsTableHtml } = _reportSectionPropsTable(cfg, order);
-  return `
-    <div class="mem-chapter-title" id="sec-8">8. Configuración de la Torre</div>
-    <h2 class="rp-h2" id="sec-8-1" style="margin-top:0;">8.1 Geometría de la Torre (Diagramas de Elevación)</h2>
-    <div class="rp-elev-wrap">
-      ${_reportElevationSvg(cfg)}
-      <div style="flex:1;min-width:0;">${propsTableHtml}</div>
-    </div>
-    ${_memDisclaimerHtml()}
-  `;
+  const secZs = [0];
+  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
+
+  function bodyFor(idxs, isFirstGroup, suffix) {
+    const maxIdx = Math.max(...idxs), minIdx = Math.min(...idxs);
+    const range = { zLo: secZs[minIdx], zHi: secZs[maxIdx + 1] };
+    const { html: propsTableHtml } = _reportSectionPropsTable(cfg, idxs);
+    return `
+      ${isFirstGroup ? '<div class="mem-chapter-title" id="sec-8">8. Configuración de la Torre</div>' : ''}
+      <h2 class="rp-h2" id="${isFirstGroup ? 'sec-8-1' : ''}"${isFirstGroup ? ' style="margin-top:0;"' : ''}>8.1 Geometría de la Torre (Diagramas de Elevación)${suffix}</h2>
+      <div class="rp-elev-wrap">
+        ${_reportElevationSvg(cfg, range)}
+        <div style="flex:1;min-width:0;">${propsTableHtml}</div>
+      </div>
+    `;
+  }
+
+  // ~850px disponibles por hoja para el bloque completo (961px de alto útil con el
+  // margen de 12.5mm, menos aire para el título del capítulo/sección) — margen de
+  // seguridad genuino frente a la diferencia pantalla/impresión ya confirmada antes.
+  const SAFE_PX = 850;
+  const groups = [];
+  let remaining = order.slice();
+  let isFirstGroup = true;
+  while (remaining.length) {
+    let take = remaining.length;
+    while (take > 1 && _reportMeasureWrapHeight(bodyFor(remaining.slice(0, take), isFirstGroup, '')) > SAFE_PX) {
+      take--;
+    }
+    groups.push(remaining.slice(0, take));
+    remaining = remaining.slice(take);
+    isFirstGroup = false;
+  }
+
+  return groups.map((idxs, gi) => {
+    const suffix = groups.length > 1 ? ` (hoja ${gi + 1} de ${groups.length})` : '';
+    return bodyFor(idxs, gi === 0, suffix);
+  });
 }
 
 // Capítulo 8.2 — propiedades de sección (vista en planta + calidades de acero
 // realmente usadas). Sigue al 8.1 en su propia hoja — pedido explícito del usuario
-// (golden rule: tablas extra a otra página si no caben con el diagrama).
+// (golden rule: tablas extra a otra página si no caben con el diagrama). El aviso
+// profesional va AQUÍ (al final de todo el capítulo 8, no pegado al esquema de 8.1)
+// para no competirle espacio al esquema — pedido explícito del usuario (2026-06-27).
 function _memChapter8_2Html(cfg) {
   const { calidadSet } = _reportSectionPropsTable(cfg);
   const materialStrengthHtml = _buildMaterialStrengthHtml(calidadSet);
   const planSvg = _reportPlanSvg(cfg);
   return `
-    <h2 class="rp-h2" id="sec-8-2" style="margin-top:0;">8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)</h2>
+    <h2 class="rp-h2" id="sec-8-2">8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)</h2>
     <div style="display:flex;gap:24px;align-items:flex-start;">
       ${planSvg}
       <div style="flex:1;min-width:0;">
         ${materialStrengthHtml ? `<h2 class="rp-h2" style="margin-top:0;">Material Strength</h2>${materialStrengthHtml}` : ''}
       </div>
     </div>
+    ${_memDisclaimerHtml()}
   `;
 }
 
@@ -6680,14 +6826,22 @@ function _buildMemoriaPages(cfg) {
   MEM_CHAPTERS.forEach(ch => {
     interior.push(ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch));
   });
-  interior.push(_memChapter8_1Html(cfg));
+  // 8.1 puede ocupar varios bloques (torres con muchas secciones) — cada uno entra
+  // por separado a "interior", así cada uno se convierte en su propio
+  // .mem-section-block (su propio salto de página).
+  _memChapter8_1Bodies(cfg).forEach(bodyHtml => interior.push(bodyHtml));
+  const ch8_2Index = interior.length;
   interior.push(_memChapter8_2Html(cfg));
 
   const pages = [];
   pages.push(`<div class="mem-cover-block">${_memCoverHtml(cfg)}</div>`);
   pages.push(`<div class="mem-section-block mem-index-block">${_memIndexHtml()}</div>`);
-  interior.forEach(bodyHtml => {
-    pages.push(`<div class="mem-section-block">${bodyHtml}</div>`);
+  // La última hoja (8.2) usa "mem-fill-block" para que el aviso profesional se ancle
+  // al fondo de ESA hoja (justo antes del pie de página), no pegado al contenido de
+  // arriba — pedido explícito del usuario (2026-06-27).
+  interior.forEach((bodyHtml, i) => {
+    const extraCls = i === ch8_2Index ? ' mem-fill-block' : '';
+    pages.push(`<div class="mem-section-block${extraCls}">${bodyHtml}</div>`);
   });
   return pages.join('');
 }
@@ -6725,6 +6879,12 @@ html, body { height: auto !important; overflow: visible !important; }
    (2026-06-27). */
 body { background:#525659; color:#1a1a1a; padding:0; display:block; }
 .report-doc { background:#fff !important; color:#1a1a1a !important; }
+/* z-index alto SOLO en .mem-cover-block (la carátula), NO en .report-doc completo —
+   ponerlo en .report-doc tapaba el encabezado/pie en TODAS las hojas (el documento
+   entero), no solo en la primera — bug real confirmado con captura del usuario
+   (2026-06-27). Mismo motivo que el fix anterior: la regla .mem-cover-block original
+   con el margen negativo (ver @media print) tampoco tenía position/z-index propio. */
+.mem-cover-block { position:relative !important; z-index:10 !important; }
 #print-btn {
   position: fixed; top: 16px; right: 16px; z-index: 999;
   padding: 10px 18px; background: #0A1628; color: #fff; border: none;
@@ -6736,6 +6896,16 @@ body { background:#525659; color:#1a1a1a; padding:0; display:block; }
 </style></head>
 <body>
 <button id="print-btn" onclick="window.print()">🖨 Guardar como PDF</button>
+<script>
+// Cierra la pestaña sola cuando se cierra el diálogo de impresión/guardado (evento
+// estándar "afterprint", se dispara tanto si se guardó como si se canceló — no hay
+// forma de distinguir eso desde JS). Esta pestaña se abre vía el navegador del
+// sistema (webbrowser.open en Python), no vía window.open() con script — algunos
+// navegadores BLOQUEAN que una página así se cierre a sí misma por seguridad, así
+// que esto puede no funcionar siempre según el navegador — pedido explícito del
+// usuario (2026-06-27).
+window.addEventListener('afterprint', () => window.close());
+<\/script>
 ${_memHeaderHtml(cfg)}
 <div class="report-doc">
 ${pagesHtml}
@@ -6749,14 +6919,8 @@ function printReport() {
   const cfg = getConfig();
   const html = _buildStandaloneReportHTML(cfg);
   const title = _assetFileBase(cfg).replace(/\s+/g, '_');
-  // printToPdf() de Qt (savePdfDirectly) se intentó y se revirtió — repetía los
-  // mismos problemas de márgenes/paginación que ya habían hecho abandonar ese camino
-  // antes; el motor de impresión de QtWebEngine no maneja bien este documento de 11
-  // hojas sin importar el CSS. Se vuelve a abrir en el navegador real del sistema,
-  // donde el contenido SÍ se renderiza correctamente — pedido explícito del usuario
-  // tras confirmar la regresión (2026-06-27). En el diálogo de impresión del
-  // navegador, elegir "Márgenes: Ninguno" evita el margen extra arriba de la
-  // carátula.
+  // Se abre en el navegador real del sistema — pedido explícito del usuario de
+  // revertir savePdfDirectly() (2026-06-27).
   if (qtBridge) {
     qtBridge.previewReportInBrowser(html, `${title}.html`);
   } else {

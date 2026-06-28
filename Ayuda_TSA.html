@@ -157,6 +157,7 @@
     <a href="#unidades">Unidades</a>
     <a href="#exportar">Exportar a STAAD.Pro</a>
     <a href="#exportar-dxf">Exportar a DXF</a>
+    <a href="#memoria">Memoria de Cálculo (PDF)</a>
     <a href="#configuracion">Configuración</a>
     <a href="#atajos">Atajos de teclado</a>
 
@@ -624,6 +625,37 @@
     </p>
 
     <!-- ───────────────────────────────────────── -->
+    <h2 id="memoria">Memoria de Cálculo (PDF)</h2>
+    <p>
+      El botón <b>Reporte</b> de la barra lateral genera una Memoria de Cálculo en formato carta (8.5×11
+      in), con carátula, índice y 8 capítulos, y la abre en tu navegador del sistema — desde ahí usa
+      <b>Guardar como PDF</b> (Ctrl+P / el botón de la propia página) para guardarla.
+    </p>
+    <ul>
+      <li><b>Carátula</b> — N.º de activo + nombre, cliente, revisión, diseñador, fecha, coordenadas del
+        sitio, altura y sección transversal.</li>
+      <li><b>Índice de Contenidos</b> — cada tema y subtema es un <b>enlace interno clicable</b> que salta
+        directo a esa sección (tanto en el navegador como dentro del PDF ya guardado). No muestra número
+        de página: el documento usa paginación nativa del navegador, así que el número de hoja final no
+        se calcula de antemano.</li>
+      <li><b>Capítulo 4 — Lista de Materiales</b> y <b>Capítulo 8 — Configuración de la Torre</b> (esquema
+        de elevación + tabla de perfiles por sección, vista en planta, calidades de acero usadas) ya
+        tienen contenido real, generado a partir de los datos de tu proyecto.</li>
+      <li>Los capítulos 1, 2, 3, 5, 6 y 7 (Información General, Parámetros de Diseño, Cargas, Códigos de
+        Elementos, Viento EPA, Combinaciones de Carga) muestran sus subtemas pero aparecen como
+        <span class="badge soon">Pendiente</span> — todavía no hay un módulo de datos que los alimente.</li>
+      <li>En torres arriostradas con muchas secciones, el esquema de la torre (8.1) puede repartirse en
+        varias hojas consecutivas ("hoja 1 de 2", etc.) para que el texto no quede ilegible — cada hoja
+        mantiene la misma escala visual y cada sección coincide con su fila correspondiente.</li>
+    </ul>
+    <div class="callout info">
+      <b>En desarrollo</b>
+      Capítulos 1, 2, 3, 5, 6 y 7 — pendientes de los módulos de datos correspondientes (Información
+      General, Parámetros de Diseño, Cargas/Antenas, Códigos de Elementos, Viento EPA, Combinaciones de
+      Carga).
+    </div>
+
+    <!-- ───────────────────────────────────────── -->
     <h2 id="configuracion">Configuración</h2>
     <p>Desde el ícono ⚙ de la barra lateral:</p>
     <ul>
@@ -685,6 +717,7 @@
         <tr><td>Conversión real de unidades MKS ↔ IMP</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export STAAD: cargas de viento (MEMBER LOAD / JOINT LOAD)</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export STAAD: GROUP DEFINITION de horizontal/tensor de puntales y tensores del estabilizador</td><td><span class="badge soon">Planeado</span></td></tr>
+        <tr><td>Memoria de Cálculo: capítulos 1, 2, 3, 5, 6 y 7 (Información General, Parámetros de Diseño, Cargas, Códigos de Elementos, Viento EPA, Combinaciones de Carga)</td><td><span class="badge soon">Placeholder</span></td></tr>
       </tbody>
     </table>
 
