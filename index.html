@@ -496,10 +496,21 @@ body {
   border-left: 1px solid var(--border);
 }
 .rpanel.visible { display: flex; }
+/* Cargas de Viento necesita más ancho que el panel de info normal (tabla de 5 columnas
+   qz/Kz/Kzt por sección) — pedido explícito del usuario (2026-06-28). Solo se aplica
+   mientras esa vista está activa (ver switchTab); el panel de info normal sigue en
+   272px. */
+.rpanel.wide { width: 420px; }
 
 /* ── Info panel (único view del rpanel ahora) ────────────────── */
 #rpanel-info { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-info.visible { display: flex; }
+#rpanel-viento { display: none; flex-direction: column; flex: 1; min-height: 0; }
+#rpanel-viento.visible { display: flex; }
+/* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
+   contenido de Cargas de Viento quedaba pegado a los bordes laterales, pedido explícito
+   del usuario (2026-06-28). */
+#rpanel-viento-body { padding: 12px 14px; }
 
 /* ── Torre flyout (desplegable junto al botón Torre) ─────────── */
 .torre-flyout {
@@ -784,6 +795,21 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 }
 .tabla-panel.open { display: flex; }
 .tabla-panel-hdr { cursor: move; user-select: none; }
+/* Hoja de Revisiones — sin scroll interno (crece con el contenido en vez de recortarlo
+   con una barra), a diferencia de Nodos/Barras/Retenidas que sí necesitan scroll con
+   tablas grandes — pedido explícito del usuario (2026-06-28: "No coloque slidebar. Si
+   es necesario haz más grande la fila"). */
+#tabla-revisiones-overlay { max-height: 90vh; }
+#tabla-revisiones-body { overflow-y: visible; }
+/* La tabla comparte .ret-table.db-table con Bases de Datos (width:max-content, crece
+   para evitar el ajuste de línea) y .ret-table td trae overflow:hidden — en Hoja de
+   Revisiones eso hacía que el texto largo de Descripción se saliera del panel en vez de
+   ajustarse. Aquí se mantiene el ancho del panel (width:100%, no max-content) y se deja
+   que el texto haga salto de línea, creciendo el alto de la fila en su lugar — pedido
+   explícito del usuario (2026-06-28: "Déjala con el ancho que tiene... dar un enter al
+   texto... que ajuste automáticamente el alto de su fila"). */
+#tabla-revisiones-body .ret-table.db-table { width: 100%; }
+#tabla-revisiones-body .ret-table td { overflow: visible; white-space: normal; word-wrap: break-word; }
 .sec-modal {
   background: #0D1E35; border: 1px solid #1E3A5F;
   border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.7);
@@ -1379,12 +1405,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
 <!-- ══════════════ TAB BAR ══════════════════════════════════════ -->
 <div class="tabbar">
-  <button class="tab active">⬡ &nbsp;FEM</button>
-  <button class="tab">⬡ &nbsp;Códigos</button>
-  <button class="tab">&nbsp;&nbsp;Cargas Viento</button>
-  <button class="tab">⬡ &nbsp;Antenas</button>
-  <button class="tab">⬡ &nbsp;Escaleras</button>
-  <button class="tab">⬡ &nbsp;Plataformas</button>
+  <button class="tab active" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
+  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Códigos</button>
+  <button class="tab" onclick="switchTab(this, 'viento')">&nbsp;&nbsp;Cargas de Viento</button>
+  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Antenas</button>
+  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Escaleras</button>
+  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Plataformas</button>
   <div class="tabbar-end">
     <button class="icon-btn">📈<span class="icon-tip">Gráficas</span></button>
     <div class="viewctl-group" id="viewctl-group">
@@ -1883,6 +1909,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
       </div><!-- /rpanel-scroll info -->
     </div><!-- /rpanel-info -->
+
+    <!-- ═══ CARGAS DE VIENTO VIEW ═══════════════════════════════ -->
+    <div id="rpanel-viento">
+      <div class="rpanel-header">Cargas de Viento</div>
+      <div class="rpanel-scroll" id="rpanel-viento-body"></div>
+    </div><!-- /rpanel-viento -->
 
   </div><!-- /rpanel -->
 
@@ -4959,6 +4991,12 @@ const _VIENTO_TIPO_LABELS = {
   triangular: 'Autosoportada 3 piernas', square: 'Autosoportada 4 piernas',
   guyed: 'Arriostrada', monopole: 'Monopolo',
 };
+// Mismas etiquetas que los selectores reales de Categoría Topográfica/Dirección — usadas
+// tanto en el panel "Cargas de Viento" como en el subtema 2.3 de la Memoria de Cálculo,
+// para no duplicar el mapeo en los 2 lugares.
+const _TOPOCAT_LABELS = { plano: 'Plano', escarpado: 'Escarpado', colina: 'Colina',
+                           colina_cima_plana: 'Colina de cima plana', cresta: 'Cresta', cresta_cima_plana: 'Cresta de cima plana' };
+const _DIR_LABELS = { favor: 'A favor del viento', contra: 'En contra del viento' };
 // "Velocidad Regional"/"Velocidad Última" son mutuamente excluyentes — describen QUÉ es
 // el mismo valor de "Velocidad de viento" (uno u otro, no ambos), confirmado con el
 // usuario (2026-06-28) a pesar de implementarse como 2 checkboxes, no radio buttons.
@@ -5000,8 +5038,10 @@ function openVientoFlyout() {
 function closeVientoFlyout() {
   document.getElementById('viento-flyout').classList.remove('open');
 }
-function saveVientoFlyout() {
-  windData = {
+// Lectura compartida del formulario — usada tanto al Guardar como en la actualización en
+// vivo del panel (ver _onVientoFieldInput), para no duplicar la lista de campos en 2 lugares.
+function _readVientoForm() {
+  return {
     codigo:        document.getElementById('viento-codigo').value,
     catRiesgo:     document.getElementById('viento-catriesgo').value,
     catExposicion: document.getElementById('viento-catexp').value,
@@ -5015,7 +5055,284 @@ function saveVientoFlyout() {
     topoX:   +document.getElementById('viento-topo-x').value || null,
     topoDir: document.getElementById('viento-topo-dir').value,
   };
+}
+function saveVientoFlyout() {
+  windData = _readVientoForm();
+  // "Hacer funcional el boton de guardar" (2026-06-28) — antes solo actualizaba windData
+  // en memoria, sin marcar el proyecto como modificado ni entrar al historial de
+  // deshacer/rehacer (que reusa getConfig()/loadProjectData() como snapshot, igual que
+  // cualquier otra edición — ver scheduleHistoryPush). windData ya viaja en getConfig()/
+  // loadProjectData(), así que ahora SÍ se guarda junto con el proyecto.
+  _unsavedChanges = true;
+  scheduleHistoryPush();
+  showToast('Parámetros de viento guardados.', 'ok', 2000);
   closeVientoFlyout();
+}
+// Actualiza windData en vivo y refresca el panel "Cargas de Viento" si está abierto al
+// mismo tiempo que el flyout — pedido explícito del usuario (2026-06-28: "si hago un
+// cambio en el menú se actualice en tiempo real en el panel"). A propósito NO marca
+// _unsavedChanges ni entra al historial de deshacer — eso sigue siendo solo
+// responsabilidad de "Guardar"; cambios en vivo sin guardar no deben ensuciar el
+// historial con cada tecla presionada.
+function _onVientoFieldInput() {
+  windData = _readVientoForm();
+  if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
+}
+['viento-codigo', 'viento-catriesgo', 'viento-catexp', 'viento-velocidad', 'viento-vel-regional',
+ 'viento-vel-ultima', 'viento-velop', 'viento-asnm', 'viento-topocat', 'viento-topo-h',
+ 'viento-topo-l', 'viento-topo-x', 'viento-topo-dir'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) { el.addEventListener('input', _onVientoFieldInput); el.addEventListener('change', _onVientoFieldInput); }
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  MOTOR DE CÁLCULO DE VIENTO — ANSI/TIA-222-H, Sección 2.6
+//  Implementado a partir de las páginas que compartió el usuario (2026-06-28):
+//  2.6.5.2 (Kz), 2.6.6.2.2 Método 2 (Kzt, Figura 2-1), 2.6.8 (Ke), 2.6.11.6 (qz),
+//  Tabla 2-1 (Categoría de Riesgo), Tabla 2-2 (Kd) y la conversión Regional↔Última.
+//  Funciones puras, sin DOM — mismo criterio que REPORT_TYPE_LABELS y similares.
+// ══════════════════════════════════════════════════════════════════
+
+// Tabla 2-4 — coeficientes por Categoría de Exposición (también alimenta K1' de Kzt).
+const _TIA_EXPOSURE = {
+  B: { Zg: 366, alphaPrime: 7.0,  Kzmin: 0.70 },
+  C: { Zg: 274, alphaPrime: 9.5,  Kzmin: 0.85 },
+  D: { Zg: 213, alphaPrime: 11.5, Kzmin: 1.03 },
+};
+// 2.6.5.2 — Kz = 2.01(z/Zg)^(2/α'), acotado entre Kzmin y 2.01.
+function _tiaKz(z, catExposicion) {
+  const e = _TIA_EXPOSURE[catExposicion];
+  if (!e) return 1.0;
+  const kz = 2.01 * Math.pow(Math.max(z, 0) / e.Zg, 2 / e.alphaPrime);
+  return Math.min(2.01, Math.max(e.Kzmin, kz));
+}
+
+// Figura 2-1 — K1' por Categoría de Exposición y forma topográfica (Método 2).
+const _TIA_K1_PRIME = {
+  B: { ridge: 0.65, flat_ridge: 0.58, hill: 0.48, flat_hill: 0.43, escarpment: 0.38 },
+  C: { ridge: 0.73, flat_ridge: 0.63, hill: 0.53, flat_hill: 0.48, escarpment: 0.43 },
+  D: { ridge: 0.78, flat_ridge: 0.68, hill: 0.58, flat_hill: 0.53, escarpment: 0.48 },
+};
+// Las 6 categorías topográficas del flyout Diseño por Viento mapean 1:1 a las 5 formas
+// de la Figura 2-1 ("Plano" no tiene Kzt — queda en 1.0).
+const _TIA_TOPOCAT_SHAPE = {
+  cresta: 'ridge', cresta_cima_plana: 'flat_ridge',
+  colina: 'hill', colina_cima_plana: 'flat_hill',
+  escarpado: 'escarpment',
+};
+// K2/K3 (Figura 2-1) no traen columna aparte para las formas "cima plana" — comparten
+// fórmula con su forma base (Ridge/Hill/Escarpment), solo K1' distingue cima plana.
+const _TIA_SHAPE_K23_BASE = {
+  ridge: 'ridge', flat_ridge: 'ridge', hill: 'hill', flat_hill: 'hill', escarpment: 'escarpment',
+};
+// K2 (factor de distancia horizontal) — Escarpment a favor del viento (downwind) usa una
+// fórmula propia; Ridge/Hill comparten la misma fórmula en upwind y downwind.
+function _tiaK2(HL, x, L, H, baseShape, topoDir) {
+  const escarpmentDownwind = (topoDir === 'favor' && baseShape === 'escarpment');
+  const k2 = HL < 0.25
+    ? (escarpmentDownwind ? 1 - x / (2 * L) : 1 - (4 * x) / (3 * L))
+    : (escarpmentDownwind ? 1 - x / (8 * H) : 1 - x / (3 * H));
+  return Math.max(0, k2);
+}
+// K3 (factor de distancia vertical) — z es la altura sobre el nivel del suelo en la base
+// de la torre (evaluado por sección, igual que Kz).
+function _tiaK3(z, HL, L, H, baseShape) {
+  if (HL < 0.25 && z >= L) return 0;
+  if (HL >= 0.25 && z >= 4 * H) return 0;
+  const coefByShape = {
+    ridge:      HL < 0.25 ? -6 / L : -1.5 / H,
+    hill:       HL < 0.25 ? -8 / L : -2   / H,
+    escarpment: HL < 0.25 ? -5 / L : -1.25 / H,
+  };
+  return Math.exp(coefByShape[baseShape] * z);
+}
+// Kzt = [1 + K1·K2·K3]² (Método 2) — 1.0 si es "Plano" o si la pendiente H/L < 1/10 (no
+// aplica efecto topográfico per 2.6.6.1) o si faltan datos.
+// Versión con detalle — expone H/L, β, K1, K2, K3 además de Kzt, para mostrarlos en el
+// resumen del panel Cargas de Viento (pedido explícito del usuario, 2026-06-28).
+// aplica=false cuando es "Plano" o quedan fuera del rango de aplicación del método (sin
+// efecto topográfico) — el resumen usa esto para ocultar esos campos.
+function _tiaKztDetail(z, windData) {
+  const NA = { Kzt: 1.0, aplica: false, HL: null, beta: null, K1: null, K2: null, K3: null,
+               shape: null, baseShape: null, k1p: null, lowSlope: null, escarpmentDownwind: null };
+  if (!windData.topoCat || windData.topoCat === 'plano') return NA;
+  const shape = _TIA_TOPOCAT_SHAPE[windData.topoCat];
+  const baseShape = _TIA_SHAPE_K23_BASE[shape];
+  const k1p = _TIA_K1_PRIME[windData.catExposicion]?.[shape];
+  const H = +windData.topoH, L = +windData.topoL, x = +windData.topoX;
+  if (!shape || k1p == null || !H || !L) return NA;
+  const HL = H / L;
+  if (HL < 0.1) return NA;
+  const beta = HL < 0.25 ? 4 * HL : 1.0;
+  const K1 = beta * k1p;
+  const K2 = _tiaK2(HL, x, L, H, baseShape, windData.topoDir);
+  const K3 = _tiaK3(z, HL, L, H, baseShape);
+  const lowSlope = HL < 0.25;
+  const escarpmentDownwind = (windData.topoDir === 'favor' && baseShape === 'escarpment');
+  return { Kzt: Math.pow(1 + K1 * K2 * K3, 2), aplica: true, HL, beta, K1, K2, K3,
+           shape, baseShape, k1p, lowSlope, escarpmentDownwind };
+}
+function _tiaKzt(z, windData) {
+  return _tiaKztDetail(z, windData).Kzt;
+}
+
+// 2.6.8 — Ke (factor de elevación del terreno), zs = ASNM en metros.
+function _tiaKe(zs) {
+  return zs == null ? 1.0 : Math.exp(-0.000119 * zs);
+}
+
+// Tabla 2-2 — Kd por tipo de estructura. Monopolo asume apéndices expuestos (0.95, el
+// caso más común/conservador de las 2 opciones de monopolo en la tabla) — se podrá
+// distinguir cuando exista el catálogo de antenas/apéndices (fuera de alcance todavía).
+function _tiaKd(tipoEstructura) {
+  if (tipoEstructura === 'monopole') return 0.95;
+  return 0.85;   // celosía triangular/cuadrada/arriostrada (siempre 3 o 4 piernas en TSA)
+}
+
+// Gh (factor de efecto de ráfaga) — 2.6.9.1 (autosoportada/celosía, triangular/cuadrada:
+// fórmula por altura), 2.6.9.2 (arriostrada/guyed: fijo 0.85), 2.6.9.3 (monopolo/pole:
+// fijo 1.10).
+function _tiaGh(heightM, tipoEstructura) {
+  if (tipoEstructura === 'guyed') return 0.85;
+  if (tipoEstructura === 'monopole') return 1.10;
+  if (tipoEstructura !== 'triangular' && tipoEstructura !== 'square') return null;
+  const gh = 0.85 + 0.15 * ((heightM / 45.7) - 3.0);
+  return Math.min(1.00, Math.max(0.85, gh));
+}
+
+// Conversión Velocidad Regional → Última por Categoría de Riesgo (factor de importancia
+// FI). Si el usuario ya capturó la Última directamente, se usa tal cual.
+const _TIA_FI_POR_RIESGO = { I: 0.87, II: 1.00, III: 1.15, IV: 1.25 };
+function _tiaVelocidadUltimaKmh(windData) {
+  const v = +windData.velocidad || 0;
+  if (windData.velTipo === 'ultima') return v;
+  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? 1.0;
+  return v * Math.sqrt(1.6 * FI);
+}
+
+// 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s]. Ks (rooftop wind speed-up,
+// 2.6.7) = 1.0 siempre — TSA modela torres en suelo, no estructuras sobre azotea.
+// z = altura (m) sobre el nivel del suelo en la base de la torre, punto donde se evalúa.
+function calcWindPressure(cfg, windData, z) {
+  const Kz  = _tiaKz(z, windData.catExposicion);
+  const Kzt = _tiaKzt(z, windData);
+  const Ks  = 1.0;
+  const Ke  = _tiaKe(windData.asnm);
+  const Kd  = _tiaKd(cfg.type);
+  const Vms = _tiaVelocidadUltimaKmh(windData) / 3.6;
+  return 0.613 * Kz * Kzt * Ks * Ke * Kd * Vms * Vms;
+}
+
+// Pestaña "Cargas de Viento" del tabbar (antes "Cargas Viento", inerte) — al hacer clic
+// despliega un panel del lado derecho con los datos de viento, pedido explícito del
+// usuario (2026-06-28). Las demás pestañas (FEM/Códigos/Antenas/Escaleras/Plataformas)
+// siguen sin funcionalidad propia (fuera de alcance) — solo restauran el panel de
+// información normal para no dejar al usuario atascado en la vista de viento.
+function switchTab(tabEl, view) {
+  document.querySelectorAll('.tabbar .tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  // El listener genérico de los botones del sidebar (más abajo, "Ocultar panel si no es
+  // Torre") quita la clase "visible" de #rpanel como efecto secundario al usar CUALQUIER
+  // botón del sidebar que no sea Torre — incluido "Viento" (abre el flyout de Diseño por
+  // Viento). switchTab() solo tocaba las vistas HIJAS (#rpanel-info/#rpanel-viento)
+  // asumiendo que el padre #rpanel ya estaba visible — si el usuario había pasado antes
+  // por el sidebar, #rpanel se quedaba oculto y el panel de Cargas de Viento nunca se
+  // veía aunque su propio display fuera "flex" (bug real reportado por el usuario,
+  // 2026-06-28, diagnosticado con getBoundingClientRect()=todo en 0 en #rpanel).
+  if (projectGenerated) document.getElementById('rpanel').classList.add('visible');
+  // Cargas de Viento necesita más ancho (tabla de 5 columnas) que el panel de info
+  // normal — pedido explícito del usuario (2026-06-28).
+  document.getElementById('rpanel').classList.toggle('wide', view === 'viento');
+  if (view === 'viento') {
+    document.getElementById('rpanel-info').classList.remove('visible');
+    document.getElementById('rpanel-viento').classList.add('visible');
+    buildCargasVientoPanel();
+  } else {
+    document.getElementById('rpanel-viento').classList.remove('visible');
+    if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
+  }
+}
+// Tabla qz/Kz/Kzt por sección, evaluados en la elevación ACUMULADA al centro de cada
+// sección (simplificación — no es el punto exacto que usaría un cálculo de fuerzas por
+// panel, pero da una lectura clara y rápida de cómo varía la presión con la altura).
+function buildCargasVientoPanel() {
+  const body = document.getElementById('rpanel-viento-body');
+  if (!projectGenerated) {
+    body.innerHTML = '<div style="padding:14px;color:var(--txt-sec);font-size:12px;">Genera una torre primero.</div>';
+    return;
+  }
+  const cfg = getConfig();
+  const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
+  const Vultima = _tiaVelocidadUltimaKmh(windData);
+  // z = elevación acumulada al CENTRO de cada sección (no al tope) — pedido explícito
+  // del usuario (2026-06-28: "qz debe ser a la elevación acumulada en el centro de cada
+  // sección"), más representativo de la presión promedio que actúa sobre todo el panel.
+  let zBase = 0;
+  const rows = [];
+  for (let i = 0; i < nsec; i++) {
+    const h = +secData[i]?.h || (cfg.height / nsec);
+    const z = zBase + h / 2;
+    rows.push({
+      sec: i + 1, z,
+      Kz:  _tiaKz(z, windData.catExposicion),
+      Kzt: _tiaKzt(z, windData),
+      K3:  _tiaKztDetail(z, windData).K3,
+      qz:  calcWindPressure(cfg, windData, z),
+    });
+    zBase += h;
+  }
+  // K3 (y por lo tanto Kzt) varía con la altura — se quitó del resumen de parámetros (que
+  // mostraba un solo valor de referencia en z=0) y se movió a la tabla de Presión por
+  // Sección, evaluado en el z real de cada sección — pedido explícito del usuario
+  // (2026-06-28: "quitar K3 del panel... y colócalo en presión por secciones ajustado a
+  // cada Z(m)"). qz YA se recalculaba con el K3 correcto de cada sección (vía
+  // _tiaKzt(z,...) dentro de calcWindPressure) — esto solo lo hace visible en la tabla.
+  const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
+  const ktd = _tiaKztDetail(0, windData);
+  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
+  const fmt = v => (v == null ? '—' : (+v).toFixed(3));
+  // H/L, β, K1, K2 solo aplican con topografía no-Plana — pedido explícito del
+  // usuario ("si la topografía es plana oculta los que no aplican").
+  const lbl = s => `<span style="color:var(--txt-sec);">${s}:</span> `;
+  const Gh = _tiaGh(cfg.height, cfg.type);
+  const topoParamsHTML = !ktd.aplica ? '' : `
+      <div>${lbl('H/L')}${fmt(ktd.HL)}</div>
+      <div>${lbl('β')}${fmt(ktd.beta)}</div>
+      <div>${lbl('K1')}${fmt(ktd.K1)}</div>
+      <div>${lbl('K2')}${fmt(ktd.K2)}</div>`;
+  body.innerHTML = `
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">RESUMEN</div>
+    <div class="frow"><span class="flbl">Código:</span><span>${_VIENTO_CODIGO_LABELS[windData.codigo] || '—'}</span></div>
+    <div class="frow"><span class="flbl">Velocidad de diseño (Última):</span><span>${Vultima ? Vultima.toFixed(1) + ' km/h' : '—'}</span></div>
+    <div class="frow"><span class="flbl">Exposición / Riesgo:</span><span>${windData.catExposicion || '—'} / ${windData.catRiesgo || '—'}</span></div>
+    <div class="frow"><span class="flbl">H (m):</span><span>${windData.topoH ?? '—'}</span></div>
+    <div class="frow"><span class="flbl">L (m):</span><span>${windData.topoL ?? '—'}</span></div>
+    <div class="frow"><span class="flbl">Categoría Topográfica:</span><span>${_TOPOCAT_LABELS[windData.topoCat] || '—'}</span></div>
+    <div class="frow"><span class="flbl">ASNM (m):</span><span>${windData.asnm ?? '—'}</span></div>
+    <div class="frow"><span class="flbl">Dirección del Viento:</span><span>${_DIR_LABELS[windData.topoDir] || '—'}</span></div>
+    <div class="frow"><span class="flbl">Kd:</span><span>${_tiaKd(cfg.type)}</span></div>
+    <div class="frow"><span class="flbl">Ke:</span><span>${_tiaKe(windData.asnm).toFixed(3)}</span></div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">PARÁMETROS DE Kz / Kzt</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 10px;font-size:11px;">
+      <div>${lbl('Kzmin')}${fmt(exp.Kzmin)}</div>
+      <div>${lbl('Zg (m)')}${exp.Zg ?? '—'}</div>
+      <div>${lbl('I')}${fmt(FI)}</div>
+      ${topoParamsHTML}
+      <div>${lbl('Gh')}${fmt(Gh)}</div>
+    </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">PRESIÓN POR SECCIÓN (qz)</div>
+    <table class="ret-table">
+      <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (kg/m²)</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+      qz evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.
+    </div>
+  `;
 }
 
 function saveSettingsModal() {
@@ -5222,6 +5539,7 @@ function getConfig() {
     memberOverrides: JSON.parse(JSON.stringify(memberOverrides)),
     supportOverrides: JSON.parse(JSON.stringify(supportOverrides)),
     revisionData:   JSON.parse(JSON.stringify(revisionData)),
+    windData:       JSON.parse(JSON.stringify(windData)),
   };
 }
 
@@ -7064,6 +7382,140 @@ function _memChapterPendingHtml(ch) {
   `;
 }
 
+// Capítulo 2 — 2.3 Parámetros de Viento con cálculos reales (mismo motor que el panel
+// "Cargas de Viento" del tabbar: calcWindPressure/_tiaKz/_tiaKztDetail/_tiaKe/_tiaKd/
+// _tiaGh/_tiaVelocidadUltimaKmh) — pedido explícito del usuario (2026-06-28: "Manda
+// RESUMEN Y PARÁMETROS de Kz/Kzt al subtema 2.3... agrégalos con sus cálculos exactos").
+// 2.1/2.2/2.4/2.5 siguen "Pendiente" — no tienen módulo de datos todavía.
+function _memChapter2Html(cfg) {
+  const ch = MEM_CHAPTERS.find(c => c.num === 2);
+  const pend = label => `
+    <h2 class="rp-h2" id="${_memAnchorId(label)}">${label}</h2>
+    <div class="rp-pending">Pendiente — requiere módulo correspondiente (no implementado todavía)</div>`;
+
+  const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
+  const Vultima = _tiaVelocidadUltimaKmh(windData);
+  let zBase = 0;
+  const rows = [];
+  for (let i = 0; i < nsec; i++) {
+    const h = +cfg.secData[i]?.h || (cfg.height / nsec);
+    const z = zBase + h / 2;
+    rows.push({
+      sec: i + 1, z,
+      Kz:  _tiaKz(z, windData.catExposicion),
+      Kzt: _tiaKzt(z, windData),
+      K3:  _tiaKztDetail(z, windData).K3,
+      qz:  calcWindPressure(cfg, windData, z),
+    });
+    zBase += h;
+  }
+  const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
+  const ktd = _tiaKztDetail(0, windData);
+  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
+  const Gh = _tiaGh(cfg.height, cfg.type);
+  const fmt = v => (v == null ? '—' : (+v).toFixed(3));
+
+  // ── Procedimiento de cálculo (fórmulas + sustitución numérica) — pedido explícito
+  // del usuario (2026-06-28: "coloca las fórmulas y los procedimientos en el apartado
+  // 2.3"), para que la memoria muestre cómo se obtuvo cada valor, no solo el resultado.
+  const SHAPE_LABEL = { ridge: 'Cresta', flat_ridge: 'Cresta de cima plana', hill: 'Colina',
+                         flat_hill: 'Colina de cima plana', escarpment: 'Escarpado' };
+  const velFormula = windData.velTipo === 'ultima'
+    ? `V<sub>Última</sub> = ${windData.velocidad ?? '—'} km/h (capturada directamente como Última)`
+    : `V<sub>Última</sub> = V<sub>Regional</sub>·√(1.6·I) = ${windData.velocidad ?? '—'} × √(1.6×${fmt(FI)}) = <b>${Vultima ? Vultima.toFixed(1) : '—'} km/h</b>`;
+  const betaFormula = !ktd.aplica ? '' : (ktd.lowSlope
+    ? `β = 4(H/L) = 4×${ktd.HL.toFixed(3)} = <b>${ktd.beta.toFixed(3)}</b>`
+    : `β = 1.0 (H/L ≥ 1/4) = <b>${ktd.beta.toFixed(3)}</b>`);
+  const k2Formula = !ktd.aplica ? '' : (ktd.escarpmentDownwind
+    ? (ktd.lowSlope ? `K2 = 1 − x/(2L) = 1 − ${windData.topoX}/(2×${windData.topoL})` : `K2 = 1 − x/(8H) = 1 − ${windData.topoX}/(8×${windData.topoH})`)
+    : (ktd.lowSlope ? `K2 = 1 − 4x/(3L) = 1 − 4×${windData.topoX}/(3×${windData.topoL})` : `K2 = 1 − x/(3H) = 1 − ${windData.topoX}/(3×${windData.topoH})`)
+  ) + (ktd.aplica ? ` = <b>${ktd.K2.toFixed(3)}</b>` : '');
+  // K3 varía con z — ya no se fija un solo valor de referencia aquí (se quitó del
+  // resumen de parámetros), se calcula por sección directo en la tabla de Presión por
+  // Sección más abajo — pedido explícito del usuario (2026-06-28).
+  const k3Formula = !ktd.aplica ? '' : (() => {
+    const coefs = { ridge: ktd.lowSlope ? '6z/L' : '1.5z/H', hill: ktd.lowSlope ? '8z/L' : '2z/H', escarpment: ktd.lowSlope ? '5z/L' : '1.25z/H' };
+    return `K3 = e<sup>−${coefs[ktd.baseShape]}</sup> — varía con la altura z de cada sección, ver columna K3 en la tabla de Presión por Sección más abajo`;
+  })();
+  const ghFormula = cfg.type === 'guyed' ? `Gh = 0.85 (mástil arriostrado, §2.6.9.2) = <b>${fmt(Gh)}</b>`
+    : cfg.type === 'monopole' ? `Gh = 1.10 (estructura tipo poste, §2.6.9.3) = <b>${fmt(Gh)}</b>`
+    : `Gh = 0.85 + 0.15[(h/45.7) − 3.0], 0.85 ≤ Gh ≤ 1.00 (§2.6.9.1) = 0.85 + 0.15×[(${cfg.height}/45.7) − 3.0] = <b>${fmt(Gh)}</b>`;
+
+  const procedimiento = `
+    <h3 style="font-size:11px;margin:10px 0 6px;color:#444;">Procedimiento de Cálculo</h3>
+    <p style="font-size:10.5px;margin:6px 0;"><b>1. Velocidad de Diseño</b><br>${velFormula}</p>
+    <p style="font-size:10.5px;margin:6px 0;"><b>2. Coeficiente de Presión de Velocidad, Kz (§2.6.5.2)</b><br>
+      Kz = 2.01(z/Zg)<sup>2/α′</sup>, Kzmin ≤ Kz ≤ 2.01<br>
+      Exposición ${windData.catExposicion || '—'}: Zg = ${exp.Zg ?? '—'} m, α′ = ${exp.alphaPrime ?? '—'}, Kzmin = ${fmt(exp.Kzmin)} — evaluado por sección, ver tabla más abajo.</p>
+    ${!ktd.aplica ? '' : `
+    <p style="font-size:10.5px;margin:6px 0;"><b>3. Factor Topográfico, Kzt — Método 2 (§2.6.6.2.2)</b><br>
+      Forma: ${SHAPE_LABEL[ktd.shape] || '—'} · H = ${windData.topoH} m · L = ${windData.topoL} m · x = ${windData.topoX} m ·
+      H/L = ${ktd.HL.toFixed(3)} · Dirección: ${windData.topoDir === 'favor' ? 'a favor del viento (downwind)' : 'en contra del viento (upwind)'}<br>
+      Kzt = [1 + K1·K2·K3]²<br>
+      ${betaFormula}<br>
+      K1 = β·K1′ = ${ktd.beta.toFixed(3)} × ${ktd.k1p.toFixed(3)} = <b>${ktd.K1.toFixed(3)}</b><br>
+      ${k2Formula}<br>
+      ${k3Formula}</p>`}
+    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '4' : '3'}. Factor de Elevación del Terreno, Ke (§2.6.8)</b><br>
+      Ke = e<sup>−0.000119·zs</sup> = e<sup>−0.000119×${windData.asnm ?? 0}</sup> = <b>${_tiaKe(windData.asnm).toFixed(3)}</b></p>
+    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '5' : '4'}. Factor de Direccionalidad, Kd (Tabla 2-2)</b><br>
+      Kd = <b>${_tiaKd(cfg.type)}</b> (${_VIENTO_TIPO_LABELS[cfg.type] || cfg.type})</p>
+    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '6' : '5'}. Factor de Efecto de Ráfaga, Gh (§2.6.9)</b><br>${ghFormula}</p>
+    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '7' : '6'}. Presión de Velocidad, qz (§2.6.11.6)</b><br>
+      qz = 0.613 · Kz · Kzt · Ks · Ke · Kd · V² [N/m²] (Ks = 1.0, estructura apoyada en suelo, no en azotea — §2.6.7)<br>
+      Evaluado por sección — ver tabla "Presión por Sección" más abajo.</p>
+  `;
+
+  const viento23 = `
+    <h2 class="rp-h2" id="${_memAnchorId('2.3 Parámetros de Viento')}">2.3 Parámetros de Viento</h2>
+    ${procedimiento}
+    <h3 style="font-size:11px;margin:10px 0 6px;color:#444;">Resumen</h3>
+    <table class="rp-table"><tbody>
+      <tr><td>Código de Diseño</td><td>${_VIENTO_CODIGO_LABELS[windData.codigo] || '—'}</td></tr>
+      <tr><td>Velocidad de Diseño (Última)</td><td>${Vultima ? Vultima.toFixed(1) + ' km/h' : '—'}</td></tr>
+      <tr><td>Categoría de Exposición / Riesgo</td><td>${windData.catExposicion || '—'} / ${windData.catRiesgo || '—'}</td></tr>
+      <tr><td>H (m)</td><td>${windData.topoH ?? '—'}</td></tr>
+      <tr><td>L (m)</td><td>${windData.topoL ?? '—'}</td></tr>
+      <tr><td>Categoría Topográfica</td><td>${_TOPOCAT_LABELS[windData.topoCat] || '—'}</td></tr>
+      <tr><td>ASNM (m)</td><td>${windData.asnm ?? '—'}</td></tr>
+      <tr><td>Dirección del Viento</td><td>${_DIR_LABELS[windData.topoDir] || '—'}</td></tr>
+      <tr><td>Kd</td><td>${_tiaKd(cfg.type)}</td></tr>
+      <tr><td>Ke</td><td>${_tiaKe(windData.asnm).toFixed(3)}</td></tr>
+    </tbody></table>
+
+    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Parámetros de Kz / Kzt</h3>
+    <table class="rp-table"><tbody>
+      <tr><td>Kzmin</td><td>${fmt(exp.Kzmin)}</td></tr>
+      <tr><td>Zg (m)</td><td>${exp.Zg ?? '—'}</td></tr>
+      <tr><td>I (Factor de Importancia)</td><td>${fmt(FI)}</td></tr>
+      ${ktd.aplica ? `
+      <tr><td>H/L</td><td>${fmt(ktd.HL)}</td></tr>
+      <tr><td>β</td><td>${fmt(ktd.beta)}</td></tr>
+      <tr><td>K1</td><td>${fmt(ktd.K1)}</td></tr>
+      <tr><td>K2</td><td>${fmt(ktd.K2)}</td></tr>` : ''}
+      <tr><td>Gh</td><td>${fmt(Gh)}</td></tr>
+    </tbody></table>
+
+    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Presión por Sección (qz)</h3>
+    <table class="rp-table">
+      <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (kg/m²)</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <p style="font-size:9.5px;color:#777;margin-top:6px;">qz evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.</p>
+  `;
+
+  return `
+    <div class="mem-chapter-title" id="sec-2">2. ${ch.title}</div>
+    ${pend('2.1 Norma de Diseño y Normas Referenciadas')}
+    ${pend('2.2 Materiales')}
+    ${viento23}
+    ${pend('2.4 Parámetros de Hielo')}
+    ${pend('2.5 Parámetros Sísmicos')}
+  `;
+}
+
 // Capítulo 4 — única sección con datos reales fuera del capítulo 8: reutiliza el
 // takeoff de acero (perfil/calidad/longitud/peso) y el desglose de peso por sección ya
 // calculados para el resto de la app.
@@ -7238,7 +7690,7 @@ function _memDisclaimerHtml() {
 function _buildMemoriaPages(cfg) {
   const interior = [];
   MEM_CHAPTERS.forEach(ch => {
-    interior.push(ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch));
+    interior.push(ch.num === 2 ? _memChapter2Html(cfg) : ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch));
   });
   // 8.1 puede ocupar varios bloques (torres con muchas secciones) — cada uno entra
   // por separado a "interior", así cada uno se convierte en su propio
@@ -7501,7 +7953,10 @@ let supportOverrides = {};
 // usuario (no derivado de la geometría). Cada fila: {version, descripcion, autor, fecha}.
 // Fila inicial tomada de Revisiones.xlsx (2026-06-24) — no agregar/editar filas nuevas
 // por iniciativa propia, el usuario dicta cada actualización (ver feedback_tsa_revisiones).
-const REVISION_DATA_DEFAULT = [{ version: 'V1.0', descripcion: 'Publicación Inicial', autor: 'Juan Espinosa', fecha: '2026-06-20', locked: true }];
+const REVISION_DATA_DEFAULT = [
+  { version: 'V1.0', descripcion: 'Publicación Inicial', autor: 'Juan Espinosa', fecha: '2026-06-20', locked: true },
+  { version: 'V1.01', descripcion: 'Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.', autor: 'Juan Espinosa', fecha: '2026-06-28', locked: true },
+];
 let revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
 // Ícono real de la app (assets/icon.svg) embebido inline — así se ve igual en TSA.html
 // y en app\web\viewer.html sin depender de una ruta de archivo relativa distinta.
@@ -7560,7 +8015,25 @@ const TSA_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 2
 function openTablaRevisiones() {
   document.getElementById('tabla-menu').classList.remove('open');
   renderTablaRevisiones();
-  document.getElementById('tabla-revisiones-overlay').classList.add('open');
+  const panel = document.getElementById('tabla-revisiones-overlay');
+  panel.classList.add('open');
+  // Centrado en el canvas (no en toda la ventana) al abrir — pedido explícito del
+  // usuario (2026-06-28: "La hoja de revisiones debe aparecer al centro del canvas").
+  // Se mide DESPUÉS de mostrarla (rAF) para usar el tamaño real ya renderizado, y se
+  // fija con left/top explícitos (no transform) para no interferir con _makeDraggable,
+  // que ya lee/escribe left/top directo vía getBoundingClientRect(). getBoundingClientRect
+  // ya da px "reales" bajo el zoom CSS auto-ajustado de la ventana — pero al ESCRIBIRLOS
+  // de vuelta en style.left/top, el navegador los vuelve a escalar por ese mismo zoom
+  // (mismo gotcha ya resuelto en el arrastre de Zoom Window), así que hay que dividir
+  // entre el zoom actual antes de asignarlos.
+  requestAnimationFrame(() => {
+    const wrapRect = document.getElementById('viewer-wrap').getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const z = parseFloat(document.documentElement.style.zoom) || 1;
+    panel.style.right = 'auto';
+    panel.style.left = ((wrapRect.left + (wrapRect.width - panelRect.width) / 2) / z) + 'px';
+    panel.style.top  = ((wrapRect.top + (wrapRect.height - panelRect.height) / 2) / z) + 'px';
+  });
 }
 function closeTablaRevisiones() {
   document.getElementById('tabla-revisiones-overlay').classList.remove('open');
@@ -8782,6 +9255,9 @@ function loadProjectData(cfg, filename) {
     memberOverrides = (cfg.memberOverrides && typeof cfg.memberOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.memberOverrides)) : {};
     supportOverrides = (cfg.supportOverrides && typeof cfg.supportOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.supportOverrides)) : {};
     revisionData = Array.isArray(cfg.revisionData) ? JSON.parse(JSON.stringify(cfg.revisionData)) : [];
+    // Proyectos guardados antes de que existiera Diseño por Viento no traen windData —
+    // se cae a los valores por defecto (ya declarados arriba) en vez de quedar undefined.
+    if (cfg.windData && typeof cfg.windData === 'object') windData = JSON.parse(JSON.stringify(cfg.windData));
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });

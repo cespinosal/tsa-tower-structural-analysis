@@ -152,6 +152,13 @@
     <a href="#apoyos">Apoyos</a>
     <a href="#revisiones">Hoja de Revisiones</a>
 
+    <h4>Análisis</h4>
+    <a href="#viento">Diseño por Viento</a>
+    <a href="#viento-paso1">Paso 1 — Configuración General</a>
+    <a href="#viento-paso2">Paso 2 — Parámetros de Viento</a>
+    <a href="#viento-cargas">Paso 3 — Cargas de Viento</a>
+    <a href="#viento-formulas">Fórmulas usadas</a>
+
     <h4>Proyecto</h4>
     <a href="#guardar-abrir">Guardar / abrir proyecto</a>
     <a href="#unidades">Unidades</a>
@@ -186,6 +193,7 @@
       <a href="#bases-datos"><div class="qn-title">🗄 Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
       <a href="#visor3d"><div class="qn-title">🖥 Visor 3D</div><div class="qn-desc">Navegación, nodos, inspección de miembros</div></a>
       <a href="#tablas"><div class="qn-title">⊞ Tablas</div><div class="qn-desc">Nodos, Barras, Retenidas, Apoyos editables</div></a>
+      <a href="#viento"><div class="qn-title">🌬 Diseño por Viento</div><div class="qn-desc">Parámetros ANSI/TIA-222-H y presión qz por sección</div></a>
       <a href="#feedback"><div class="qn-title">💬 Dar feedback</div><div class="qn-desc">Manda tu opinión directo desde la app</div></a>
     </div>
 
@@ -467,6 +475,7 @@
         <tr><td>⊕ / ⊖</td><td>Zoom in / out</td></tr>
         <tr><td>⛶ Zoom Window</td><td>Acercar a un área rectangular</td></tr>
         <tr><td>⤢ Ajustar pantalla</td><td>Encuadra toda la geometría visible (respeta un tramo aislado, si hay uno activo)</td></tr>
+        <tr><td>3D / Planta XY / Alzado XZ / Alzado YZ</td><td>Botones centrados arriba del visor — cambian entre la vista isométrica normal (perspectiva) y 3 vistas ortográficas exactas (sin distorsión de perspectiva), útiles para revisar plantas y elevaciones limpias. La rotación se desactiva en las 3 vistas ortográficas (solo pan/zoom); vuelve a activarse en "3D".</td></tr>
         <tr><td>↻ Orbitar</td><td>Rotación automática de la cámara</td></tr>
         <tr><td>🏷 Nodos</td><td>Muestra el número de cada nodo; pasa el mouse encima para ver sus coordenadas (x/y/z)</td></tr>
         <tr><td>Barras</td><td>Muestra sobre cada miembro el mismo número que ves en la tabla Barras (no es el ID del .std exportado, que usa su propia numeración por sección)</td></tr>
@@ -625,6 +634,111 @@
     </p>
 
     <!-- ───────────────────────────────────────── -->
+    <h2 id="viento">Diseño por Viento</h2>
+    <p>
+      El ícono <b>Viento</b> de la barra lateral (antes "Análisis") abre un flyout pegado al costado
+      —igual que "Nueva Torre"— sin ocultar el visor 3D, así que puedes seguir viendo tu torre mientras
+      ajustas los parámetros. El análisis sigue el procedimiento de la norma <b>ANSI/TIA-222-H, Sección
+      2.6</b> (presión de velocidad de viento). A continuación, todos los pasos:
+    </p>
+
+    <h3 id="viento-paso1">Paso 1 — Configuración General</h3>
+    <ul>
+      <li><b>Código de Diseño</b> — <code>ANSI/TIA H</code> (<code>CFE 2020</code> aparece en el
+        selector pero deshabilitado, marcado "En proceso").</li>
+      <li><b>Tipo de Estructura</b> — de solo lectura: siempre refleja el tipo de torre del proyecto
+        actual (Autosoportada 3/4 piernas, Arriostrada o Monopolo), no se selecciona aparte aquí.</li>
+      <li><b>Categoría de Riesgo</b> — I (bajo) a IV (esencial), según el uso/ubicación de la estructura
+        (Tabla 2-1 de la norma). Determina el <b>Factor de Importancia (I)</b> usado para convertir la
+        velocidad Regional a Última.</li>
+      <li><b>Categoría de Exposición</b> — B (urbano/suburbano), C (terreno abierto) o D (líneas
+        costeras). Define Zg, α′ y Kzmin usados en el cálculo de Kz.</li>
+    </ul>
+
+    <h3 id="viento-paso2">Paso 2 — Parámetros de Viento</h3>
+    <ul>
+      <li><b>Velocidad de viento (km/hr)</b> con 2 checks <b>mutuamente excluyentes</b> que indican qué
+        representa el valor capturado:
+        <ul>
+          <li><b>Velocidad Regional</b> — velocidad sin afectar por la categoría de riesgo; TSA la
+            convierte internamente a Última con V<sub>Última</sub> = V<sub>Regional</sub>·√(1.6·I).</li>
+          <li><b>Velocidad Última</b> — velocidad ya afectada por la categoría de riesgo; se usa
+            directamente, sin conversión.</li>
+        </ul>
+      </li>
+      <li><b>Velocidad Operacional (km/hr)</b> — velocidad de servicio (default 97.2 km/hr); todavía no
+        se usa en ningún cálculo (reservada para una futura combinación de cargas de servicio).</li>
+      <li><b>Altura Sobre Nivel del Mar — ASNM (m)</b> — alimenta el Factor de Elevación del Terreno
+        (Ke).</li>
+      <li><b>Categoría Topográfica</b> — Plano (sin efecto topográfico, Kzt=1.0) o una de 5 formas
+        (Escarpado, Colina, Colina de cima plana, Cresta, Cresta de cima plana) según la Figura 2-1 de
+        la norma (Método 2, riguroso). Si no es Plano, se despliegan:
+        <ul>
+          <li><b>H (m)</b> — altura de la formación topográfica.</li>
+          <li><b>L (m)</b> — el doble de la distancia horizontal de la cresta a la media altura de la
+            formación (ver Figura 2-1 de la norma para la definición exacta).</li>
+          <li><b>x (m)</b> — distancia horizontal de la torre a la cresta.</li>
+          <li><b>Dirección</b> — A favor del viento (downwind) o En contra del viento (upwind); algunas
+            fórmulas cambian según el lado (en particular, Escarpado a favor del viento usa una fórmula
+            de K2 distinta a las demás formas/direcciones).</li>
+        </ul>
+      </li>
+    </ul>
+    <p>
+      El botón <b>Guardar</b> persiste estos parámetros junto con el proyecto (se guardan/cargan con el
+      archivo .TSA, entran al historial de deshacer/rehacer). Mientras editas, si la pestaña
+      <a href="#viento-cargas" style="color:var(--cyan)">Cargas de Viento</a> está abierta al mismo
+      tiempo, se actualiza <b>en tiempo real</b> con cada cambio, sin necesidad de guardar primero —
+      los cambios sin guardar no se pierden si cierras el flyout sin querer, pero tampoco quedan
+      guardados en el proyecto hasta hacer clic en Guardar.
+    </p>
+
+    <h3 id="viento-cargas">Paso 3 — Pestaña "Cargas de Viento"</h3>
+    <p>
+      La pestaña <b>Cargas de Viento</b> de la barra de pestañas (arriba del visor) despliega un panel
+      del lado derecho con los resultados:
+    </p>
+    <ul>
+      <li><b>Resumen</b> — todos los datos capturados en el Paso 1 y 2, más la Velocidad de Diseño
+        (Última) ya convertida.</li>
+      <li><b>Parámetros de Kz / Kzt</b> — los factores intermedios de la norma: Kzmin, Zg, I (Factor de
+        Importancia), y — solo si la topografía no es Plana — H/L, β (modificador de pendiente), K1 y
+        K2; además Gh (factor de efecto de ráfaga, según el tipo de estructura: fórmula por altura en
+        autosoportadas, fijo 0.85 en arriostradas, fijo 1.10 en monopolos).</li>
+      <li><b>Presión por Sección (qz)</b> — tabla con <b>Kz</b>, <b>K3</b> y <b>Kzt</b> evaluados en la
+        elevación real de cada sección (al centro de cada tramo, no al tope), y la <b>presión de
+        velocidad qz</b> resultante en <b>kg/m²</b> (MKS técnico) para cada una.</li>
+    </ul>
+    <h3 id="viento-formulas">Fórmulas usadas (ANSI/TIA-222-H, Sección 2.6)</h3>
+    <table>
+      <thead><tr><th>Factor</th><th>Referencia</th><th>Qué calcula</th></tr></thead>
+      <tbody>
+        <tr><td>Kz</td><td>§2.6.5.2</td><td>Coeficiente de presión de velocidad por altura y exposición</td></tr>
+        <tr><td>Kzt</td><td>§2.6.6.2.2 (Método 2)</td><td>Factor topográfico (K1·K2·K3, según forma/pendiente/dirección)</td></tr>
+        <tr><td>Ke</td><td>§2.6.8</td><td>Factor de elevación del terreno (por ASNM)</td></tr>
+        <tr><td>Kd</td><td>Tabla 2-2</td><td>Factor de direccionalidad (por tipo de estructura)</td></tr>
+        <tr><td>Gh</td><td>§2.6.9</td><td>Factor de efecto de ráfaga (por tipo de estructura/altura)</td></tr>
+        <tr><td>qz</td><td>§2.6.11.6</td><td>Presión de velocidad final: 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m²] (Ks=1.0, torres en suelo)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout info">
+      <b>Kd de Monopolo</b>
+      La Tabla 2-2 distingue 2 casos de monopolo (apéndices expuestos: 0.95, o antenas en funda
+      cilíndrica sin apéndices: 1.00) — TSA siempre usa 0.95 (el caso más común) hasta que exista un
+      catálogo de antenas que permita distinguir el otro caso.
+    </div>
+
+    <h3 id="viento-memoria-23">En la Memoria de Cálculo</h3>
+    <p>
+      El subtema <b>2.3 Parámetros de Viento</b> del reporte (ver
+      <a href="#memoria" style="color:var(--cyan)">Memoria de Cálculo</a> más abajo) ya tiene contenido
+      real: las mismas tablas Resumen y Parámetros de Kz/Kzt del panel, la tabla de Presión por Sección,
+      y además un <b>Procedimiento de Cálculo</b> con cada fórmula simbólica y su sustitución numérica
+      paso a paso — listo para incluirse en una memoria de cálculo formal. Los demás subtemas del
+      capítulo 2 (2.1, 2.2, 2.4, 2.5) siguen "Pendiente".
+    </p>
+
+    <!-- ───────────────────────────────────────── -->
     <h2 id="memoria">Memoria de Cálculo (PDF)</h2>
     <p>
       El botón <b>Reporte</b> de la barra lateral genera una Memoria de Cálculo en formato carta (8.5×11
@@ -638,21 +752,24 @@
         directo a esa sección (tanto en el navegador como dentro del PDF ya guardado). No muestra número
         de página: el documento usa paginación nativa del navegador, así que el número de hoja final no
         se calcula de antemano.</li>
-      <li><b>Capítulo 4 — Lista de Materiales</b> y <b>Capítulo 8 — Configuración de la Torre</b> (esquema
-        de elevación + tabla de perfiles por sección, vista en planta, calidades de acero usadas) ya
-        tienen contenido real, generado a partir de los datos de tu proyecto.</li>
-      <li>Los capítulos 1, 2, 3, 5, 6 y 7 (Información General, Parámetros de Diseño, Cargas, Códigos de
-        Elementos, Viento EPA, Combinaciones de Carga) muestran sus subtemas pero aparecen como
-        <span class="badge soon">Pendiente</span> — todavía no hay un módulo de datos que los alimente.</li>
+      <li><b>Capítulo 4 — Lista de Materiales</b>, <b>Capítulo 8 — Configuración de la Torre</b> (esquema
+        de elevación + tabla de perfiles por sección, vista en planta, calidades de acero usadas) y el
+        subtema <b>2.3 — Parámetros de Viento</b> (ver
+        <a href="#viento" style="color:var(--cyan)">Diseño por Viento</a>, con fórmulas y procedimiento
+        de cálculo completos) ya tienen contenido real, generado a partir de los datos de tu proyecto.</li>
+      <li>El resto del capítulo 2 (2.1, 2.2, 2.4, 2.5) y los capítulos 1, 3, 5, 6 y 7 (Información
+        General, Cargas, Códigos de Elementos, Viento EPA, Combinaciones de Carga) muestran sus subtemas
+        pero aparecen como <span class="badge soon">Pendiente</span> — todavía no hay un módulo de datos
+        que los alimente.</li>
       <li>En torres arriostradas con muchas secciones, el esquema de la torre (8.1) puede repartirse en
         varias hojas consecutivas ("hoja 1 de 2", etc.) para que el texto no quede ilegible — cada hoja
         mantiene la misma escala visual y cada sección coincide con su fila correspondiente.</li>
     </ul>
     <div class="callout info">
       <b>En desarrollo</b>
-      Capítulos 1, 2, 3, 5, 6 y 7 — pendientes de los módulos de datos correspondientes (Información
-      General, Parámetros de Diseño, Cargas/Antenas, Códigos de Elementos, Viento EPA, Combinaciones de
-      Carga).
+      Capítulos 1, 3, 5, 6 y 7, más los subtemas 2.1/2.2/2.4/2.5 — pendientes de los módulos de datos
+      correspondientes (Información General, Norma/Materiales, Hielo/Sismo, Cargas/Antenas, Códigos de
+      Elementos, Viento EPA, Combinaciones de Carga).
     </div>
 
     <!-- ───────────────────────────────────────── -->
@@ -712,8 +829,8 @@
       <thead><tr><th>Función</th><th>Estado</th></tr></thead>
       <tbody>
         <tr><td>Pestaña "Render" (vista extruida de perfiles)</td><td><span class="badge soon">Placeholder</span></td></tr>
-        <tr><td>Pestañas FEM / Códigos / Cargas Viento / Antenas / Escaleras / Plataformas</td><td><span class="badge soon">Placeholder</span></td></tr>
-        <tr><td>Ícono de barra lateral: Análisis / Optimización</td><td><span class="badge soon">Placeholder</span></td></tr>
+        <tr><td>Pestañas FEM / Códigos / Antenas / Escaleras / Plataformas</td><td><span class="badge soon">Placeholder</span></td></tr>
+        <tr><td>Ícono de barra lateral: Optimización</td><td><span class="badge soon">Placeholder</span></td></tr>
         <tr><td>Conversión real de unidades MKS ↔ IMP</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export STAAD: cargas de viento (MEMBER LOAD / JOINT LOAD)</td><td><span class="badge soon">Planeado</span></td></tr>
         <tr><td>Export STAAD: GROUP DEFINITION de horizontal/tensor de puntales y tensores del estabilizador</td><td><span class="badge soon">Planeado</span></td></tr>
