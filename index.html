@@ -329,6 +329,12 @@ body {
   padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
   transform: translate(-50%, -50%);
 }
+.wind-force-label {
+  position: absolute;
+  color: #FFA500; font-size: 9px; font-weight: 700; background: rgba(10,22,40,.75);
+  padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
+  transform: translate(-50%, -50%);
+}
 
 /* ── Main content ───────────────────────────────────────────── */
 .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
@@ -1427,7 +1433,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 <div class="tabbar">
   <button class="tab active" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Códigos</button>
-  <button class="tab" onclick="switchTab(this, 'viento')">&nbsp;&nbsp;Cargas de Viento</button>
+  <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()">&nbsp;&nbsp;Cargas de Viento</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Antenas</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Escaleras</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Plataformas</button>
@@ -1451,6 +1457,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="icon-btn" id="vbtn-staadlabels" onclick="toggleStaadLabels()">#<span class="icon-tip">Barras</span></button>
       <button class="icon-btn" id="vbtn-profilelabels" onclick="toggleProfileLabels()">𝐃<span class="icon-tip">Perfiles</span></button>
       <button class="icon-btn" id="vbtn-apoyoslabels" onclick="toggleApoyosLabels()">⏚<span class="icon-tip">Apoyos</span></button>
+      <button class="icon-btn" id="vbtn-windforcelabels" onclick="toggleWindForceLabels()">Σ<span class="icon-tip">Etiquetas de Fuerza de Viento</span></button>
       <button class="icon-btn" id="vbtn-screenshot" onclick="takeScreenshot()">📷<span class="icon-tip">Screenshot</span></button>
     </div>
     <button class="icon-btn" id="grid-cfg-btn" onclick="toggleGridPanel(event)">⚙<span class="icon-tip">Configuración de malla</span></button>
@@ -1488,7 +1495,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     </button>
 
     <!-- Viento -->
-    <button class="side-btn" onclick="openVientoFlyout()">
+    <button class="side-btn" id="viento-btn" onclick="openVientoFlyout()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9.59 4.59A2 2 0 1 1 11 8H2"/>
         <path d="M12.59 11.59A2 2 0 1 1 14 15H2"/>
@@ -2313,6 +2320,10 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <input type="color" id="set-color-guy" class="set-color"></div>
       <div class="frow"><span class="flbl">Color brazos estabilizador:</span>
         <input type="color" id="set-color-stabarm" class="set-color"></div>
+      <div class="frow"><span class="flbl">Color fuerza de viento (tramos impares):</span>
+        <input type="color" id="set-color-windforce-odd" class="set-color"></div>
+      <div class="frow"><span class="flbl">Color fuerza de viento (tramos pares):</span>
+        <input type="color" id="set-color-windforce-even" class="set-color"></div>
       <div class="frow"><span class="flbl">Color de fondo del canvas:</span>
         <input type="color" id="set-color-bg" class="set-color"></div>
       <div class="frow"><span class="flbl">Velocidad auto-rotación:</span>
@@ -3480,10 +3491,13 @@ let nodeLabelsOn = false;
 let profileLabelsOn = false;
 let staadLabelsOn = false;
 let apoyosLabelsOn = false;
+let windForcesOn = false;
+let windForceLabelsOn = false;
 const profileLabelsGroup = new THREE.Group();
 const staadLabelsGroup = new THREE.Group();
 const nodeLabelsGroup = new THREE.Group();
 const apoyosLabelsGroup = new THREE.Group();
+const windForcesGroup = new THREE.Group();
 
 // Grids — rebuilt by buildGrid()
 let primaryGrid = null;
@@ -3854,6 +3868,98 @@ function toggleApoyosLabels() {
   if (secondaryGrid) secondaryGrid.visible = !apoyosLabelsOn;
   if (apoyosLabelsOn) _buildApoyosLabels(); else _clearApoyosLabels();
 }
+
+// ── Flechas de Fuerza de Viento (botón "Cargas de Viento" del tabbar) — un
+// THREE.ArrowHelper por nodo de pierna con fuerza > 0 (computeNodalWindForces), apuntando
+// AL nodo (estilo STAAD.Pro: la punta toca el nodo), + etiqueta CSS2D con el valor en
+// kgf — mismo patrón de toggle que Apoyos/Barras/Perfiles — pedido explícito del usuario
+// (2026-06-29).
+// Tamaño CONSTANTE en pantalla sin importar el zoom — pedido explícito del usuario
+// (2026-06-29: "que se queden del mismo tamaño, autoajustar al zoom. Actualmente si se
+// acerca la vista las flechas también se agrandan"). El largo de cada flecha se define
+// en PÍXELES (no en unidades del mundo) y se convierte a unidades de mundo con
+// _worldUnitsPerPixel() cada vez que el zoom/distancia de cámara cambia — _windForceResults
+// (computeNodalWindForces) se cachea aparte para no recalcular fuerzas en cada frame,
+// solo la geometría se reconstruye (_redrawWindForceArrows).
+function _clearWindForceArrows() {
+  windForcesGroup.children.slice().forEach(c => {
+    if (c.dispose) c.dispose();
+    c.line?.geometry?.dispose(); c.line?.material?.dispose();
+    c.cone?.geometry?.dispose(); c.cone?.material?.dispose();
+    windForcesGroup.remove(c);
+  });
+}
+// Unidades de mundo que ocupa 1px de pantalla a la distancia/zoom actual de activeCamera
+// — mismo criterio estándar de Three.js para objetos de tamaño constante en pantalla.
+function _worldUnitsPerPixel() {
+  const h = wrap.clientHeight || 1;
+  if (activeCamera.isOrthographicCamera) {
+    return (activeCamera.top - activeCamera.bottom) / activeCamera.zoom / h;
+  }
+  const dist = activeCamera.position.distanceTo(controls.target);
+  const vFov = activeCamera.fov * Math.PI / 180;
+  return 2 * Math.tan(vFov / 2) * dist / h;
+}
+let _windForceResults = null;
+let _windForceLastWupp = null;
+// Flechas (windForcesOn) y etiquetas de kgf (windForceLabelsOn) son toggles
+// INDEPENDIENTES — el botón "Cargas de Viento" del tabbar prende/apaga las flechas, el
+// botón Σ de la barra de vista prende/apaga SOLO las etiquetas — pedido explícito del
+// usuario (2026-06-29: "su función será mostrar/ocultar solo los labels de las
+// fuerzas"). Ambos comparten el mismo _windForceResults cacheado.
+function _redrawWindForceArrows() {
+  _clearWindForceArrows();
+  if (!_windForceResults || !_windForceResults.length) return;
+  if (!windForcesOn && !windForceLabelsOn) return;
+  const wupp = _worldUnitsPerPixel();
+  _windForceLastWupp = wupp;
+  const maxF = Math.max(...(_windForceResults.map(r => r.F_kgf)), 1e-6);
+  const maxLenPx = 55, minLenPx = 9;
+  _windForceResults.forEach(r => {
+    if (!(r.F_kgf > 0)) return;
+    const n = _towerData.nodes[r.nodeIdx];
+    const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
+    const len = lenPx * wupp;
+    const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
+    const tip = new THREE.Vector3(n.x, n.y, n.z);
+    // La flecha debe APUNTAR AL nodo (la punta toca el nodo), no salir de él — pedido
+    // explícito del usuario (2026-06-29) — la cola arranca "len" atrás, en sentido
+    // contrario a la dirección del viento.
+    const origin = tip.clone().sub(dir3.clone().multiplyScalar(len));
+    if (windForcesOn) {
+      const arrow = new THREE.ArrowHelper(dir3, origin, len, C_WINDFORCE(r.sec), len * 0.3, len * 0.16);
+      windForcesGroup.add(arrow);
+    }
+    if (windForceLabelsOn) {
+      const div = document.createElement('div');
+      div.className = 'wind-force-label';
+      div.style.color = C_WINDFORCE_HEX(r.sec);
+      div.textContent = r.F_kgf.toFixed(1) + ' kgf';
+      const obj = new THREE.CSS2DObject(div);
+      obj.position.copy(origin).sub(dir3.clone().multiplyScalar(len * 0.15));
+      windForcesGroup.add(obj);
+    }
+  });
+}
+function _buildWindForceArrows() {
+  if (!_towerData || !projectGenerated) { _windForceResults = null; _clearWindForceArrows(); return; }
+  _windForceResults = computeNodalWindForces(getConfig(), windData);
+  _redrawWindForceArrows();
+}
+function toggleWindForces() {
+  windForcesOn = !windForcesOn;
+  document.getElementById('tab-cargasviento').classList.toggle('active', windForcesOn);
+  if (windForcesOn && !_windForceResults) _buildWindForceArrows();
+  else if (!windForcesOn && !windForceLabelsOn) { _windForceResults = null; _clearWindForceArrows(); }
+  else _redrawWindForceArrows();
+}
+function toggleWindForceLabels() {
+  windForceLabelsOn = !windForceLabelsOn;
+  document.getElementById('vbtn-windforcelabels').classList.toggle('active', windForceLabelsOn);
+  if (windForceLabelsOn && !_windForceResults) _buildWindForceArrows();
+  else if (!windForceLabelsOn && !windForcesOn) { _windForceResults = null; _clearWindForceArrows(); }
+  else _redrawWindForceArrows();
+}
 // Aplica el estado inicial de las etiquetas (Configuración → Visualización 3D) al
 // generar una torre nueva o cargar un proyecto — renderTower() construye las que aplique.
 function _applyDefaultLabels() {
@@ -4060,6 +4166,7 @@ scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
 scene.add(apoyosLabelsGroup);
+scene.add(windForcesGroup);
 
 // Piernas/anillos/guys/brazos son configurables (menú Configuración) — se leen de
 // appSettings en cada render para reflejar cambios sin recargar.
@@ -4068,6 +4175,11 @@ const C_LEG       = () => _hexToInt(appSettings.colors.leg);
 const C_RING      = () => _hexToInt(appSettings.colors.ring);
 const C_GUY       = () => _hexToInt(appSettings.colors.guy);
 const C_STABARM   = () => _hexToInt(appSettings.colors.stabarm);
+// sec es 1-based (r.sec de computeNodalWindForces) — impar=Odd (tramo 1,3,5...),
+// par=Even (tramo 2,4,6...) — pedido explícito del usuario (2026-06-29: "Tramo 1: Azul,
+// Tramo 2: Verde, Tramo 3: Azul, Tramo 4: Verde").
+const C_WINDFORCE_HEX = sec => (sec % 2 === 1) ? appSettings.colors.windforceOdd : appSettings.colors.windforceEven;
+const C_WINDFORCE = sec => _hexToInt(C_WINDFORCE_HEX(sec));
 const C_SECONDARY = 0x5A7A95;  // azul grisáceo — diagonales/horizontales secundarias (bracing auxiliar)
 const C_PLANBRACE = 0xB85FD6;  // magenta — plan bracing (diafragma en planta)
 const C_HIPBRACE_H = 0xFF66FF; // magenta brillante — hip bracing horizontal
@@ -4194,6 +4306,7 @@ function renderTower(data) {
   if (profileLabelsOn) _buildProfileLabels();
   if (staadLabelsOn) _buildStaadLabels();
   if (apoyosLabelsOn) _buildApoyosLabels();
+  if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
   // Si alguna tabla (Nodos/Barras/Retenidas/Apoyos) está abierta, se vuelve a pintar con
   // los datos frescos de _towerData — si no, quedaba mostrando la numeración VIEJA tras
   // cualquier edición que regenerara la torre sin pasar por una de las funciones que ya
@@ -4270,6 +4383,15 @@ function resizeRenderer() {
   controls.update();
   const w=wrap.clientWidth, h=wrap.clientHeight;
   renderer.setViewport(0,0,w,h);
+  // Flechas de Fuerza de Viento a tamaño CONSTANTE en pantalla — si el zoom/distancia de
+  // cámara cambió desde el último frame, recalcular su geometría (no las fuerzas, esas
+  // ya están cacheadas en _windForceResults) — pedido explícito del usuario (2026-06-29).
+  if ((windForcesOn || windForceLabelsOn) && _windForceResults) {
+    const wupp = _worldUnitsPerPixel();
+    if (_windForceLastWupp === null || Math.abs(wupp - _windForceLastWupp) / _windForceLastWupp > 0.01) {
+      _redrawWindForceArrows();
+    }
+  }
   renderer.render(scene,activeCamera);
   activeCamera.getWorldDirection(_axisDir);
   axisCamera.position.copy(_axisDir).multiplyScalar(-3.2);
@@ -4277,7 +4399,7 @@ function resizeRenderer() {
   axisCamera.lookAt(0,0,0);
   axisRenderer.render(axisScene, axisCamera);
   updateAxisLabels();
-  if (nodeLabelsOn || profileLabelsOn || staadLabelsOn) labelRenderer.render(scene, camera);
+  if (nodeLabelsOn || profileLabelsOn || staadLabelsOn || windForcesOn || windForceLabelsOn) labelRenderer.render(scene, camera);
 })();
 
 new ResizeObserver(resizeRenderer).observe(wrap);
@@ -4289,7 +4411,7 @@ resizeRenderer();
 // ── Configuración de la app (persistida en localStorage) ────────────
 const SETTINGS_KEY = 'tsa_settings_v1';
 const DEFAULT_SETTINGS = {
-  colors: { leg:'#FF2233', ring:'#CCEEFF', guy:'#FFCC00', stabarm:'#33CC88' },
+  colors: { leg:'#FF2233', ring:'#CCEEFF', guy:'#FFCC00', stabarm:'#33CC88', windforceOdd:'#3B82F6', windforceEven:'#22C55E' },
   bgColor: '#0A1628',
   orbitSpeed: 2.0, zoomSpeed: 1.0, panSpeed: 1.0,
   nodeLabelsDefault: false, profileLabelsDefault: false,
@@ -4302,6 +4424,11 @@ function loadAppSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) appSettings = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), JSON.parse(raw));
   } catch { /* localStorage no disponible o dato corrupto — usar defaults */ }
+  // Object.assign es superficial — un appSettings.colors guardado ANTES de que existiera
+  // windforce (o cualquier color nuevo a futuro) reemplaza todo el objeto colors y se
+  // pierde el default. Mismo criterio ya usado para secData/profileCatalogs al cargar
+  // proyectos viejos.
+  appSettings.colors = Object.assign({}, DEFAULT_SETTINGS.colors, appSettings.colors);
   applyAppSettings();
 }
 function saveAppSettingsToStorage() {
@@ -4364,6 +4491,8 @@ function _populateSettingsForm() {
   document.getElementById('set-color-ring').value     = appSettings.colors.ring;
   document.getElementById('set-color-guy').value      = appSettings.colors.guy;
   document.getElementById('set-color-stabarm').value  = appSettings.colors.stabarm;
+  document.getElementById('set-color-windforce-odd').value  = appSettings.colors.windforceOdd;
+  document.getElementById('set-color-windforce-even').value = appSettings.colors.windforceEven;
   document.getElementById('set-color-bg').value       = appSettings.bgColor;
   document.getElementById('set-orbitspeed').value     = appSettings.orbitSpeed;
   document.getElementById('set-zoomspeed').value      = appSettings.zoomSpeed;
@@ -5139,6 +5268,8 @@ function _onTopoCatChange() {
 // del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
 function openVientoFlyout() {
   closeTorreFlyout();   // ambos comparten la misma posición en pantalla — no abrir los 2 a la vez
+  document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
+  document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
   const tipoActual = document.getElementById('ttype')?.value;
   document.getElementById('viento-tipo-display').textContent = _VIENTO_TIPO_LABELS[tipoActual] || '—';
@@ -5156,6 +5287,12 @@ function openVientoFlyout() {
   document.getElementById('viento-topo-dir').value = windData.topoDir;
   _onTopoCatChange();
   document.getElementById('viento-flyout').classList.add('open');
+  // Abrir también el panel derecho con la vista de viento al abrir el menú Viento del
+  // sidebar — el botón "Cargas de Viento" del tabbar YA NO controla esto (ahora solo
+  // activa las flechas 3D, ver toggleWindForces()), así que el panel SOLO aparece desde
+  // aquí — pedido explícito del usuario (2026-06-29: "Solo debe aparecer al pulsar el
+  // botón del sidebar"). tabEl=null porque ningún tab del tabbar representa ya esta vista.
+  if (projectGenerated) switchTab(null, 'viento');
 }
 function closeVientoFlyout() {
   document.getElementById('viento-flyout').classList.remove('open');
@@ -5522,6 +5659,85 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth) {
   return { epsilon: sol.epsilon, areaPlana: sol.areaPlana, areaRedonda: sol.areaRedonda, Cf, Gh, qz, F_N, F_kgf: F_N / 9.80665 };
 }
 
+// ── Distribución nodal de la fuerza de viento — SOLO en nodos de pierna ────────────
+// La fuerza total de cada tramo (calcSectionWindForce) se reparte EN PARTES IGUALES
+// (F_kgf/nLegs/M, M = nodos restantes de esa pierna en ese tramo) — no por tributary
+// length — pedido explícito del usuario (2026-06-29: "la carga se debe repartir igual en
+// los n nodos"), entre los nodos de pierna de ESE tramo, INCLUYENDO los intermedios
+// (cortes de pierna de cada patrón de bracing) y QUITANDO el nodo inicial (el más bajo)
+// de cada tramo — ese nodo es EL MISMO nodo físico que el nodo final del tramo de abajo,
+// así que excluirlo evita duplicar la fuerza ahí — pedido explícito del usuario
+// (2026-06-29).
+// Repartida entre TODAS las piernas de la torre (3 o 4, no solo las 2 de una cara) —
+// pedido explícito del usuario (2026-06-29: "debe ser en los nodos de las 3 o 4
+// piernas") — cada pierna recibe F_kgf/nLegs de la sección, y dentro de su propia
+// columna se reparte por tributary length igual que antes. Dirección de viento fija a
+// 0°, paralela a +Y, IGUAL para todas las piernas (no se distingue barlovento/sotavento
+// todavía) — supuesto explícito del usuario (2026-06-29: "vamos a suponer que todos los
+// cálculos los estamos haciendo a 0° y que son paralelos a -Y", corregido a +Y el mismo
+// día: "cambiar a +Y la dirección de las flechas así es como se aplica el viento");
+// combinación multi-dirección real queda para más adelante (mismo límite ya documentado
+// en calcSectionWindForce).
+const WIND_DIR_0DEG = { x: 0, y: 1 };
+function _legColumnsUnionFind(nodes, members) {
+  const parent = {};
+  const find = x => { while (parent[x] !== undefined && parent[x] !== x) x = parent[x]; return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  members.forEach(m => {
+    if (m.type !== 'leg') return;
+    if (parent[m.ni] === undefined) parent[m.ni] = m.ni;
+    if (parent[m.nj] === undefined) parent[m.nj] = m.nj;
+    union(m.ni, m.nj);
+  });
+  return find;
+}
+function computeNodalWindForces(cfg, windData) {
+  if (cfg.type !== 'triangular' && cfg.type !== 'square') return [];
+  if (!_towerData || !_towerData.nodes.length) return [];
+  const { nodes, members } = _towerData;
+  const find = _legColumnsUnionFind(nodes, members);
+  // Todas las columnas de pierna distintas — normalmente 3 (triangular) o 4 (cuadrada).
+  const allCols = [...new Set(members.filter(m => m.type === 'leg').map(m => find(m.ni)))];
+  const nLegs = allCols.length || 1;
+
+  // Nodos de pierna por (sección, columna) — todas las columnas.
+  const bySecCol = new Map();
+  members.forEach(m => {
+    if (m.type !== 'leg' || m.sec == null) return;
+    const col = find(m.ni);
+    const key = m.sec + '|' + col;
+    if (!bySecCol.has(key)) bySecCol.set(key, new Set());
+    bySecCol.get(key).add(m.ni); bySecCol.get(key).add(m.nj);
+  });
+
+  const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
+  let zBase = dadoHeight, zBaseTower = 0;
+  const results = [];
+  for (let i = 0; i < nsec; i++) {
+    const h = +cfg.secData[i]?.h || (cfg.height / nsec);
+    const zCenter = zBase + h / 2;
+    const faceWidth = _faceWidthAt(cfg, zBaseTower + h / 2);
+    const force = calcSectionWindForce(cfg, windData, i, zCenter, faceWidth);
+    if (force) {
+      allCols.forEach(col => {
+        const set = bySecCol.get(i + '|' + col);
+        if (!set || set.size < 2) return;
+        let idxs = [...set].sort((a, b) => nodes[a].z - nodes[b].z);
+        idxs = idxs.slice(1);   // quitar el nodo inicial (más bajo) de este tramo
+        const M = idxs.length;
+        if (M < 1) return;
+        const dir = WIND_DIR_0DEG;
+        const Fk = (force.F_kgf / nLegs) / M;
+        idxs.forEach(idx => {
+          results.push({ sec: i + 1, nodeIdx: idx, z: nodes[idx].z, F_kgf: Fk, dir });
+        });
+      });
+    }
+    zBase += h; zBaseTower += h;
+  }
+  return results;
+}
+
 // Pestaña "Cargas de Viento" del tabbar (antes "Cargas Viento", inerte) — al hacer clic
 // despliega un panel del lado derecho con los datos de viento, pedido explícito del
 // usuario (2026-06-28). Las demás pestañas (FEM/Códigos/Antenas/Escaleras/Plataformas)
@@ -5529,7 +5745,10 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth) {
 // información normal para no dejar al usuario atascado en la vista de viento.
 function switchTab(tabEl, view) {
   document.querySelectorAll('.tabbar .tab').forEach(t => t.classList.remove('active'));
-  tabEl.classList.add('active');
+  // tabEl puede ser null — usado por openVientoFlyout() para abrir la vista 'viento' SIN
+  // pasar por el botón "Cargas de Viento" del tabbar (ese botón ya no controla la
+  // visibilidad del panel, ahora solo activa las flechas 3D — ver toggleWindForces()).
+  tabEl?.classList.add('active');
   // El listener genérico de los botones del sidebar (más abajo, "Ocultar panel si no es
   // Torre") quita la clase "visible" de #rpanel como efecto secundario al usar CUALQUIER
   // botón del sidebar que no sea Torre — incluido "Viento" (abre el flyout de Diseño por
@@ -5656,6 +5875,26 @@ function buildCargasVientoPanel() {
       a partir de montantes (M) y bracing real del patrón (D), vía ANSI/TIA-222-H §2.6.9.1.
       No incluye sotavento ni combinación por dirección de viento (próxima entrega).
     </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">FUERZAS NODALES EN PIERNAS</div>
+    ${(() => {
+      const nodal = computeNodalWindForces(cfg, windData);
+      if (!nodal.length) return `<div style="font-size:11px;color:var(--txt-sec);padding:6px 0;">— captura M/D con perfil válido en al menos un tramo${cfg.type!=='triangular'&&cfg.type!=='square'?' (solo lattice triangular/cuadrada)':''}</div>`;
+      const { newId } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
+      return `
+      <table class="ret-table wind-table-center">
+        <thead><tr><th>Nodo</th><th>Tramo</th><th>z (m)</th><th>Fuerza (kgf)</th></tr></thead>
+        <tbody>
+          ${nodal.map(r => `<tr><td>${newId[r.nodeIdx]}</td><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.F_kgf.toFixed(1)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+        Fuerza de cada tramo repartida por tributary length entre los nodos de TODAS las
+        piernas (3 o 4), sin contar el nodo inicial (más bajo) de cada tramo — ese nodo es
+        el mismo nodo físico que el final del tramo de abajo. Activa el botón ↝ "Fuerzas
+        de Viento" en el visor para verlas como flechas sobre la torre.
+      </div>`;
+    })()}
   `;
 }
 
@@ -5666,6 +5905,8 @@ function saveSettingsModal() {
       ring:     document.getElementById('set-color-ring').value,
       guy:      document.getElementById('set-color-guy').value,
       stabarm:  document.getElementById('set-color-stabarm').value,
+      windforceOdd:  document.getElementById('set-color-windforce-odd').value,
+      windforceEven: document.getElementById('set-color-windforce-even').value,
     },
     bgColor: document.getElementById('set-color-bg').value,
     orbitSpeed: +document.getElementById('set-orbitspeed').value || 2.0,
@@ -6732,6 +6973,11 @@ function switchToTorre() {
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
   closeVientoFlyout();   // comparte la misma posición en pantalla que torre-flyout
+  // Ocultar la vista de Cargas de Viento al cambiar a Torre — si no, su clase "visible"
+  // se queda pegada y compite con rpanel-info la próxima vez que se muestre el panel —
+  // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
+  // de menú en el sidebar").
+  document.getElementById('rpanel-viento').classList.remove('visible');
   if (projectGenerated) {
     // Ya hay torre — mostrar info panel, cerrar flyout
     closeTorreFlyout();
@@ -6797,13 +7043,17 @@ document.querySelectorAll('.tab').forEach(t =>
   })
 );
 
-// Sidebar: todos excepto Home y Torre (Torre tiene su propia función)
-document.querySelectorAll('.side-btn:not(#home-btn):not(#torre-btn)').forEach(b =>
+// Sidebar: todos excepto Home, Torre y Viento (Torre y Viento tienen su propia función —
+// Viento SÍ debe dejar el panel visible, ver openVientoFlyout(); este listener corría
+// DESPUÉS de su onclick inline y le quitaba la clase "visible" que openVientoFlyout()
+// recién había puesto — bug real reportado por el usuario, 2026-06-29).
+document.querySelectorAll('.side-btn:not(#home-btn):not(#torre-btn):not(#viento-btn)').forEach(b =>
   b.addEventListener('click', () => {
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     // Ocultar panel si no es Torre
     document.getElementById('rpanel').classList.remove('visible');
+    document.getElementById('rpanel-viento').classList.remove('visible');
   })
 );
 
