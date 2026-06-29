@@ -505,6 +505,19 @@ body {
 /* ── Info panel (único view del rpanel ahora) ────────────────── */
 #rpanel-info { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-info.visible { display: flex; }
+/* Sin flechas de spinner en GEOMETRÍA DE LA TORRE (panel de información) — mismo
+   criterio ya aplicado a Nueva Torre, pedido explícito del usuario (2026-06-29). */
+#dado::-webkit-outer-spin-button, #dado::-webkit-inner-spin-button,
+#baseW::-webkit-outer-spin-button, #baseW::-webkit-inner-spin-button,
+#topW::-webkit-outer-spin-button, #topW::-webkit-inner-spin-button,
+#height::-webkit-outer-spin-button, #height::-webkit-inner-spin-button,
+#shaftW::-webkit-outer-spin-button, #shaftW::-webkit-inner-spin-button,
+#nInc::-webkit-outer-spin-button, #nInc::-webkit-inner-spin-button,
+#nStr::-webkit-outer-spin-button, #nStr::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr { -moz-appearance: textfield; }
 #rpanel-viento { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-viento.visible { display: flex; }
 /* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
@@ -537,13 +550,15 @@ body {
 /* Quitar el atributo step NO oculta las flechas de spinner (son el control nativo del
    navegador para type="number", aparecen siempre salvo que se oculten por CSS) — el
    usuario las señaló en una captura tras el cambio anterior, hay que ocultarlas de
-   verdad (2026-06-28). */
-#viento-flyout input[type=number]::-webkit-outer-spin-button,
-#viento-flyout input[type=number]::-webkit-inner-spin-button {
+   verdad (2026-06-28). Se aplica a .torre-flyout en general (no solo #viento-flyout) —
+   pedido explícito del usuario (2026-06-28) de quitarlas también en Nueva Torre
+   (ESTRUCTURA: Altura del Dado, Altura, Aperturas, Tramos, etc.).*/
+.torre-flyout input[type=number]::-webkit-outer-spin-button,
+.torre-flyout input[type=number]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#viento-flyout input[type=number] { -moz-appearance: textfield; }
+.torre-flyout input[type=number] { -moz-appearance: textfield; }
 .tf-preview-panel {
   position: absolute;
   left: 320px;       /* justo después del torre-flyout (52px sidebar + 268px ancho) */
@@ -1417,6 +1432,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="icon-btn" id="vbtn-zoomin"  onclick="zoomIn()">⊕<span class="icon-tip">Zoom In</span></button>
       <button class="icon-btn" id="vbtn-zoomout" onclick="zoomOut()">⊖<span class="icon-tip">Zoom Out</span></button>
       <button class="icon-btn" id="vbtn-zoomwin" onclick="startZoomWindow()">⛶<span class="icon-tip">Zoom Window</span></button>
+      <button class="icon-btn" id="vbtn-pan" onclick="togglePanMode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+          <polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/>
+          <polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/>
+          <line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/>
+        </svg>
+        <span class="icon-tip">Pan</span>
+      </button>
       <button class="icon-btn" id="vbtn-fitview" onclick="refitView()">⤢<span class="icon-tip">Ajustar pantalla</span></button>
       <button class="icon-btn" id="vbtn-orbit"   onclick="toggleAutoOrbit()">&#8635;<span class="icon-tip">Orbitar</span></button>
       <button class="icon-btn" id="vbtn-nodelabels" onclick="toggleNodeLabels()">🏷<span class="icon-tip">Nodos</span></button>
@@ -1582,30 +1605,32 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <option value="16">16 Caras</option>
             <option value="18">18 Caras</option>
           </select></div>
+        <div class="tf-row"><span class="tf-lbl">ALTURA DEL DADO (m)</span>
+          <input class="tf-input" type="number" id="s-dado" value="0" min="0" max="99" oninput="buildSetupPreview()"></div>
         <div class="tf-row"><span class="tf-lbl">ALTURA (m)</span>
-          <input class="tf-input" type="number" id="s-height" value="30" min="1" max="999" step="1" oninput="buildSetupPreview()"></div>
+          <input class="tf-input" type="number" id="s-height" value="30" min="1" max="999" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-base"><span class="tf-lbl" id="s-baseW-lbl">APERTURA INICIAL (m)</span>
-          <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" step="0.5" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
+          <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-top"><span class="tf-lbl" id="s-topW-lbl">APERTURA FINAL (m)</span>
-          <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" step="0.5" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
+          <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-ninc"><span class="tf-lbl">TRAMOS INCLINADOS</span>
-          <input class="tf-input" type="number" id="s-nInc" value="6" min="0" max="40" step="1" oninput="buildSetupPreview()"></div>
+          <input class="tf-input" type="number" id="s-nInc" value="6" min="0" max="40" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-nstr"><span class="tf-lbl" id="s-nstr-lbl">TRAMOS RECTOS</span>
-          <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" step="1" oninput="buildSetupPreview()"></div>
+          <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-monoTramos" style="display:none;"><span class="tf-lbl">NÚMERO DE TRAMOS</span>
-          <input class="tf-input" type="number" id="s-monoTramos" value="6" min="1" max="40" step="1" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramos" value="6" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosInc" style="display:none;"><span class="tf-lbl">TRAMOS INCLINADOS</span>
-          <input class="tf-input" type="number" id="s-monoTramosInc" value="4" min="1" max="40" step="1" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramosInc" value="4" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosRec" style="display:none;"><span class="tf-lbl">TRAMOS RECTOS</span>
-          <input class="tf-input" type="number" id="s-monoTramosRec" value="2" min="1" max="40" step="1" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramosRec" value="2" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoAperturas" style="display:none;"><span class="tf-lbl">DIÁMETRO DE CADA TRAMO RECTO (m)</span>
           <div id="s-monoAperturas-list" style="display:flex;flex-direction:column;gap:4px;"></div></div>
         <div class="tf-row" id="s-row-guyApertura"><span class="tf-lbl">APERTURA (m) — constante</span>
-          <input class="tf-input" type="number" id="s-shaftW" value="1" min="0.3" max="10" step="0.1" oninput="buildSetupPreview()"></div>
+          <input class="tf-input" type="number" id="s-shaftW" value="1" min="0.3" max="10" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-guyAnchorR"><span class="tf-lbl">RADIO DE RETENIDAS INICIAL (m)</span>
-          <input class="tf-input" type="number" id="s-guyAnchorR" value="15" min="1" max="200" step="1"></div>
+          <input class="tf-input" type="number" id="s-guyAnchorR" value="15" min="1" max="200"></div>
         <div class="tf-row" id="s-row-guyLevels"><span class="tf-lbl">NIVELES DE RETENIDAS</span>
-          <input class="tf-input" type="number" id="s-guyLevels" value="3" min="1" max="10" step="1" oninput="buildGuyHeightsList()"></div>
+          <input class="tf-input" type="number" id="s-guyLevels" value="3" min="1" max="10" oninput="buildGuyHeightsList()"></div>
         <div class="tf-row" id="s-row-guyHeights"><span class="tf-lbl">ALTURA DE CADA RETENIDA (m)</span>
           <div id="s-guyHeights-list" style="display:flex;flex-direction:column;gap:4px;"></div></div>
         <div class="tf-row" id="s-row-guyPivot">
@@ -1856,14 +1881,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <span class="dim-hdr" id="dim-hdr-top">Final</span>
             <span class="dim-hdr" id="dim-hdr-altura">Altura</span>
             <span class="dim-lbl" id="dim-lbl-valor">Valor</span>
-            <input class="dim-input" type="number" id="baseW"  value="4"  min="0.5" max="99"  step="0.5" oninput="refresh()">
-            <input class="dim-input" type="number" id="topW"   value="2"  min="0.5" max="99"  step="0.5" oninput="refresh()">
-            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" step="1"   oninput="onHeightChange()">
+            <input class="dim-input" type="number" id="baseW"  value="4"  min="0.5" max="99"  oninput="refresh()">
+            <input class="dim-input" type="number" id="topW"   value="2"  min="0.5" max="99"  oninput="refresh()">
+            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" oninput="onHeightChange()">
           </div>
 
           <div class="frow" id="row-apertura-top" style="display:none;">
             <span class="flbl">Apertura (constante):</span>
-            <input class="ctrl-input" type="number" id="shaftW" value="1" min="0.3" max="10" step="0.1" oninput="refresh()">
+            <input class="ctrl-input" type="number" id="shaftW" value="1" min="0.3" max="10" oninput="refresh()">
           </div>
 
           <div class="sep"></div>
@@ -1878,13 +1903,19 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             </select>
           </div>
 
+          <div class="frow">
+            <span class="flbl">Altura del Dado (m):</span>
+            <input class="ctrl-input" type="number" id="dado" value="0" min="0" max="99"
+              oninput="dadoHeight = +this.value || 0; refresh(); if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();">
+          </div>
+
           <div class="frow" id="row-ninc-main">
             <span class="flbl">Tramos inclinados:</span>
-            <input class="ctrl-input" type="number" id="nInc" value="6" min="0" max="40" step="1" oninput="onSecChange()">
+            <input class="ctrl-input" type="number" id="nInc" value="6" min="0" max="40" oninput="onSecChange()">
           </div>
           <div class="frow" id="row-nstr-main">
             <span class="flbl">Tramos rectos:</span>
-            <input class="ctrl-input" type="number" id="nStr" value="2" min="0" max="40" step="1" oninput="onSecChange()">
+            <input class="ctrl-input" type="number" id="nStr" value="2" min="0" max="40" oninput="onSecChange()">
           </div>
 
           <div id="guyed-params">
@@ -3187,6 +3218,58 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       break;
     }
 
+    // K-33Pct2: igual que K-25Pct2 en concepto (cadena K principal BL→DL1→DL2→TC más
+    // una segunda cadena secundaria DL2→DSL2→TL) pero con DSL2 = punto medio entre DL2 y
+    // TL (no relativo a TC como en K-25Pct2) — geometría confirmada con coordenadas
+    // exactas dadas por el usuario (2026-06-29): 17 nodos/28 barras verificados 1 a 1
+    // contra diagrama_k33pct2_3d.html antes de implementar aquí.
+    case 'K-33Pct2': {
+      const TC   = legLerp(TL,TR,0.5);
+      const L1   = legLerp(BL,TL,1/4), R1   = legLerp(BR,TR,1/4);
+      const L2   = legLerp(BL,TL,2/4), R2   = legLerp(BR,TR,2/4);
+      const L3   = legLerp(BL,TL,3/4), R3   = legLerp(BR,TR,3/4);
+      const DL1  = lerp(BL,TC,1/4), DR1  = lerp(BR,TC,1/4);
+      const DL2  = lerp(BL,TC,2/4), DR2  = lerp(BR,TC,2/4);
+      const DSL2 = mid(DL2,TL), DSR2 = mid(DR2,TR);
+      d(BL,DL1); d(DL1,DL2); d(DL2,TC);     // cadena K — PRINCIPAL
+      d(BR,DR1); d(DR1,DR2); d(DR2,TC);     // cadena K — PRINCIPAL
+      d(DL2,DSL2,false); d(DSL2,TL,false);  // cadena 2 — secundaria
+      d(DR2,DSR2,false); d(DSR2,TR,false);
+      h(L1,DL1,false); h(R1,DR1,false);
+      h(L2,DL2,false); h(R2,DR2,false);
+      h(L3,DSL2,false); h(R3,DSR2,false);
+      d(L1,DL2,false); d(R1,DR2,false);
+      d(DL2,L3,false); d(DR2,R3,false);
+      legL=[L1,L2,L3]; legR=[R1,R2,R3];
+      // kind:'k33' (no uno nuevo) + alias P1L/P2L/P1R/P2R — reusa exactamente la misma
+      // rama de addHipBracing() que K-33Pct, pedido explícito del usuario (2026-06-29:
+      // "le aplican los mismos plan bracing y hip bracing que a K-33Pct").
+      hipPts = {kind:'k33', P1L:DL1, P2L:DL2, P1R:DR1, P2R:DR2, TC, DSL2, DSR2};
+      break;
+    }
+
+    case 'K-33Pct2-Rev': {
+      const BC   = legLerp(BL,BR,0.5);
+      const LA   = legLerp(BL,TL,1/4), RA   = legLerp(BR,TR,1/4);
+      const LB   = legLerp(BL,TL,2/4), RB   = legLerp(BR,TR,2/4);
+      const LC   = legLerp(BL,TL,3/4), RC   = legLerp(BR,TR,3/4);
+      const DL1  = lerp(TL,BC,1/4), DR1  = lerp(TR,BC,1/4);
+      const DL2  = lerp(TL,BC,2/4), DR2  = lerp(TR,BC,2/4);
+      const DSL2 = mid(DL2,BL), DSR2 = mid(DR2,BR);
+      d(TL,DL1); d(DL1,DL2); d(DL2,BC);     // cadena K — PRINCIPAL
+      d(TR,DR1); d(DR1,DR2); d(DR2,BC);     // cadena K — PRINCIPAL
+      d(DL2,DSL2,false); d(DSL2,BL,false);  // cadena 2 — secundaria
+      d(DR2,DSR2,false); d(DSR2,BR,false);
+      h(LC,DL1,false); h(RC,DR1,false);
+      h(LB,DL2,false); h(RB,DR2,false);
+      h(LA,DSL2,false); h(RA,DSR2,false);
+      d(LC,DL2,false); d(RC,DR2,false);
+      d(DL2,LA,false); d(DR2,RA,false);
+      legL=[LA,LB,LC]; legR=[RA,RB,RC];
+      hipPts = {kind:'k33', P1L:DL1, P2L:DL2, P1R:DR1, P2R:DR2, TC: BC, DSL2, DSR2};
+      break;
+    }
+
     case 'K-25Pct': {
       const TC  = legLerp(TL,TR,0.5);
       const L1  = legLerp(BL,TL,1/4), R1  = legLerp(BR,TR,1/4);
@@ -3798,6 +3881,7 @@ function zoomOut() { _zoomStep(1 + 0.25*appSettings.zoomSpeed); }
 
 let _zoomWinActive = false, _zoomWinStart = null, _zoomWinBox = null;
 function startZoomWindow() {
+  if (_panModeActive) togglePanMode();   // modos exclusivos — no tiene sentido tener ambos a la vez
   _zoomWinActive = true;
   document.getElementById('vbtn-zoomwin').classList.add('active');
   renderer.domElement.style.cursor = 'crosshair';
@@ -3808,6 +3892,23 @@ function _exitZoomWindow() {
   document.getElementById('vbtn-zoomwin').classList.remove('active');
   renderer.domElement.style.cursor = '';
   controls.enabled = true;
+}
+
+// ── Pan con clic izquierdo (botón dedicado) ─────────────────────────────────
+// El clic izquierdo normalmente queda libre para seleccionar miembros (ver
+// controls.mouseButtons más arriba: LEFT=undefined, MIDDLE=PAN, RIGHT=ROTATE) — este
+// botón reasigna LEFT a PAN temporalmente, reusando el pan nativo de OrbitControls en
+// vez de reimplementarlo, pedido explícito del usuario (2026-06-29: "debajo del botón
+// Zoom Window crea un nuevo ícono para hacer pan"). Es un toggle persistente (no
+// "un solo arrastre y se apaga" como Zoom Window) — se puede pan varias veces seguidas
+// sin tener que re-presionar el botón cada vez; clic en el botón otra vez para salir.
+let _panModeActive = false;
+function togglePanMode() {
+  if (_zoomWinActive) _exitZoomWindow();   // modos exclusivos
+  _panModeActive = !_panModeActive;
+  document.getElementById('vbtn-pan').classList.toggle('active', _panModeActive);
+  controls.mouseButtons.LEFT = _panModeActive ? THREE.MOUSE.PAN : undefined;
+  renderer.domElement.style.cursor = _panModeActive ? 'move' : '';
 }
 // Las coordenadas se miden SIEMPRE contra renderer.domElement (el canvas), no contra
 // #viewer-wrap — el canvas no tiene por qué medir lo mismo que su contenedor (no hay CSS
@@ -4315,12 +4416,16 @@ function _populatePaisSelects() {
 _populatePaisSelects();
 
 const DEFAULT_STEEL_GRADES = [
+  { name: 'A1011 Gr33', fy: 2320, fu: 4078, e: 2039000 },
   { name: 'A37-24',    fy: 2390, fu: 3690, e: 2039000 },
+  { name: 'A53 GrB',   fy: 2460, fu: 4218, e: 2039000 },
   { name: 'A36',       fy: 2530, fu: 4080, e: 2039000 },
+  { name: 'A572 Gr42', fy: 2953, fu: 4218, e: 2039000 },
   { name: 'A572 Gr45', fy: 3163, fu: 4430, e: 2039000 },
   { name: 'A992',      fy: 3515, fu: 4570, e: 2039000 },
   { name: 'A572 Gr50', fy: 3520, fu: 4570, e: 2039000 },
   { name: 'A572 Gr60', fy: 4220, fu: 5273, e: 2039000 },
+  { name: 'A572 Gr65', fy: 4570, fu: 5625, e: 2039000 },
 ];
 let steelGrades = JSON.parse(JSON.stringify(DEFAULT_STEEL_GRADES));
 function loadSteelGrades() {
@@ -4328,6 +4433,13 @@ function loadSteelGrades() {
     const raw = localStorage.getItem(STEEL_GRADES_KEY);
     if (raw) steelGrades = JSON.parse(raw);
   } catch { /* localStorage no disponible o dato corrupto — usar defaults */ }
+  // Si el catálogo guardado en este navegador no tiene alguna de las calidades nuevas
+  // agregadas a DEFAULT_STEEL_GRADES (ej. A572 Gr42/Gr65, A1011 Gr33, A53 GrB), se
+  // agregan al final sin tocar ediciones previas del usuario — pedido implícito al
+  // agregar calidades nuevas que de otro modo no aparecerían en sesiones con catálogo
+  // ya guardado (2026-06-29).
+  const existingNames = new Set(steelGrades.map(g => g.name));
+  DEFAULT_STEEL_GRADES.forEach(g => { if (!existingNames.has(g.name)) steelGrades.push({ ...g }); });
 }
 function saveSteelGrades() {
   try { localStorage.setItem(STEEL_GRADES_KEY, JSON.stringify(steelGrades)); } catch {}
@@ -5267,7 +5379,10 @@ function buildCargasVientoPanel() {
   // z = elevación acumulada al CENTRO de cada sección (no al tope) — pedido explícito
   // del usuario (2026-06-28: "qz debe ser a la elevación acumulada en el centro de cada
   // sección"), más representativo de la presión promedio que actúa sobre todo el panel.
-  let zBase = 0;
+  // Arranca en dadoHeight (no en 0) — el tramo 1 no nace al nivel de terreno si hay un
+  // dado/cimentación debajo, pedido explícito del usuario (2026-06-28: "esta altura se
+  // debe sumar al z(m) del tramo 1 del análisis de viento").
+  let zBase = dadoHeight;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +secData[i]?.h || (cfg.height / nsec);
@@ -5392,6 +5507,10 @@ let aislarTramoSec = null;
 let secData = [];  // [{h, diag, perfil}] — una entrada por tramo
 let guyHeights = [];  // altura (m) de cada nivel de retenidas — solo Arriostrada
 let monoAperturas = [];  // apertura (m) de cada tramo recto — solo Monopolo Escalonado/Combinado
+// Altura del dado (pedestal/cimentación) sobre el nivel de terreno, capturada en Nueva
+// Torre — se suma a la elevación z(m) del análisis de viento (el tramo 1 no arranca en
+// el suelo si hay un dado debajo), pedido explícito del usuario (2026-06-28).
+let dadoHeight = 0;
 let guyCableData  = [];  // [{diam: nombre del cable seleccionado o null, tensionPct}] — paralelo a guyHeights por índice
 let guyAnchorData = [];  // [{elev, radio, azimut}] — uno o más puntos de anclaje (editable, no atado a #piernas)
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
@@ -5540,6 +5659,7 @@ function getConfig() {
     supportOverrides: JSON.parse(JSON.stringify(supportOverrides)),
     revisionData:   JSON.parse(JSON.stringify(revisionData)),
     windData:       JSON.parse(JSON.stringify(windData)),
+    dadoHeight:     dadoHeight,
   };
 }
 
@@ -5867,7 +5987,7 @@ function buildMonoAperturasList() {
   html += monoAperturas.map((val,i) => `
     <div style="display:flex;align-items:center;gap:6px;">
       <span class="tf-lbl" style="width:62px;flex-shrink:0;">Tramo ${nInc+i+1}</span>
-      <input class="tf-input" type="number" min="0.1" step="0.5" value="${val}"
+      <input class="tf-input" type="number" min="0.1" value="${val}"
         oninput="monoAperturas[${i}] = +this.value || 0; buildSetupPreview();">
     </div>`).join('');
   list.innerHTML = html;
@@ -5885,7 +6005,7 @@ function buildGuyHeightsList() {
   list.innerHTML = guyHeights.map((val,i) => `
     <div style="display:flex;align-items:center;gap:6px;">
       <span class="tf-lbl" style="width:62px;flex-shrink:0;">Nivel ${i+1}</span>
-      <input class="tf-input" type="number" min="0" max="${h}" step="0.5" value="${val}"
+      <input class="tf-input" type="number" min="0" max="${h}" value="${val}"
         oninput="guyHeights[${i}] = +this.value || 0; buildSetupPreview();">
     </div>`).join('');
   buildSetupPreview();
@@ -6312,6 +6432,8 @@ function generateTowerFromSetup() {
   document.getElementById('ttype').value = tipo;
   applyTypeLock(tipo);
   syncVal('height', 's-height');
+  dadoHeight = +document.getElementById('s-dado')?.value || 0;
+  syncVal('dado', 's-dado');
   syncVal('baseW',  's-baseW');
   syncVal('topW',   's-topW');
   syncVal('nInc',   's-nInc');
@@ -6422,9 +6544,12 @@ function nuevoProyecto() {
   supportOverrides = {};
   revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
   aislarTramoSec = null;
+  dadoHeight = 0;
   ['s-assetnum','s-asset','s-cliente','s-pais','s-ing','s-revision'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
   document.getElementById('s-tipo').value   = 'triangular';
+  document.getElementById('s-dado').value   = '0';
+  document.getElementById('dado').value     = '0';
   document.getElementById('s-height').value = '30';
   document.getElementById('s-baseW').value  = '4';
   document.getElementById('s-topW').value   = '2';
@@ -7395,7 +7520,8 @@ function _memChapter2Html(cfg) {
 
   const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
   const Vultima = _tiaVelocidadUltimaKmh(windData);
-  let zBase = 0;
+  // Arranca en dadoHeight (no en 0) — ver mismo criterio en buildCargasVientoPanel().
+  let zBase = dadoHeight;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +cfg.secData[i]?.h || (cfg.height / nsec);
@@ -9258,6 +9384,8 @@ function loadProjectData(cfg, filename) {
     // Proyectos guardados antes de que existiera Diseño por Viento no traen windData —
     // se cae a los valores por defecto (ya declarados arriba) en vez de quedar undefined.
     if (cfg.windData && typeof cfg.windData === 'object') windData = JSON.parse(JSON.stringify(cfg.windData));
+    dadoHeight = +cfg.dadoHeight || 0;
+    if (document.getElementById('dado')) document.getElementById('dado').value = dadoHeight;
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
@@ -9379,7 +9507,7 @@ function buildSectionRows(n) {
 }
 
 const DIAG_PATTERNS = ['X','X-50Pct','X-25Pct','K','K-Rev',
-  'K-50Pct','K-50Pct-Rev','K-33Pct','K-33Pct-Rev',
+  'K-50Pct','K-50Pct-Rev','K-33Pct','K-33Pct-Rev','K-33Pct2','K-33Pct2-Rev',
   'K-25Pct','K-25Pct-Rev','K-25Pct2','K-25Pct2-Rev',
   'Staggered','Staggered-50Pct'];
 // Arriostrada (guyed) solo admite estos 4 patrones
@@ -9485,6 +9613,46 @@ function diagIconLines(pat, staggerUp=true) {
       h(LA,P2L,false); h(RA,P2R,false);
       d(P1L,LA,false); d(P1R,RA,false);
       d(P2L,BL,false); d(P2R,BR,false);
+      break;
+    }
+
+    case 'K-33Pct2': {
+      const TC=mid(TL,TR);
+      const L1=lerp(BL,TL,1/4), R1=lerp(BR,TR,1/4);
+      const L2=lerp(BL,TL,2/4), R2=lerp(BR,TR,2/4);
+      const L3=lerp(BL,TL,3/4), R3=lerp(BR,TR,3/4);
+      const DL1=lerp(BL,TC,1/4), DR1=lerp(BR,TC,1/4);
+      const DL2=lerp(BL,TC,2/4), DR2=lerp(BR,TC,2/4);
+      const DSL2=mid(DL2,TL), DSR2=mid(DR2,TR);
+      d(BL,DL1); d(DL1,DL2); d(DL2,TC);
+      d(BR,DR1); d(DR1,DR2); d(DR2,TC);
+      d(DL2,DSL2,false); d(DSL2,TL,false);
+      d(DR2,DSR2,false); d(DSR2,TR,false);
+      h(L1,DL1,false); h(R1,DR1,false);
+      h(L2,DL2,false); h(R2,DR2,false);
+      h(L3,DSL2,false); h(R3,DSR2,false);
+      d(L1,DL2,false); d(R1,DR2,false);
+      d(DL2,L3,false); d(DR2,R3,false);
+      break;
+    }
+
+    case 'K-33Pct2-Rev': {
+      const BC=mid(BL,BR);
+      const LA=lerp(BL,TL,1/4), RA=lerp(BR,TR,1/4);
+      const LB=lerp(BL,TL,2/4), RB=lerp(BR,TR,2/4);
+      const LC=lerp(BL,TL,3/4), RC=lerp(BR,TR,3/4);
+      const DL1=lerp(TL,BC,1/4), DR1=lerp(TR,BC,1/4);
+      const DL2=lerp(TL,BC,2/4), DR2=lerp(TR,BC,2/4);
+      const DSL2=mid(DL2,BL), DSR2=mid(DR2,BR);
+      d(TL,DL1); d(DL1,DL2); d(DL2,BC);
+      d(TR,DR1); d(DR1,DR2); d(DR2,BC);
+      d(DL2,DSL2,false); d(DSL2,BL,false);
+      d(DR2,DSR2,false); d(DSR2,BR,false);
+      h(LC,DL1,false); h(RC,DR1,false);
+      h(LB,DL2,false); h(RB,DR2,false);
+      h(LA,DSL2,false); h(RA,DSR2,false);
+      d(LC,DL2,false); d(RC,DR2,false);
+      d(DL2,LA,false); d(DR2,RA,false);
       break;
     }
 
@@ -9708,6 +9876,16 @@ const HIP_BRACING_DEFS = {
     hasDiaphragm: () => false,
     hasDiagonal:  opt => opt==='2',
   },
+  'K-33Pct2': {
+    options: ['none','1','2'],
+    hasDiaphragm: () => false,
+    hasDiagonal:  opt => opt==='2',
+  },
+  'K-33Pct2-Rev': {
+    options: ['none','1','2'],
+    hasDiaphragm: () => false,
+    hasDiagonal:  opt => opt==='2',
+  },
   'K-50Pct': {
     options: ['none','1','2'],
     hasDiaphragm: () => false,
@@ -9803,7 +9981,7 @@ function hipBracingIconSVG_K50(opt) {
 
 function hipBracingIconSVG(opt, pattern) {
   if (pattern === 'K-25Pct' || pattern === 'K-25Pct2' || pattern === 'K-25Pct-Rev') return hipBracingIconSVG_K25(opt);
-  if (pattern === 'K-33Pct' || pattern === 'K-33Pct-Rev') return hipBracingIconSVG_K33(opt);
+  if (pattern === 'K-33Pct' || pattern === 'K-33Pct-Rev' || pattern === 'K-33Pct2' || pattern === 'K-33Pct2-Rev') return hipBracingIconSVG_K33(opt);
   if (pattern === 'K-50Pct' || pattern === 'K-50Pct-Rev') return hipBracingIconSVG_K50(opt);
 
   const top=[18,3], bot=[18,37], left=[6,20], right=[30,20];
