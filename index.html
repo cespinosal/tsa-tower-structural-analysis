@@ -3238,8 +3238,13 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       h(L1,DL1,false); h(R1,DR1,false);
       h(L2,DL2,false); h(R2,DR2,false);
       h(L3,DSL2,false); h(R3,DSR2,false);
-      d(L1,DL2,false); d(R1,DR2,false);
-      d(DL2,L3,false); d(DR2,R3,false);
+      // Lado derecho en espejo del izquierdo (no una copia trasladada): izq. va
+      // pierna→diagonal→pierna (L1→DL2→L3); der. va diagonal→pierna→diagonal
+      // (DR1→R2→DSR2) — pedido explícito del usuario (2026-06-29), confirmado
+      // contra barras reales de un export STAAD (316/332 y sus pares en las otras
+      // 2 caras del triángulo: 313-318, 327-328, 331, 335-336).
+      d(L1,DL2,false); d(DR1,R2,false);
+      d(DL2,L3,false); d(R2,DSR2,false);
       legL=[L1,L2,L3]; legR=[R1,R2,R3];
       // kind:'k33' (no uno nuevo) + alias P1L/P2L/P1R/P2R — reusa exactamente la misma
       // rama de addHipBracing() que K-33Pct, pedido explícito del usuario (2026-06-29:
@@ -3263,8 +3268,9 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       h(LC,DL1,false); h(RC,DR1,false);
       h(LB,DL2,false); h(RB,DR2,false);
       h(LA,DSL2,false); h(RA,DSR2,false);
-      d(LC,DL2,false); d(RC,DR2,false);
-      d(DL2,LA,false); d(DR2,RA,false);
+      // Mismo espejo derecho que en K-33Pct2 (ver comentario ahí).
+      d(LC,DL2,false); d(DR1,RB,false);
+      d(DL2,LA,false); d(RB,DSR2,false);
       legL=[LA,LB,LC]; legR=[RA,RB,RC];
       hipPts = {kind:'k33', P1L:DL1, P2L:DL2, P1R:DR1, P2R:DR2, TC: BC, DSL2, DSR2};
       break;
@@ -9631,8 +9637,8 @@ function diagIconLines(pat, staggerUp=true) {
       h(L1,DL1,false); h(R1,DR1,false);
       h(L2,DL2,false); h(R2,DR2,false);
       h(L3,DSL2,false); h(R3,DSR2,false);
-      d(L1,DL2,false); d(R1,DR2,false);
-      d(DL2,L3,false); d(DR2,R3,false);
+      d(L1,DL2,false); d(DR1,R2,false);
+      d(DL2,L3,false); d(R2,DSR2,false);
       break;
     }
 
@@ -9651,8 +9657,8 @@ function diagIconLines(pat, staggerUp=true) {
       h(LC,DL1,false); h(RC,DR1,false);
       h(LB,DL2,false); h(RB,DR2,false);
       h(LA,DSL2,false); h(RA,DSR2,false);
-      d(LC,DL2,false); d(RC,DR2,false);
-      d(DL2,LA,false); d(DR2,RA,false);
+      d(LC,DL2,false); d(DR1,RB,false);
+      d(DL2,LA,false); d(RB,DSR2,false);
       break;
     }
 
