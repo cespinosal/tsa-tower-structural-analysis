@@ -1049,6 +1049,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
 /* ── Tablas Retenidas / Anclajes / Diámetros ───────────────────────── */
 .ret-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+/* Tablas de viento (panel "Cargas de Viento" + Memoria de Cálculo 2.3/6.1/6.2) — todas
+   las columnas centradas, a diferencia del resto de tablas (ret-table/rp-table) que
+   quedan alineadas a la izquierda por default — pedido explícito del usuario
+   (2026-06-29: "centra todas las columnas de las tablas de viento"). */
+.wind-table-center th, .wind-table-center td { text-align: center; }
 .ret-table th {
   text-align: left; font-size: 10px; color: var(--txt-sec); font-weight: 600;
   padding: 6px 8px; border-bottom: 1px solid #1E3A5F; letter-spacing: .3px;
@@ -3238,13 +3243,11 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       h(L1,DL1,false); h(R1,DR1,false);
       h(L2,DL2,false); h(R2,DR2,false);
       h(L3,DSL2,false); h(R3,DSR2,false);
-      // Lado derecho en espejo del izquierdo (no una copia trasladada): izq. va
-      // pierna→diagonal→pierna (L1→DL2→L3); der. va diagonal→pierna→diagonal
-      // (DR1→R2→DSR2) — pedido explícito del usuario (2026-06-29), confirmado
-      // contra barras reales de un export STAAD (316/332 y sus pares en las otras
-      // 2 caras del triángulo: 313-318, 327-328, 331, 335-336).
-      d(L1,DL2,false); d(DR1,R2,false);
-      d(DL2,L3,false); d(R2,DSR2,false);
+      // Ambos lados van diagonal→pierna→diagonal (DL1→L2→DSL2, DR1→R2→DSR2) — NO
+      // pierna→diagonal→pierna — pedido explícito del usuario (2026-06-29), confirmado
+      // contra barras reales de un export STAAD en las 3 caras del triángulo.
+      d(DL1,L2,false); d(DR1,R2,false);
+      d(L2,DSL2,false); d(R2,DSR2,false);
       legL=[L1,L2,L3]; legR=[R1,R2,R3];
       // kind:'k33' (no uno nuevo) + alias P1L/P2L/P1R/P2R — reusa exactamente la misma
       // rama de addHipBracing() que K-33Pct, pedido explícito del usuario (2026-06-29:
@@ -3268,9 +3271,10 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
       h(LC,DL1,false); h(RC,DR1,false);
       h(LB,DL2,false); h(RB,DR2,false);
       h(LA,DSL2,false); h(RA,DSR2,false);
-      // Mismo espejo derecho que en K-33Pct2 (ver comentario ahí).
-      d(LC,DL2,false); d(DR1,RB,false);
-      d(DL2,LA,false); d(RB,DSR2,false);
+      // Mismo patrón diagonal→pierna→diagonal que K-33Pct2 (ver comentario ahí), en
+      // los puntos de Rev a la misma altura absoluta: DL1(75%)→LB(50%)→DSL2(25%).
+      d(DL1,LB,false); d(DR1,RB,false);
+      d(LB,DSL2,false); d(RB,DSR2,false);
       legL=[LA,LB,LC]; legR=[RA,RB,RC];
       hipPts = {kind:'k33', P1L:DL1, P2L:DL2, P1R:DR1, P2R:DR2, TC: BC, DSL2, DSR2};
       break;
@@ -5331,14 +5335,191 @@ function _tiaVelocidadUltimaKmh(windData) {
 // 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s]. Ks (rooftop wind speed-up,
 // 2.6.7) = 1.0 siempre — TSA modela torres en suelo, no estructuras sobre azotea.
 // z = altura (m) sobre el nivel del suelo en la base de la torre, punto donde se evalúa.
-function calcWindPressure(cfg, windData, z) {
+// vKmhOverride: si se da, se usa esa velocidad (km/h) en vez de la Última derivada de
+// windData — pedido explícito del usuario (2026-06-29) para repetir el mismo cálculo de
+// qz con la Velocidad Operacional en el subtítulo 6.2 de la Memoria de Cálculo.
+function calcWindPressure(cfg, windData, z, vKmhOverride) {
   const Kz  = _tiaKz(z, windData.catExposicion);
   const Kzt = _tiaKzt(z, windData);
   const Ks  = 1.0;
   const Ke  = _tiaKe(windData.asnm);
   const Kd  = _tiaKd(cfg.type);
-  const Vms = _tiaVelocidadUltimaKmh(windData) / 3.6;
+  const Vms = (vKmhOverride ?? _tiaVelocidadUltimaKmh(windData)) / 3.6;
   return 0.613 * Kz * Kzt * Ks * Ke * Kd * Vms * Vms;
+}
+
+// ── Conversión de qz a fuerza aplicada (lattice triangular/cuadrada) ────────────────
+// Ancho de cara en z: misma fórmula de ahusamiento lineal que genMixed() (taperR) — el
+// ancho vale baseW en z=0 y topW al final del tramo ahusado acumulado (zInc), constante
+// después. width(z)=baseW+(topW-baseW)·min(z/zInc,1).
+function _zIncForCfg(cfg) {
+  const nTot = (cfg.nInc||0) + (cfg.nStr||0);
+  if (!cfg.nInc || nTot === 0) return 0;
+  let z = 0;
+  for (let i = 0; i < cfg.nInc; i++) z += +secData[i]?.h || (cfg.height/nTot);
+  return z;
+}
+function _faceWidthAt(cfg, z) {
+  const zInc = _zIncForCfg(cfg);
+  const t = zInc > 0 ? Math.min(z/zInc, 1) : 1;
+  return cfg.baseW + (cfg.topW - cfg.baseW) * t;
+}
+// Ancho proyectado (m) de un perfil — leg1 (ángulos li/ld) o diametro (oc/os), convertido
+// a metros según el catálogo de origen (AISC en pulgadas, IMCA/compuesto en cm). null si
+// la designación no se encuentra o no tiene ninguno de los 2 campos.
+function _profileWidthM(designacion) {
+  if (!designacion || designacion === '-' || designacion === '—') return null;
+  const loc = _findProfileLocation(designacion);
+  if (!loc) return null;
+  let row, cat;
+  if (loc.cat === 'user') {
+    row = userProfiles.find(r => r.designacion === designacion);
+    cat = row?.origenCat;
+  } else if (loc.cat === 'sectionbuilder') {
+    row = sectionBuilderProfiles.find(r => r.designacion === designacion);
+    cat = 'compuesto';
+  } else {
+    row = profileCatalogs[loc.cat][loc.fam].find(r => r.designacion === designacion);
+    cat = loc.cat;
+  }
+  if (!row) return null;
+  const toM = cat === 'aisc' ? 0.0254 : 0.01;
+  if (row.leg1 != null) return row.leg1 * toM;
+  if (row.diametro != null) return row.diametro * toM;
+  return null;
+}
+// true si la designación es un perfil redondo (OC tubular / OS sólido) — decide cuál de
+// las 2 fórmulas de Cf (miembros planos vs. redondos) aplica.
+function _profileIsRound(designacion) {
+  const loc = _findProfileLocation(designacion);
+  if (!loc) return false;
+  if (loc.cat === 'user') {
+    const row = userProfiles.find(r => r.designacion === designacion);
+    return row?.origenFam === 'os' || row?.origenFam === 'oc';
+  }
+  if (loc.cat === 'sectionbuilder') return false;
+  return loc.fam === 'os' || loc.fam === 'oc';
+}
+// Longitud (m) por CATEGORÍA — diagonal principal/secundaria, horizontal de
+// tope/entre-bahías/secundaria — de los miembros generados por addFaceBracing() para UNA
+// bahía del patrón real de la sección, clasificados por (m.type, m.principal, m.isTop).
+// Todo lo que devuelve addFaceBracing para una sola cara es, por construcción, coplanar
+// con esa cara (paralelo a ella) — hip bracing/plan bracing (que conectan ENTRE caras o
+// viven en el plano horizontal de planta) quedan fuera a propósito, no se generan aquí.
+// Reusa la geometría exacta de cada patrón (X, K-25Pct, K-33Pct2, Staggered...) en vez de
+// re-derivar fórmulas de área por patrón, para que el solidity ratio sea fiel a lo que de
+// verdad se dibuja — pedido explícito del usuario (2026-06-29: "las áreas se deben
+// calcular para todos los elementos principales y secundarios que sean paralelos a las
+// caras de la torre").
+function _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, isTopBay) {
+  const nodes = [], members = [];
+  const BL = addRawNode(nodes, 0, 0, 0),    BR = addRawNode(nodes, faceWidth, 0, 0);
+  const TL = addRawNode(nodes, 0, bayH, 0), TR = addRawNode(nodes, faceWidth, bayH, 0);
+  addFaceBracing(nodes, members, sec, pattern, BL, BR, TL, TR, 0, isTopBay, null);
+  const out = { dPrincipal: 0, dSecundaria: 0, hTop: 0, hBay: 0, hSecundaria: 0 };
+  members.forEach(m => {
+    if (m.type !== 'diagonal' && m.type !== 'horizontal') return;
+    const a = nodes[m.ni], b = nodes[m.nj];
+    const len = Math.hypot(b.x-a.x, b.y-a.y, b.z-a.z);
+    if (m.type === 'diagonal') {
+      if (m.principal) out.dPrincipal += len; else out.dSecundaria += len;
+    } else if (!m.principal) {
+      out.hSecundaria += len;
+    } else if (m.isTop) {
+      out.hTop += len;
+    } else {
+      out.hBay += len;
+    }
+  });
+  return out;
+}
+// Ancho (m) + forma de un perfil, con fallback al perfil "padre" si el secundario no fue
+// capturado (Ds/Hs en "-" o vacío) — null si ni el perfil ni su fallback se encuentran.
+function _profileWidthAndRound(designacion, fallbackDesignacion) {
+  let w = _profileWidthM(designacion);
+  if (w != null) return { w, round: _profileIsRound(designacion) };
+  w = _profileWidthM(fallbackDesignacion);
+  return w != null ? { w, round: _profileIsRound(fallbackDesignacion) } : { w: null, round: null };
+}
+// ε aproximado de la sección: (área de piernas + área de TODO el bracing real, paralelo
+// a la cara) / área bruta de la cara — cada categoría (D, Ds, Htop, Hbay, Hs) usa su
+// propio perfil capturado en secData, con fallback al perfil principal si el secundario
+// no está capturado — pedido explícito del usuario (2026-06-29).
+// areaPlana/areaRedonda separadas — cada categoría puede tener una forma distinta (ej.
+// piernas de ángulo + diagonales tubulares) — pedido explícito del usuario (2026-06-29:
+// "agrega las columnas de área plana y área redonda").
+function calcSectionSolidity(cfg, sec, faceWidth) {
+  const s = secData[sec];
+  if (!s || !faceWidth) return null;
+  const pattern = s.diag || 'X';
+  const bays = Math.max(1, +s.bays || 1);
+  const nTot = (cfg.nInc||0) + (cfg.nStr||0);
+  const h = +s.h || (cfg.height / (nTot || 1));
+  const bayH = h / bays;
+  const wM = _profileWidthM(s.M), wD = _profileWidthM(s.D);
+  if (wM == null || wD == null) return null;
+
+  // top: bahía de TOPE de la sección (isTopBay=true, usa Htop). reg: el resto de las
+  // bahías (isTopBay=false, usa Hbay) — solo se necesita una 2ª llamada si bays>1.
+  const top = _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, true);
+  const reg = bays > 1 ? _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, false) : top;
+
+  let areaPlana = 0, areaRedonda = 0;
+  const add = (len, designacion, fallback) => {
+    if (!len) return;
+    const { w, round } = _profileWidthAndRound(designacion, fallback);
+    if (w == null) return;
+    if (round) areaRedonda += len * w; else areaPlana += len * w;
+  };
+
+  if (_profileIsRound(s.M)) areaRedonda += 2 * wM * h; else areaPlana += 2 * wM * h;
+  // Diagonales: el patrón es el mismo en cualquier bahía (no depende de isTopBay) — se
+  // usa "top" (cualquiera de las 2 llamadas da igual) × número de bahías.
+  add(top.dPrincipal * bays, s.D, null);
+  add(top.dSecundaria * bays, s.Ds, s.D);
+  // Horizontales: SÍ dependen de isTopBay — Htop solo en la última bahía, Hbay en las
+  // (bays-1) restantes, secundaria (Hs) puede aparecer en cualquiera de las 2.
+  add(top.hTop, s.Htop, s.D);
+  add(reg.hBay * Math.max(0, bays - 1), s.Hbay, s.D);
+  add(top.hSecundaria, s.Hs, s.Ds || s.D);
+  add(reg.hSecundaria * Math.max(0, bays - 1), s.Hs, s.Ds || s.D);
+
+  const solidArea = areaPlana + areaRedonda;
+  const grossArea = faceWidth * h;
+  if (!(grossArea > 0)) return null;
+  const epsilon = Math.min(0.8, Math.max(0.05, solidArea / grossArea));
+  return { epsilon, solidArea, areaPlana, areaRedonda, grossArea };
+}
+// Cf (coeficiente de fuerza) en función del solidity ratio — fórmulas estándar de
+// celosía (ASCE/TIA): planos (ángulos) vs. redondos (tubular/sólido).
+function _cfFromEpsilon(epsilon, isRound) {
+  if (epsilon == null) return null;
+  return isRound
+    ? 3.4*epsilon*epsilon - 4.7*epsilon + 3.4
+    : 4.0*epsilon*epsilon - 5.9*epsilon + 4.0;
+}
+// F = qz·Gh·(Cf_plano·A_plana + Cf_redondo·A_redonda) (ANSI/TIA-222-H §2.6.9.1, mismo ε
+// global para ambos Cf — solo cambia la fórmula plano/redondo según a qué área se
+// aplica) — fuerza sobre LA CARA EXPUESTA (barlovento) de la sección. Combinarla con
+// sotavento/ángulo de viento para la reacción total de la torre, y repartirla en MEMBER
+// LOAD por barra, queda para cuando se exporte a STAAD (fuera de alcance de esta entrega
+// — aquí solo se "convierte qz a fuerza", pedido explícito del usuario 2026-06-29). Solo
+// aplica a celosía (triangular/cuadrada) — monopolo/arriostrada usan otra geometría de
+// exposición, sin solidity ratio de cara, todavía sin regla dada.
+function calcSectionWindForce(cfg, windData, sec, z, faceWidth) {
+  if (cfg.type !== 'triangular' && cfg.type !== 'square') return null;
+  const sol = calcSectionSolidity(cfg, sec, faceWidth);
+  if (!sol) return null;
+  const CfPlana   = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false) : null;
+  const CfRedonda = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true)  : null;
+  const Gh = _tiaGh(cfg.height, cfg.type);
+  if (Gh == null) return null;
+  const qz = calcWindPressure(cfg, windData, z);
+  const F_N = qz * Gh * ((CfPlana || 0) * sol.areaPlana + (CfRedonda || 0) * sol.areaRedonda);
+  // Cf "representativo" para mostrar en la tabla — promedio ponderado por área, no se usa
+  // para calcular F_N (que ya combina cada Cf con su área real arriba).
+  const Cf = sol.solidArea > 0 ? ((CfPlana||0)*sol.areaPlana + (CfRedonda||0)*sol.areaRedonda) / sol.solidArea : null;
+  return { epsilon: sol.epsilon, areaPlana: sol.areaPlana, areaRedonda: sol.areaRedonda, Cf, Gh, qz, F_N, F_kgf: F_N / 9.80665 };
 }
 
 // Pestaña "Cargas de Viento" del tabbar (antes "Cargas Viento", inerte) — al hacer clic
@@ -5388,19 +5569,25 @@ function buildCargasVientoPanel() {
   // Arranca en dadoHeight (no en 0) — el tramo 1 no nace al nivel de terreno si hay un
   // dado/cimentación debajo, pedido explícito del usuario (2026-06-28: "esta altura se
   // debe sumar al z(m) del tramo 1 del análisis de viento").
-  let zBase = dadoHeight;
+  let zBase = dadoHeight, zBaseTower = 0;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +secData[i]?.h || (cfg.height / nsec);
     const z = zBase + h / 2;
+    // zTower: elevación SOLO dentro de la torre (sin dadoHeight) — la fórmula de
+    // ahusamiento de ancho de cara (_faceWidthAt) es relativa a la base de la torre, no
+    // al nivel de terreno.
+    const zTower = zBaseTower + h / 2;
+    const faceWidth = _faceWidthAt(cfg, zTower);
     rows.push({
       sec: i + 1, z,
       Kz:  _tiaKz(z, windData.catExposicion),
       Kzt: _tiaKzt(z, windData),
       K3:  _tiaKztDetail(z, windData).K3,
       qz:  calcWindPressure(cfg, windData, z),
+      force: calcSectionWindForce(cfg, windData, i, z, faceWidth),
     });
-    zBase += h;
+    zBase += h; zBaseTower += h;
   }
   // K3 (y por lo tanto Kzt) varía con la altura — se quitó del resumen de parámetros (que
   // mostraba un solo valor de referencia en z=0) y se movió a la tabla de Presión por
@@ -5444,7 +5631,7 @@ function buildCargasVientoPanel() {
     </div>
     <div class="sep" style="margin:12px 0;"></div>
     <div class="sect-title" style="margin:0 0 8px;padding:0;">PRESIÓN POR SECCIÓN (qz)</div>
-    <table class="ret-table">
+    <table class="ret-table wind-table-center">
       <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (kg/m²)</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
@@ -5452,6 +5639,22 @@ function buildCargasVientoPanel() {
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
       qz evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.
+    </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">FUERZA APLICADA POR SECCIÓN</div>
+    <table class="ret-table wind-table-center">
+      <thead><tr><th>Sec.</th><th>ε</th><th>Área Plana (m²)</th><th>Área Redonda (m²)</th><th>Cf</th><th>Fuerza (kgf)</th></tr></thead>
+      <tbody>
+        ${rows.map(r => r.force
+          ? `<tr><td>${r.sec}</td><td>${r.force.epsilon.toFixed(3)}</td><td>${r.force.areaPlana.toFixed(3)}</td><td>${r.force.areaRedonda.toFixed(3)}</td><td>${r.force.Cf.toFixed(2)}</td><td>${r.force.F_kgf.toFixed(1)}</td></tr>`
+          : `<tr><td>${r.sec}</td><td colspan="5" style="color:var(--txt-sec);">— captura M/D con perfil válido${cfg.type!=='triangular'&&cfg.type!=='square'?' (solo lattice triangular/cuadrada)':''}</td></tr>`
+        ).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+      F = qz·Gh·Cf·Ae sobre la cara expuesta (barlovento) de cada sección — ε aproximado
+      a partir de montantes (M) y bracing real del patrón (D), vía ANSI/TIA-222-H §2.6.9.1.
+      No incluye sotavento ni combinación por dirección de viento (próxima entrega).
     </div>
   `;
 }
@@ -7517,6 +7720,11 @@ function _memChapterPendingHtml(ch) {
 // "Cargas de Viento" del tabbar: calcWindPressure/_tiaKz/_tiaKztDetail/_tiaKe/_tiaKd/
 // _tiaGh/_tiaVelocidadUltimaKmh) — pedido explícito del usuario (2026-06-28: "Manda
 // RESUMEN Y PARÁMETROS de Kz/Kzt al subtema 2.3... agrégalos con sus cálculos exactos").
+// El Procedimiento de Cálculo y la tabla de Presión por Sección (qz) SE MOVIERON al
+// capítulo 6 (ver _memWindProcedureBlock/_memChapter6Html) — pedido explícito del
+// usuario (2026-06-29: "Para 2.3 solo deja la tabla resumen y tabla de Kz. Los cálculos
+// y la tabla de qz mándala al subtítulo 6.1") — 2.3 ahora es solo un resumen de datos
+// capturados, sin procedimiento ni resultado de qz.
 // 2.1/2.2/2.4/2.5 siguen "Pendiente" — no tienen módulo de datos todavía.
 function _memChapter2Html(cfg) {
   const ch = MEM_CHAPTERS.find(c => c.num === 2);
@@ -7524,8 +7732,63 @@ function _memChapter2Html(cfg) {
     <h2 class="rp-h2" id="${_memAnchorId(label)}">${label}</h2>
     <div class="rp-pending">Pendiente — requiere módulo correspondiente (no implementado todavía)</div>`;
 
-  const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
   const Vultima = _tiaVelocidadUltimaKmh(windData);
+  const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
+  const ktd = _tiaKztDetail(0, windData);
+  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
+  const Gh = _tiaGh(cfg.height, cfg.type);
+  const fmt = v => (v == null ? '—' : (+v).toFixed(3));
+
+  const viento23 = `
+    <h2 class="rp-h2" id="${_memAnchorId('2.3 Parámetros de Viento')}">2.3 Parámetros de Viento</h2>
+    <h3 style="font-size:11px;margin:10px 0 6px;color:#444;">Resumen</h3>
+    <table class="rp-table wind-table-center"><tbody>
+      <tr><td>Código de Diseño</td><td>${_VIENTO_CODIGO_LABELS[windData.codigo] || '—'}</td></tr>
+      <tr><td>Velocidad de Diseño (Última)</td><td>${Vultima ? Vultima.toFixed(1) + ' km/h' : '—'}</td></tr>
+      <tr><td>Categoría de Exposición / Riesgo</td><td>${windData.catExposicion || '—'} / ${windData.catRiesgo || '—'}</td></tr>
+      <tr><td>H (m)</td><td>${windData.topoH ?? '—'}</td></tr>
+      <tr><td>L (m)</td><td>${windData.topoL ?? '—'}</td></tr>
+      <tr><td>Categoría Topográfica</td><td>${_TOPOCAT_LABELS[windData.topoCat] || '—'}</td></tr>
+      <tr><td>ASNM (m)</td><td>${windData.asnm ?? '—'}</td></tr>
+      <tr><td>Dirección del Viento</td><td>${_DIR_LABELS[windData.topoDir] || '—'}</td></tr>
+      <tr><td>Kd</td><td>${_tiaKd(cfg.type)}</td></tr>
+      <tr><td>Ke</td><td>${_tiaKe(windData.asnm).toFixed(3)}</td></tr>
+    </tbody></table>
+
+    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Parámetros de Kz / Kzt</h3>
+    <table class="rp-table wind-table-center"><tbody>
+      <tr><td>Kzmin</td><td>${fmt(exp.Kzmin)}</td></tr>
+      <tr><td>Zg (m)</td><td>${exp.Zg ?? '—'}</td></tr>
+      <tr><td>I (Factor de Importancia)</td><td>${fmt(FI)}</td></tr>
+      ${ktd.aplica ? `
+      <tr><td>H/L</td><td>${fmt(ktd.HL)}</td></tr>
+      <tr><td>β</td><td>${fmt(ktd.beta)}</td></tr>
+      <tr><td>K1</td><td>${fmt(ktd.K1)}</td></tr>
+      <tr><td>K2</td><td>${fmt(ktd.K2)}</td></tr>` : ''}
+      <tr><td>Gh</td><td>${fmt(Gh)}</td></tr>
+    </tbody></table>
+  `;
+
+  return `
+    <div class="mem-chapter-title" id="sec-2">2. ${ch.title}</div>
+    ${pend('2.1 Norma de Diseño y Normas Referenciadas')}
+    ${pend('2.2 Materiales')}
+    ${viento23}
+    ${pend('2.4 Parámetros de Hielo')}
+    ${pend('2.5 Parámetros Sísmicos')}
+  `;
+}
+
+// Capítulo 6 — 6.1/6.2: Procedimiento de Cálculo + tabla de Presión por Sección (qz),
+// movidos aquí desde 2.3 (ver comentario en _memChapter2Html). 6.1 usa la Velocidad
+// Última (mismo cálculo que antes vivía en 2.3); 6.2 repite EXACTAMENTE el mismo
+// procedimiento pero con la Velocidad Operacional (windData.velOperacional) — pedido
+// explícito del usuario (2026-06-29: "Haz lo mismo en 6.2 pero con la velocidad
+// operacional"). _memWindProcedureBlock(cfg, vKmh, ...) es el motor compartido entre
+// ambos — ÚNICA diferencia entre 6.1 y 6.2 es qué velocidad (y su fórmula de origen) se
+// le pasa.
+function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
+  const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
   // Arranca en dadoHeight (no en 0) — ver mismo criterio en buildCargasVientoPanel().
   let zBase = dadoHeight;
   const rows = [];
@@ -7537,24 +7800,17 @@ function _memChapter2Html(cfg) {
       Kz:  _tiaKz(z, windData.catExposicion),
       Kzt: _tiaKzt(z, windData),
       K3:  _tiaKztDetail(z, windData).K3,
-      qz:  calcWindPressure(cfg, windData, z),
+      qz:  calcWindPressure(cfg, windData, z, vKmh),
     });
     zBase += h;
   }
   const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
   const ktd = _tiaKztDetail(0, windData);
-  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
   const Gh = _tiaGh(cfg.height, cfg.type);
   const fmt = v => (v == null ? '—' : (+v).toFixed(3));
 
-  // ── Procedimiento de cálculo (fórmulas + sustitución numérica) — pedido explícito
-  // del usuario (2026-06-28: "coloca las fórmulas y los procedimientos en el apartado
-  // 2.3"), para que la memoria muestre cómo se obtuvo cada valor, no solo el resultado.
   const SHAPE_LABEL = { ridge: 'Cresta', flat_ridge: 'Cresta de cima plana', hill: 'Colina',
                          flat_hill: 'Colina de cima plana', escarpment: 'Escarpado' };
-  const velFormula = windData.velTipo === 'ultima'
-    ? `V<sub>Última</sub> = ${windData.velocidad ?? '—'} km/h (capturada directamente como Última)`
-    : `V<sub>Última</sub> = V<sub>Regional</sub>·√(1.6·I) = ${windData.velocidad ?? '—'} × √(1.6×${fmt(FI)}) = <b>${Vultima ? Vultima.toFixed(1) : '—'} km/h</b>`;
   const betaFormula = !ktd.aplica ? '' : (ktd.lowSlope
     ? `β = 4(H/L) = 4×${ktd.HL.toFixed(3)} = <b>${ktd.beta.toFixed(3)}</b>`
     : `β = 1.0 (H/L ≥ 1/4) = <b>${ktd.beta.toFixed(3)}</b>`);
@@ -7562,9 +7818,6 @@ function _memChapter2Html(cfg) {
     ? (ktd.lowSlope ? `K2 = 1 − x/(2L) = 1 − ${windData.topoX}/(2×${windData.topoL})` : `K2 = 1 − x/(8H) = 1 − ${windData.topoX}/(8×${windData.topoH})`)
     : (ktd.lowSlope ? `K2 = 1 − 4x/(3L) = 1 − 4×${windData.topoX}/(3×${windData.topoL})` : `K2 = 1 − x/(3H) = 1 − ${windData.topoX}/(3×${windData.topoH})`)
   ) + (ktd.aplica ? ` = <b>${ktd.K2.toFixed(3)}</b>` : '');
-  // K3 varía con z — ya no se fija un solo valor de referencia aquí (se quitó del
-  // resumen de parámetros), se calcula por sección directo en la tabla de Presión por
-  // Sección más abajo — pedido explícito del usuario (2026-06-28).
   const k3Formula = !ktd.aplica ? '' : (() => {
     const coefs = { ridge: ktd.lowSlope ? '6z/L' : '1.5z/H', hill: ktd.lowSlope ? '8z/L' : '2z/H', escarpment: ktd.lowSlope ? '5z/L' : '1.25z/H' };
     return `K3 = e<sup>−${coefs[ktd.baseShape]}</sup> — varía con la altura z de cada sección, ver columna K3 en la tabla de Presión por Sección más abajo`;
@@ -7593,58 +7846,54 @@ function _memChapter2Html(cfg) {
     <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '5' : '4'}. Factor de Direccionalidad, Kd (Tabla 2-2)</b><br>
       Kd = <b>${_tiaKd(cfg.type)}</b> (${_VIENTO_TIPO_LABELS[cfg.type] || cfg.type})</p>
     <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '6' : '5'}. Factor de Efecto de Ráfaga, Gh (§2.6.9)</b><br>${ghFormula}</p>
-    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '7' : '6'}. Presión de Velocidad, qz (§2.6.11.6)</b><br>
-      qz = 0.613 · Kz · Kzt · Ks · Ke · Kd · V² [N/m²] (Ks = 1.0, estructura apoyada en suelo, no en azotea — §2.6.7)<br>
+    <p style="font-size:10.5px;margin:6px 0;"><b>${ktd.aplica ? '7' : '6'}. Presión de Velocidad, q${vLabelCorto} (§2.6.11.6)</b><br>
+      q${vLabelCorto} = 0.613 · Kz · Kzt · Ks · Ke · Kd · V² [N/m²] (Ks = 1.0, estructura apoyada en suelo, no en azotea — §2.6.7)<br>
       Evaluado por sección — ver tabla "Presión por Sección" más abajo.</p>
   `;
 
-  const viento23 = `
-    <h2 class="rp-h2" id="${_memAnchorId('2.3 Parámetros de Viento')}">2.3 Parámetros de Viento</h2>
+  return `
     ${procedimiento}
-    <h3 style="font-size:11px;margin:10px 0 6px;color:#444;">Resumen</h3>
-    <table class="rp-table"><tbody>
-      <tr><td>Código de Diseño</td><td>${_VIENTO_CODIGO_LABELS[windData.codigo] || '—'}</td></tr>
-      <tr><td>Velocidad de Diseño (Última)</td><td>${Vultima ? Vultima.toFixed(1) + ' km/h' : '—'}</td></tr>
-      <tr><td>Categoría de Exposición / Riesgo</td><td>${windData.catExposicion || '—'} / ${windData.catRiesgo || '—'}</td></tr>
-      <tr><td>H (m)</td><td>${windData.topoH ?? '—'}</td></tr>
-      <tr><td>L (m)</td><td>${windData.topoL ?? '—'}</td></tr>
-      <tr><td>Categoría Topográfica</td><td>${_TOPOCAT_LABELS[windData.topoCat] || '—'}</td></tr>
-      <tr><td>ASNM (m)</td><td>${windData.asnm ?? '—'}</td></tr>
-      <tr><td>Dirección del Viento</td><td>${_DIR_LABELS[windData.topoDir] || '—'}</td></tr>
-      <tr><td>Kd</td><td>${_tiaKd(cfg.type)}</td></tr>
-      <tr><td>Ke</td><td>${_tiaKe(windData.asnm).toFixed(3)}</td></tr>
-    </tbody></table>
-
-    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Parámetros de Kz / Kzt</h3>
-    <table class="rp-table"><tbody>
-      <tr><td>Kzmin</td><td>${fmt(exp.Kzmin)}</td></tr>
-      <tr><td>Zg (m)</td><td>${exp.Zg ?? '—'}</td></tr>
-      <tr><td>I (Factor de Importancia)</td><td>${fmt(FI)}</td></tr>
-      ${ktd.aplica ? `
-      <tr><td>H/L</td><td>${fmt(ktd.HL)}</td></tr>
-      <tr><td>β</td><td>${fmt(ktd.beta)}</td></tr>
-      <tr><td>K1</td><td>${fmt(ktd.K1)}</td></tr>
-      <tr><td>K2</td><td>${fmt(ktd.K2)}</td></tr>` : ''}
-      <tr><td>Gh</td><td>${fmt(Gh)}</td></tr>
-    </tbody></table>
-
-    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Presión por Sección (qz)</h3>
-    <table class="rp-table">
-      <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (kg/m²)</th></tr></thead>
+    <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Presión por Sección (q${vLabelCorto})</h3>
+    <table class="rp-table wind-table-center">
+      <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>q${vLabelCorto} (kg/m²)</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
       </tbody>
     </table>
-    <p style="font-size:9.5px;color:#777;margin-top:6px;">qz evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.</p>
+    <p style="font-size:9.5px;color:#777;margin-top:6px;">q${vLabelCorto} evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.</p>
+  `;
+}
+function _memChapter6Html(cfg) {
+  const ch = MEM_CHAPTERS.find(c => c.num === 6);
+  const pend = label => `
+    <h2 class="rp-h2" id="${_memAnchorId(label)}">${label}</h2>
+    <div class="rp-pending">Pendiente — requiere módulo correspondiente (no implementado todavía)</div>`;
+
+  const Vultima = _tiaVelocidadUltimaKmh(windData);
+  const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
+  const fmt = v => (v == null ? '—' : (+v).toFixed(3));
+  const velFormulaUltima = windData.velTipo === 'ultima'
+    ? `V<sub>Última</sub> = ${windData.velocidad ?? '—'} km/h (capturada directamente como Última)`
+    : `V<sub>Última</sub> = V<sub>Regional</sub>·√(1.6·I) = ${windData.velocidad ?? '—'} × √(1.6×${fmt(FI)}) = <b>${Vultima ? Vultima.toFixed(1) : '—'} km/h</b>`;
+
+  const Voperacional = +windData.velOperacional || 0;
+  const velFormulaOperacional = `V<sub>Servicio</sub> = ${Voperacional || '—'} km/h (Velocidad Operacional, capturada directamente en Diseño por Viento)`;
+
+  const sec61 = `
+    <h2 class="rp-h2" id="${_memAnchorId('6.1 Cálculo de EPA — Último')}">6.1 Cálculo de EPA — Último</h2>
+    ${_memWindProcedureBlock(cfg, Vultima, ' (Último)', velFormulaUltima)}
+  `;
+  const sec62 = `
+    <h2 class="rp-h2" id="${_memAnchorId('6.2 Cálculo de EPA — Servicio')}">6.2 Cálculo de EPA — Servicio</h2>
+    ${_memWindProcedureBlock(cfg, Voperacional, ' (Servicio)', velFormulaOperacional)}
   `;
 
   return `
-    <div class="mem-chapter-title" id="sec-2">2. ${ch.title}</div>
-    ${pend('2.1 Norma de Diseño y Normas Referenciadas')}
-    ${pend('2.2 Materiales')}
-    ${viento23}
-    ${pend('2.4 Parámetros de Hielo')}
-    ${pend('2.5 Parámetros Sísmicos')}
+    <div class="mem-chapter-title" id="sec-6">6. ${ch.title}</div>
+    ${sec61}
+    ${sec62}
+    ${pend('6.3 Cargas de Viento en Accesorios')}
+    ${pend('6.4 Resumen de Cortante Basal y Momento de Vuelco')}
   `;
 }
 
@@ -7822,7 +8071,7 @@ function _memDisclaimerHtml() {
 function _buildMemoriaPages(cfg) {
   const interior = [];
   MEM_CHAPTERS.forEach(ch => {
-    interior.push(ch.num === 2 ? _memChapter2Html(cfg) : ch.num === 4 ? _memChapter4Html(cfg) : _memChapterPendingHtml(ch));
+    interior.push(ch.num === 2 ? _memChapter2Html(cfg) : ch.num === 4 ? _memChapter4Html(cfg) : ch.num === 6 ? _memChapter6Html(cfg) : _memChapterPendingHtml(ch));
   });
   // 8.1 puede ocupar varios bloques (torres con muchas secciones) — cada uno entra
   // por separado a "interior", así cada uno se convierte en su propio
@@ -9637,8 +9886,8 @@ function diagIconLines(pat, staggerUp=true) {
       h(L1,DL1,false); h(R1,DR1,false);
       h(L2,DL2,false); h(R2,DR2,false);
       h(L3,DSL2,false); h(R3,DSR2,false);
-      d(L1,DL2,false); d(DR1,R2,false);
-      d(DL2,L3,false); d(R2,DSR2,false);
+      d(DL1,L2,false); d(DR1,R2,false);
+      d(L2,DSL2,false); d(R2,DSR2,false);
       break;
     }
 
@@ -9657,8 +9906,8 @@ function diagIconLines(pat, staggerUp=true) {
       h(LC,DL1,false); h(RC,DR1,false);
       h(LB,DL2,false); h(RB,DR2,false);
       h(LA,DSL2,false); h(RA,DSR2,false);
-      d(LC,DL2,false); d(DR1,RB,false);
-      d(DL2,LA,false); d(RB,DSR2,false);
+      d(DL1,LB,false); d(DR1,RB,false);
+      d(LB,DSL2,false); d(RB,DSR2,false);
       break;
     }
 
