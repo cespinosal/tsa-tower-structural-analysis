@@ -796,6 +796,21 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 }
 .sec-edit-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .sec-edit-btn-active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.12); }
+.sec-insert-btn:hover { border-color: #4ade80 !important; color: #4ade80 !important; }
+.sec-delete-btn:hover { border-color: #f87171 !important; color: #f87171 !important; }
+.sec-add-strip {
+  display: flex; align-items: center; gap: 6px; padding: 2px 14px;
+  border-bottom: 1px solid #111c28;
+}
+.sec-add-strip::before, .sec-add-strip::after {
+  content: ''; flex: 1; height: 1px; background: #1b3150;
+}
+.sec-add-strip-btn {
+  background: none; border: 1px solid #1b3150; color: #4ade80;
+  border-radius: 3px; padding: 0 6px; font-size: 11px; cursor: pointer;
+  line-height: 1.5; flex-shrink: 0;
+}
+.sec-add-strip-btn:hover { border-color: #4ade80; background: rgba(74,222,128,.08); }
 
 /* Secciones modal */
 .sec-modal-overlay {
@@ -7103,6 +7118,12 @@ function generateTowerFromSetup() {
   }
 
   onTypeChange();
+  // Nueva torre: arrancar con 1 solo tramo; el usuario agrega los demás con el botón +
+  // Respetar si el primer tramo es inclinado (nInc > 0) o recto (nInc === 0)
+  { const inc = +document.getElementById('nInc').value || 0;
+    if (inc > 0) { document.getElementById('nInc').value = 1; document.getElementById('nStr').value = 0; }
+    else         { document.getElementById('nStr').value = 1; }
+  }
   onSecChange();
 
   if (tipo === 'monopole') {
@@ -10793,6 +10814,32 @@ function setUnit(btn, unit) {
   btn.classList.add('active');
 }
 
+// ── Insertar / eliminar tramos ────────────────────────────────
+function insertSeccion(i) {
+  const copy = JSON.parse(JSON.stringify(secData[i]));
+  secData.splice(i + 1, 0, copy);
+  const nIncEl = document.getElementById('nInc');
+  const nStrEl = document.getElementById('nStr');
+  if (i < (+nIncEl.value || 0)) nIncEl.value = (+nIncEl.value || 0) + 1;
+  else                           nStrEl.value = (+nStrEl.value || 0) + 1;
+  buildSectionRows(secData.length);
+  refresh();
+  scheduleHistoryPush();
+}
+
+function deleteSeccion(i) {
+  if (secData.length <= 1) { showToast('La torre debe tener al menos un tramo.', 'warn'); return; }
+  secData.splice(i, 1);
+  const nIncEl = document.getElementById('nInc');
+  const nStrEl = document.getElementById('nStr');
+  if (i < (+nIncEl.value || 0)) nIncEl.value = Math.max(0, (+nIncEl.value || 0) - 1);
+  else                           nStrEl.value = Math.max(0, (+nStrEl.value || 0) - 1);
+  if (aislarTramoSec === i) aislarTramoSec = null;
+  buildSectionRows(secData.length);
+  refresh();
+  scheduleHistoryPush();
+}
+
 // ── Sección read-only + modal ──────────────────────────────────
 
 let modalTemp = {};
@@ -10875,6 +10922,7 @@ function buildSectionRows(n) {
         <button class="sec-edit-btn ${isolatedHere?'sec-edit-btn-active':''}" style="flex-shrink:0" title="${isolatedHere ? 'Mostrar torre completa' : 'Aislar este tramo en el visor'}"
           onclick="toggleAislarTramo(${i})">👁</button>
         <button class="sec-edit-btn" style="flex-shrink:0" title="Editar sección" onclick="openSecModal(${i})">✎</button>
+        <button class="sec-edit-btn sec-delete-btn" style="flex-shrink:0;margin-left:2px;" title="Eliminar este tramo" onclick="deleteSeccion(${i})">✕</button>
       </div>
       ${cfg.type==='monopole' ? `
       <div class="sec-row-detail"><span class="sec-row-code">Altura:</span><span class="sec-row-val">${s.h} m</span></div>
@@ -10890,6 +10938,11 @@ function buildSectionRows(n) {
       <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">-</span></div>
       `}`;
     c.appendChild(card);
+    // Separador con botón + entre secciones (copia la sección actual hacia arriba en la torre)
+    const strip = document.createElement('div');
+    strip.className = 'sec-add-strip';
+    strip.innerHTML = `<button class="sec-add-strip-btn" title="Copiar tramo ${i+1} y agregar arriba" onclick="insertSeccion(${i})">+ agregar tramo</button>`;
+    c.appendChild(strip);
   });
 }
 
