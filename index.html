@@ -8152,8 +8152,9 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   for (let i = 0; i < nsec; i++) {
     const h = +cfg.secData[i]?.h || (cfg.height / nsec);
     const z = zBase + h / 2;
+    const fw = _faceWidthAt(cfg, z);
     rows.push({
-      sec: i + 1, z,
+      sec: i + 1, z, fw, secIdx: i,
       Kz:  _tiaKz(z, windData.catExposicion),
       Kzt: _tiaKzt(z, windData),
       K3:  _tiaKztDetail(z, windData).K3,
@@ -8208,6 +8209,76 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
       Evaluado por sección — ver tabla "Presión por Sección" más abajo.</p>
   `;
 
+  // ── EPA por ángulo — usar qz ya calculado con vKmh ───────────────
+  const isTriangular = cfg.type === 'triangular';
+  const GhVal = _tiaGh(cfg.height, cfg.type);
+  const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+
+  function _epaRow(r, angleDeg) {
+    const sol = calcSectionSolidity(cfg, r.secIdx, r.fw);
+    if (!sol) return null;
+    const { Df, Dr } = _tiaDfDr(cfg.type, angleDeg, sol.epsilon);
+    const Rr  = sol.areaRedonda > 0 ? 1.0 : 0;
+    const CfP = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : 0;
+    const CfR = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : 0;
+    const Cf  = sol.solidArea   > 0 ? (CfP*sol.areaPlana + CfR*sol.areaRedonda) / sol.solidArea : null;
+    const EPA = CfP * Df * sol.areaPlana + CfR * Dr * Rr * sol.areaRedonda;
+    const F_N = r.qz * (GhVal ?? 1) * EPA;
+    return { sol, Df, Dr, Rr, CfP, CfR, Cf, EPA, F_N, F_kgf: F_N / 9.80665 };
+  }
+
+  const angleTablesHtml = dirs.map(angleDeg => {
+    const thetaRad = angleDeg * Math.PI / 180;
+    const Df0 = _tiaDfDr(cfg.type, angleDeg, 0).Df;   // representativo (ε varía por sec)
+    const angleRows = rows.map(r => ({ r, ep: _epaRow(r, angleDeg) })).filter(x => x.ep);
+    if (!angleRows.length) return '';
+    const totalKgf = angleRows.reduce((s, x) => s + x.ep.F_kgf, 0);
+    const ex = angleRows[0].ep;  // primera sección para ejemplo de fórmula
+    const exR = angleRows[0].r;
+    const epaEx = `(EPA)s = Cf·[Df·Af + Dr·Ar·Rr] = ${ex.Cf?.toFixed(3) ?? '—'}·[${ex.Df.toFixed(2)}·${ex.sol.areaPlana.toFixed(3)} + ${ex.Dr.toFixed(2)}·${ex.sol.areaRedonda.toFixed(3)}·${ex.Rr.toFixed(2)}] = <b>${ex.EPA.toFixed(4)} m²</b>`;
+    const fstEx  = `FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)}·${(GhVal??1).toFixed(2)}·${ex.EPA.toFixed(4)} = <b>${ex.F_kgf.toFixed(1)} kgf</b>`;
+
+    return `
+      <h4 style="font-size:10.5px;font-weight:700;margin:14px 0 4px;color:#1B3A6B;">
+        θ = ${angleDeg}° ${angleDeg===0?'— Viento Normal':''}</h4>
+      <p style="font-size:10px;margin:4px 0 2px;">
+        <b>Factores de dirección (Tabla 2-7):</b>
+        Df = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Df.toFixed(2)},
+        Dr = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Dr.toFixed(2)}
+        ${angleDeg===45&&cfg.type==='square' ? `(= min(1.2, 1+0.75ε))` : ''}</p>
+      <p style="font-size:10px;margin:2px 0 6px;">
+        <b>Ejemplo Sec. ${exR.sec}:</b><br>
+        ${epaEx}<br>
+        FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)} kg/m² × ${(GhVal??1).toFixed(2)} × ${ex.EPA.toFixed(4)} m² = <b>${ex.F_kgf.toFixed(1)} kgf</b>
+      </p>
+      <table class="rp-table wind-table-center">
+        <thead><tr><th>Sec.</th><th>z (m)</th><th>qz (kg/m²)</th><th>Ag (m²)</th><th>Af (m²)</th><th>Ar (m²)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (kgf)</th></tr></thead>
+        <tbody>
+          ${angleRows.map(({ r, ep }) => `<tr>
+            <td>${r.sec}</td>
+            <td>${r.z.toFixed(1)}</td>
+            <td>${(r.qz/9.80665).toFixed(2)}</td>
+            <td>${ep.sol.grossArea.toFixed(3)}</td>
+            <td>${ep.sol.areaPlana.toFixed(3)}</td>
+            <td>${ep.sol.areaRedonda.toFixed(3)}</td>
+            <td>${ep.sol.epsilon.toFixed(3)}</td>
+            <td>${ep.Cf != null ? ep.Cf.toFixed(3) : '—'}</td>
+            <td>${ep.Df.toFixed(3)}</td>
+            <td>${ep.Dr.toFixed(3)}</td>
+            <td>${ep.Rr.toFixed(2)}</td>
+            <td>${ep.F_kgf.toFixed(1)}</td>
+          </tr>`).join('')}
+          <tr style="font-weight:700;background:#f0f4ff;">
+            <td colspan="11" style="text-align:right;">TOTAL FST (kgf)</td>
+            <td>${totalKgf.toFixed(1)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:9px;color:#777;margin-top:4px;">
+        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = 1.0 provisional (sin miembros redondos). Gh = ${(GhVal??1).toFixed(2)}.
+      </p>`;
+  }).join('');
+
   return `
     ${procedimiento}
     <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Presión por Sección (q${vLabelCorto})</h3>
@@ -8218,6 +8289,19 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
       </tbody>
     </table>
     <p style="font-size:9.5px;color:#777;margin-top:6px;">q${vLabelCorto} evaluado según ANSI/TIA-222-H §2.6.11.6, a la elevación acumulada en el centro de cada sección.</p>
+
+    <h3 style="font-size:11px;margin:18px 0 6px;color:#444;">Fuerza de Diseño por Viento — EPA (§2.6.11.1)</h3>
+    <p style="font-size:10.5px;margin:0 0 6px;">
+      <b>Fórmula general:</b><br>
+      FST = qz · Gh · (EPA)s<br>
+      (EPA)s = Cf · [Df · ΣAf + Dr · Σ(Ar · Rr)]<br>
+      ε = (Af + Ar) / Ag &nbsp;·&nbsp; Cf = ${isTriangular
+        ? '3.4ε² − 4.7ε + 3.4 (torre triangular)'
+        : '4.0ε² − 5.9ε + 4.0 (torre cuadrada)'}
+      &nbsp;·&nbsp; Gh = ${(GhVal??1).toFixed(2)}<br>
+      Df, Dr según Tabla 2-7 (ángulo de incidencia) &nbsp;·&nbsp; Rr = factor de reducción miembro redondo (§2.6.11.1.1)
+    </p>
+    ${angleTablesHtml}
   `;
 }
 function _memChapter6Html(cfg) {
