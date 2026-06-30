@@ -494,7 +494,7 @@ body {
 
 /* ── Right panel ────────────────────────────────────────────── */
 .rpanel {
-  width: 272px;
+  width: 310px;
   flex-shrink: 0;
   display: none;          /* oculto hasta activar Torre */
   flex-direction: column;
@@ -519,11 +519,12 @@ body {
 #height::-webkit-outer-spin-button, #height::-webkit-inner-spin-button,
 #shaftW::-webkit-outer-spin-button, #shaftW::-webkit-inner-spin-button,
 #nInc::-webkit-outer-spin-button, #nInc::-webkit-inner-spin-button,
-#nStr::-webkit-outer-spin-button, #nStr::-webkit-inner-spin-button {
+#nStr::-webkit-outer-spin-button, #nStr::-webkit-inner-spin-button,
+#alturaInclinada::-webkit-outer-spin-button, #alturaInclinada::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr { -moz-appearance: textfield; }
+#dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr, #alturaInclinada { -moz-appearance: textfield; }
 #rpanel-viento { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-viento.visible { display: flex; }
 /* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
@@ -1660,10 +1661,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-top"><span class="tf-lbl" id="s-topW-lbl">APERTURA FINAL (m)</span>
           <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
-        <div class="tf-row" id="s-row-ninc"><span class="tf-lbl">TRAMOS INCLINADOS</span>
-          <input class="tf-input" type="number" id="s-nInc" value="6" min="0" max="40" oninput="buildSetupPreview()"></div>
-        <div class="tf-row" id="s-row-nstr"><span class="tf-lbl" id="s-nstr-lbl">TRAMOS RECTOS</span>
+        <div class="tf-row" id="s-row-altInc"><span class="tf-lbl">ALTURA INCLINADA (m)</span>
+          <input class="tf-input" type="number" id="s-altInc" value="24" min="0" step="0.5" oninput="buildSetupPreview()"></div>
+        <div class="tf-row" id="s-row-nstr" style="display:none;"><span class="tf-lbl" id="s-nstr-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
+        <input type="hidden" id="s-nInc" value="0">
         <div class="tf-row" id="s-row-monoTramos" style="display:none;"><span class="tf-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-monoTramos" value="6" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosInc" style="display:none;"><span class="tf-lbl">TRAMOS INCLINADOS</span>
@@ -1952,7 +1954,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <span class="dim-lbl" id="dim-lbl-valor">Valor</span>
             <input class="dim-input" type="number" id="baseW"  value="4"  min="0.5" max="99"  oninput="refresh()">
             <input class="dim-input" type="number" id="topW"   value="2"  min="0.5" max="99"  oninput="refresh()">
-            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" oninput="onHeightChange()">
+            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" onchange="onHeightChange()">
           </div>
 
           <div class="frow" id="row-apertura-top" style="display:none;">
@@ -1978,14 +1980,13 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
               oninput="dadoHeight = +this.value || 0; refresh(); if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();">
           </div>
 
-          <div class="frow" id="row-ninc-main">
-            <span class="flbl">Tramos inclinados:</span>
-            <input class="ctrl-input" type="number" id="nInc" value="6" min="0" max="40" oninput="onSecChange()">
+          <div class="frow" id="row-altInc-main">
+            <span class="flbl">Altura inclinada (m):</span>
+            <input class="ctrl-input" type="number" id="alturaInclinada" value="24" min="0" step="0.5" oninput="onAltIncChange()">
           </div>
-          <div class="frow" id="row-nstr-main">
-            <span class="flbl">Tramos rectos:</span>
-            <input class="ctrl-input" type="number" id="nStr" value="2" min="0" max="40" oninput="onSecChange()">
-          </div>
+          <!-- nInc / nStr ocultos — se calculan dinámicamente desde alturaInclinada -->
+          <input type="hidden" id="nInc" value="0">
+          <input type="hidden" id="nStr" value="0">
 
           <div id="guyed-params">
             <div class="sep"></div>
@@ -2623,10 +2624,9 @@ function genMonopole(cfg) {
   const {nodes, members} = initBuffers();
   const nTot = cfg.nInc + cfg.nStr;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
-  const zInc = cfg.nInc > 0
-    ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b) => a+b, 0)
-    : 0;
+  const secH = sec => +secData[sec]?.h || 6;
+  const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
+    : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
   const r0 = cfg.baseW/2, r1 = cfg.topW/2;
   const taperR = z => {
     const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
@@ -2713,7 +2713,7 @@ function genMonopoleAxis(cfg) {
   const {nodes, members} = initBuffers();
   const nTot = cfg.nInc + cfg.nStr;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
+  const secH = sec => +secData[sec]?.h || 6;
   let z = 0;
   let prevNode = addNode(nodes, 0, 0, 0);
   for (let sec = 0; sec < nTot; sec++) {
@@ -2740,10 +2740,9 @@ function genMixed(cfg, ANG, radiusFn) {
 
   // Cada tramo usa su propia altura (secData[sec].h, editable) — si no está definida,
   // cae al reparto uniforme Altura/#Tramos.
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
-  const zInc = cfg.nInc > 0
-    ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b) => a+b, 0)
-    : 0;
+  const secH = sec => +secData[sec]?.h || 6;
+  const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
+    : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
 
   const levelAt = z => {
     const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
@@ -2792,7 +2791,7 @@ function genGuyed(cfg) {
   const R0 = cfg.shaftW/Math.sqrt(3);
   const nTot = cfg.nsec;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
+  const secH = sec => +secData[sec]?.h || 6;
 
   // Torre con pivote: la Sección 1 ES la pirámide — las 3 piernas se unen en un punto en
   // la base (z=0) y se abren hasta la Apertura normal (R0) al final de esa sección (su
@@ -5616,10 +5615,12 @@ function calcWindPressure(cfg, windData, z, vKmhOverride) {
 // ancho vale baseW en z=0 y topW al final del tramo ahusado acumulado (zInc), constante
 // después. width(z)=baseW+(topW-baseW)·min(z/zInc,1).
 function _zIncForCfg(cfg) {
+  if (cfg.alturaInclinada > 0) return cfg.alturaInclinada;
+  // Fallback para monopolo / arriostrada (sin alturaInclinada)
   const nTot = (cfg.nInc||0) + (cfg.nStr||0);
   if (!cfg.nInc || nTot === 0) return 0;
   let z = 0;
-  for (let i = 0; i < cfg.nInc; i++) z += +secData[i]?.h || (cfg.height/nTot);
+  for (let i = 0; i < cfg.nInc; i++) z += +secData[i]?.h || (cfg.height / nTot);
   return z;
 }
 function _faceWidthAt(cfg, z) {
@@ -6267,13 +6268,29 @@ function renderCableCatalogTable() {
 const CONEXION_FACTORS = { 'Antorchada': 1, 'Californiada': 1, 'Grapas Crosby': 0.8 };
 
 function getConfig() {
-  const nInc = Math.max(0, +document.getElementById('nInc').value || 0);
-  const nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+  const tipo = document.getElementById('ttype').value;
+  let nInc, nStr, alturaInclinada;
+  if (tipo === 'monopole' || tipo === 'guyed') {
+    nInc = Math.max(0, +document.getElementById('nInc').value || 0);
+    nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+    alturaInclinada = 0;
+  } else {
+    alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
+    nInc = 0; let cumH = 0;
+    for (let i = 0; i < secData.length; i++) {
+      if (cumH < alturaInclinada - 0.001) nInc++;
+      cumH += +secData[i]?.h || 0;
+    }
+    nStr = Math.max(0, secData.length - nInc);
+    document.getElementById('nInc').value = nInc;
+    document.getElementById('nStr').value = nStr;
+  }
   return {
-    type:      document.getElementById('ttype').value,
+    type:      tipo,
     baseW:     +document.getElementById('baseW').value  || 4,
     topW:      +document.getElementById('topW').value   || 2,
     height:    +document.getElementById('height').value || 30,
+    alturaInclinada,
     nInc, nStr,
     nsec:      nInc + nStr || 1,
     shaftW:    +document.getElementById('shaftW').value || 1,
@@ -6392,52 +6409,49 @@ function onTypeChange() {
   setDisp('dim-hdr-top',  !isGuyed);
   setDisp('topW',         !isGuyed);
   setDisp('row-apertura-top', isGuyed);
-  setDisp('row-ninc-main',    !isGuyed);
-  setDisp('dim-lbl-valor',    !isGuyed);
+  setDisp('row-altInc-main', !isGuyed && v !== 'monopole');
+  setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
-  document.querySelector('#row-nstr-main .flbl').textContent = isGuyed ? 'Tramos:' : 'Tramos rectos:';
   if (isGuyed) ensureGuyHeights();
   refresh();
 }
 
 function onSecChange() {
-  const n = (+document.getElementById('nInc').value || 0)
-           + (+document.getElementById('nStr').value || 0);
-  buildSectionRows(n);
+  buildSectionRows(secData.length || 1);
+  refresh();
+}
+function onAltIncChange() {
+  buildSectionRows(secData.length);
   refresh();
 }
 
 // Torre con pivote: la Sección 1 es una sección independiente más (pirámide en la base) —
 // se inserta/retira al inicio de secData y "Tramos" (nStr) se ajusta en consecuencia.
 function setPivotSection(enabled) {
-  const nStrEl = document.getElementById('nStr');
-  let nStr = +nStrEl.value || 0;
   if (enabled) {
     secData.unshift({
       diag:'X', bays:1, h:3, M:'-', D:'-', topH:true, Htop:'-', bayTopH:false, Hbay:'-',
       Ds:'-', Hs:'-', planTop:'none', PbTop:'-', PbTop2:'-', planBay:'none', PbBay:'-', PbBay2:'-',
       hip:'none', HhipH:'-', HhipD:'-', HhipDia:'-', staggerFlip:false,
     });
-    nStr += 1;
   } else if (secData.length > 0) {
     secData.shift();
-    nStr = Math.max(1, nStr - 1);
   }
-  nStrEl.value = nStr;
-  buildSectionRows(nStr);
+  buildSectionRows(secData.length);
   refresh();
 }
 
-// Editar "Altura" directamente resetea todos los tramos al reparto uniforme (H/#Tramos) —
-// el estado "inicial" descrito por el usuario. Editar un tramo individual en el modal
-// es lo que hace que la Altura total termine siendo distinta (suma de los tramos).
+// Editar "Altura" directamente pregunta antes de aplicar: si el usuario confirma, el
+// valor tecleado se guarda tal cual como la nueva altura final de la torre (techo usado
+// al agregar tramos con "+ agregar tramo") — NO redistribuye las alturas de los tramos
+// existentes. Si cancela, el campo vuelve a mostrar la Altura real (suma de los tramos).
 function onHeightChange() {
-  const newH = +document.getElementById('height').value || 30;
-  const n = secData.length || 1;
-  const hEq = +(newH / n).toFixed(2);
-  secData.forEach(s => { s.h = hEq; });
-  buildSectionRows(secData.length);
-  refresh();
+  const el = document.getElementById('height');
+  const newH = +el.value || 30;
+  const currentH = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
+  if (Math.abs(newH - currentH) < 0.005) return;  // sin cambio real
+  const ok = confirm(`¿Dejar ${newH} m como la nueva altura final de la torre?\n\nLos tramos existentes no cambian; este valor se usa como límite al seguir agregando tramos.`);
+  if (!ok) { el.value = currentH; return; }
 }
 
 // ── Setup panel: cambio de tipo ────────────────────────────────
@@ -6483,12 +6497,17 @@ function _buildPreviewCfg(tipo) {
     nStr = Math.max(1, +document.getElementById('s-nStr')?.value || 2);
     if (guyPivot) nStr += 1;   // sección extra para la pirámide del pivote (igual que setPivotSection)
   } else {
-    nInc = +document.getElementById('s-nInc')?.value || 0;
-    nStr = +document.getElementById('s-nStr')?.value || 0;
-    if (nInc + nStr === 0) nStr = 1;
+    // triangular / square: nInc/nStr calculados desde alturaInclinada (solo para previsualización)
+    const altH = +document.getElementById('s-altInc')?.value || 0;
+    const prevSecs = 6;
+    const hPrev = height / prevSecs;
+    nInc = altH > 0 ? Math.max(0, Math.min(prevSecs, Math.round(altH / hPrev))) : 0;
+    nStr = prevSecs - nInc || 1;
   }
+  const alturaInclinada = (tipo !== 'monopole' && tipo !== 'guyed')
+    ? (+document.getElementById('s-altInc')?.value || 0) : 0;
   return {
-    type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1,
+    type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1, alturaInclinada,
     shaftW: +document.getElementById('s-shaftW')?.value || 1,
     guyLevels: guyHeights.length || 3,
     guyHeights: guyHeights.slice(),
@@ -6545,8 +6564,8 @@ function onSetupTipoChange() {
   const hide = (id, on) => document.getElementById(id).style.display = on ? '' : 'none';
   hide('s-row-base',  v !== 'guyed');
   hide('s-row-top',   v !== 'guyed' && v !== 'monopole' ? true : v === 'monopole');
-  hide('s-row-ninc',  v !== 'monopole' && v !== 'guyed');
-  hide('s-row-nstr',  !isMono);
+  hide('s-row-altInc', v !== 'monopole' && v !== 'guyed');
+  hide('s-row-nstr',   v === 'guyed');
   hide('s-row-guyApertura', v === 'guyed');
   hide('s-row-guyAnchorR',  v === 'guyed');
   hide('s-row-guyLevels',   v === 'guyed');
@@ -6556,7 +6575,7 @@ function onSetupTipoChange() {
   hide('s-row-monoTipo',  isMono);
   hide('s-row-monoTramos', isMono);
   if (!isMono) { hide('s-row-monoTramosInc', false); hide('s-row-monoTramosRec', false); hide('s-row-monoAperturas', false); }
-  document.getElementById('s-nstr-lbl').textContent = v === 'guyed' ? 'NÚMERO DE TRAMOS' : 'TRAMOS RECTOS';
+  document.getElementById('s-nstr-lbl').textContent = 'NÚMERO DE TRAMOS';
   document.getElementById('tf-header-title').textContent = isMono ? 'Nuevo Monopolo' : 'Nueva Torre';
   document.getElementById('gen-btn-label').textContent = isMono ? 'Generar Monopolo' : 'Generar Torre';
   document.getElementById('s-baseW-lbl').textContent = isMono ? 'DIÁMETRO INICIAL (m)' : 'APERTURA INICIAL (m)';
@@ -7073,6 +7092,10 @@ function generateTowerFromSetup() {
   syncVal('dado', 's-dado');
   syncVal('baseW',  's-baseW');
   syncVal('topW',   's-topW');
+  // Sincronizar alturaInclinada desde el flyout (s-altInc → alturaInclinada)
+  { const sAI = document.getElementById('s-altInc');
+    const ai  = document.getElementById('alturaInclinada');
+    if (sAI && ai) ai.value = sAI.value; }
   syncVal('nInc',   's-nInc');
   syncVal('nStr',   's-nStr');
   syncVal('shaftW',    's-shaftW');
@@ -7087,9 +7110,9 @@ function generateTowerFromSetup() {
   document.getElementById('fechaCreacion').value  = document.getElementById('s-fecha').value;
   _updateFechaFmt();
 
-  // Reinicia las alturas de tramo al reparto uniforme H/#Tramos para esta nueva torre
-  // (evita heredar alturas de un secData previo con una Altura distinta).
-  secData.forEach(s => { if (s) s.h = undefined; });
+  // Torre nueva: vaciar secData por completo (no solo las alturas) para que arranque
+  // siempre con un único tramo, sin heredar la cantidad de tramos de una torre previa.
+  secData = [];
 
   // Radio de retenidas inicial (solo Arriostrada) — define el radio de los anclajes
   // por defecto en vez del valor fijo de 15m.
@@ -7118,13 +7141,18 @@ function generateTowerFromSetup() {
   }
 
   onTypeChange();
-  // Nueva torre: arrancar con 1 solo tramo; el usuario agrega los demás con el botón +
-  // Respetar si el primer tramo es inclinado (nInc > 0) o recto (nInc === 0)
-  { const inc = +document.getElementById('nInc').value || 0;
-    if (inc > 0) { document.getElementById('nInc').value = 1; document.getElementById('nStr').value = 0; }
-    else         { document.getElementById('nStr').value = 1; }
+  // Nueva torre: arrancar con 1 solo tramo; alturaInclinada ya está sincronizada.
+  // Primer tramo = H/6 (igual que el preview de 6 tramos) para escala visual correcta.
+  { const H = +document.getElementById('height').value || 0;
+    const altInc = +document.getElementById('alturaInclinada').value || 0;
+    document.getElementById('nInc').value = altInc > 0 ? 1 : 0;
+    document.getElementById('nStr').value = altInc > 0 ? 0 : 1;
+    onSecChange();
+    if (secData[0]) {
+      secData[0].h = 6;
+      buildSectionRows(secData.length);
+    }
   }
-  onSecChange();
 
   if (tipo === 'monopole') {
     const sides = +document.getElementById('s-monoForma').value || 12;
@@ -10757,6 +10785,21 @@ function loadProjectData(cfg, filename) {
     set('height',        cfg.height);
     set('nInc',          cfg.nInc);
     set('nStr',          cfg.nStr);
+    // Restaurar alturaInclinada: usar valor guardado o calcularlo desde nInc + alturas de secData
+    { const ai = document.getElementById('alturaInclinada');
+      if (ai) {
+        if (cfg.alturaInclinada != null) {
+          ai.value = cfg.alturaInclinada;
+        } else if (cfg.nInc > 0 && Array.isArray(cfg.secData)) {
+          // Backward compat: sumar alturas de los primeros nInc tramos
+          let cumH = 0;
+          for (let i = 0; i < Math.min(cfg.nInc, cfg.secData.length); i++) cumH += +cfg.secData[i]?.h || 0;
+          ai.value = cumH > 0 ? +cumH.toFixed(2) : 0;
+        } else {
+          ai.value = 0;
+        }
+      }
+    }
     set('shaftW',        cfg.shaftW);
     guyHeights = Array.isArray(cfg.guyHeights) ? cfg.guyHeights.slice() : [];
     guyCableData  = Array.isArray(cfg.guyCableData)  ? cfg.guyCableData.slice()  : [];
@@ -10797,7 +10840,7 @@ function loadProjectData(cfg, filename) {
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
-      buildSectionRows(cfg.nInc + cfg.nStr);
+      buildSectionRows(cfg.secData.length || (cfg.nInc + cfg.nStr));
       refresh();
     }
     refitView();
@@ -10815,25 +10858,34 @@ function setUnit(btn, unit) {
 }
 
 // ── Insertar / eliminar tramos ────────────────────────────────
+// Actualiza el campo "Altura" del dim-grid con la suma real de los tramos — se llama
+// al editar un tramo individual en el modal (sec-modal), que sí puede cambiar el total.
+function _syncHeightField() {
+  const el = document.getElementById('height');
+  if (el) el.value = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
+}
+
 function insertSeccion(i) {
   const copy = JSON.parse(JSON.stringify(secData[i]));
+  // La "Altura" del dim-grid es el techo de la torre: si agregar este tramo hace que la
+  // suma de alturas lo rebase, se avisa y NO se agrega (no se dibuja ese tramo).
+  const cap = +document.getElementById('height')?.value || 0;
+  const currentH = secData.reduce((s, d) => s + (+d.h || 0), 0);
+  const newH = +copy.h || 0;
+  if (cap > 0 && currentH + newH > cap + 0.001) {
+    showToast(`No se agregó el tramo: la altura total (${(currentH + newH).toFixed(2)} m) superaría la altura de la torre (${cap} m).`, 'warn', 6000);
+    return;
+  }
   secData.splice(i + 1, 0, copy);
-  const nIncEl = document.getElementById('nInc');
-  const nStrEl = document.getElementById('nStr');
-  if (i < (+nIncEl.value || 0)) nIncEl.value = (+nIncEl.value || 0) + 1;
-  else                           nStrEl.value = (+nStrEl.value || 0) + 1;
   buildSectionRows(secData.length);
   refresh();
+  refitView();
   scheduleHistoryPush();
 }
 
 function deleteSeccion(i) {
   if (secData.length <= 1) { showToast('La torre debe tener al menos un tramo.', 'warn'); return; }
   secData.splice(i, 1);
-  const nIncEl = document.getElementById('nInc');
-  const nStrEl = document.getElementById('nStr');
-  if (i < (+nIncEl.value || 0)) nIncEl.value = Math.max(0, (+nIncEl.value || 0) - 1);
-  else                           nStrEl.value = Math.max(0, (+nStrEl.value || 0) - 1);
   if (aislarTramoSec === i) aislarTramoSec = null;
   buildSectionRows(secData.length);
   refresh();
@@ -10851,7 +10903,7 @@ function buildSectionRows(n) {
 
   const cfg  = getConfig();
   const nInc = cfg.nInc;
-  const h    = +(cfg.height / n).toFixed(2);
+  const h    = 6;  // altura por defecto de secciones nuevas; el usuario la edita
 
   const prev = secData.slice();
   secData = Array.from({length: n}, (_, i) => ({
@@ -10904,9 +10956,13 @@ function buildSectionRows(n) {
     const g = steelGrades.find(g => g.name === cal);
     return g ? `${val} <span style="color:var(--txt-sec);font-size:9px;">· ${g.name} Fy ${g.fy}</span>` : val;
   };
+  const altH = cfg.alturaInclinada || 0;
+  let _cumH = 0;
   secData.forEach((s, i) => {
-    const tipo    = i < nInc ? 'INC' : 'REC';
-    const tipoLbl = i < nInc ? 'Inclinado' : 'Recto';
+    const isInc   = altH > 0 ? _cumH < altH - 0.001 : i < nInc;
+    _cumH += +s.h || 0;
+    const tipo    = isInc ? 'INC' : 'REC';
+    const tipoLbl = isInc ? 'Inclinado' : 'Recto';
     const isolatedHere = aislarTramoSec === i;
     const card = document.createElement('div');
     card.className = 'sec-card' + (isolatedHere ? ' sec-card-isolated' : '');
@@ -11962,10 +12018,28 @@ function applySecModal() {
     })(),
     monoFy:    val('mt-monoFy'),
   };
+
+  // Validar que este tramo no rebase la altura inclinada (la pendiente se calcula con
+  // los datos iniciales — Apertura inicial/final/Altura inclinada — y aplica fija hasta
+  // esa altura; pasada esa altura los tramos son rectos). Si el tramo arranca dentro de
+  // la zona inclinada pero su altura lo hace terminar después de ella, se recorta para
+  // que quepa exacto hasta la altura inclinada (no se permite mezclar ambos comportamientos
+  // dentro del mismo tramo).
+  { const altH = +document.getElementById('alturaInclinada')?.value || 0;
+    if (altH > 0) {
+      let cumH = 0;
+      for (let i = 0; i < modalIdx; i++) cumH += +secData[i]?.h || 0;
+      const cumEnd = cumH + (+secData[modalIdx].h || 0);
+      if (cumH < altH - 0.001 && cumEnd > altH + 0.001) {
+        secData[modalIdx].h = +(altH - cumH).toFixed(2);
+        showToast(`El tramo ${modalIdx + 1} rebasaba la altura inclinada (${altH} m); se ajustó a ${secData[modalIdx].h} m para que quepa dentro de ella.`, 'warn', 6000);
+      }
+    }
+  }
+
   document.getElementById('sec-modal-overlay').classList.remove('open');
   buildSectionRows(secData.length);
-  // Altura total = suma de las alturas de cada tramo (puede cambiar la Altura de la torre)
-  document.getElementById('height').value = +secData.reduce((s,d) => s + (+d.h || 0), 0).toFixed(2);
+  _syncHeightField();
   refresh();
 }
 

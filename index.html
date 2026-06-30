@@ -494,7 +494,7 @@ body {
 
 /* ── Right panel ────────────────────────────────────────────── */
 .rpanel {
-  width: 272px;
+  width: 310px;
   flex-shrink: 0;
   display: none;          /* oculto hasta activar Torre */
   flex-direction: column;
@@ -519,11 +519,12 @@ body {
 #height::-webkit-outer-spin-button, #height::-webkit-inner-spin-button,
 #shaftW::-webkit-outer-spin-button, #shaftW::-webkit-inner-spin-button,
 #nInc::-webkit-outer-spin-button, #nInc::-webkit-inner-spin-button,
-#nStr::-webkit-outer-spin-button, #nStr::-webkit-inner-spin-button {
+#nStr::-webkit-outer-spin-button, #nStr::-webkit-inner-spin-button,
+#alturaInclinada::-webkit-outer-spin-button, #alturaInclinada::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-#dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr { -moz-appearance: textfield; }
+#dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr, #alturaInclinada { -moz-appearance: textfield; }
 #rpanel-viento { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-viento.visible { display: flex; }
 /* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
@@ -796,6 +797,21 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 }
 .sec-edit-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .sec-edit-btn-active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.12); }
+.sec-insert-btn:hover { border-color: #4ade80 !important; color: #4ade80 !important; }
+.sec-delete-btn:hover { border-color: #f87171 !important; color: #f87171 !important; }
+.sec-add-strip {
+  display: flex; align-items: center; gap: 6px; padding: 2px 14px;
+  border-bottom: 1px solid #111c28;
+}
+.sec-add-strip::before, .sec-add-strip::after {
+  content: ''; flex: 1; height: 1px; background: #1b3150;
+}
+.sec-add-strip-btn {
+  background: none; border: 1px solid #1b3150; color: #4ade80;
+  border-radius: 3px; padding: 0 6px; font-size: 11px; cursor: pointer;
+  line-height: 1.5; flex-shrink: 0;
+}
+.sec-add-strip-btn:hover { border-color: #4ade80; background: rgba(74,222,128,.08); }
 
 /* Secciones modal */
 .sec-modal-overlay {
@@ -1645,10 +1661,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-top"><span class="tf-lbl" id="s-topW-lbl">APERTURA FINAL (m)</span>
           <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
-        <div class="tf-row" id="s-row-ninc"><span class="tf-lbl">TRAMOS INCLINADOS</span>
-          <input class="tf-input" type="number" id="s-nInc" value="6" min="0" max="40" oninput="buildSetupPreview()"></div>
-        <div class="tf-row" id="s-row-nstr"><span class="tf-lbl" id="s-nstr-lbl">TRAMOS RECTOS</span>
+        <div class="tf-row" id="s-row-altInc"><span class="tf-lbl">ALTURA INCLINADA (m)</span>
+          <input class="tf-input" type="number" id="s-altInc" value="24" min="0" step="0.5" oninput="buildSetupPreview()"></div>
+        <div class="tf-row" id="s-row-nstr" style="display:none;"><span class="tf-lbl" id="s-nstr-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
+        <input type="hidden" id="s-nInc" value="0">
         <div class="tf-row" id="s-row-monoTramos" style="display:none;"><span class="tf-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-monoTramos" value="6" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosInc" style="display:none;"><span class="tf-lbl">TRAMOS INCLINADOS</span>
@@ -1937,7 +1954,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <span class="dim-lbl" id="dim-lbl-valor">Valor</span>
             <input class="dim-input" type="number" id="baseW"  value="4"  min="0.5" max="99"  oninput="refresh()">
             <input class="dim-input" type="number" id="topW"   value="2"  min="0.5" max="99"  oninput="refresh()">
-            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" oninput="onHeightChange()">
+            <input class="dim-input" type="number" id="height" value="30" min="1"   max="999" onchange="onHeightChange()">
           </div>
 
           <div class="frow" id="row-apertura-top" style="display:none;">
@@ -1963,14 +1980,13 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
               oninput="dadoHeight = +this.value || 0; refresh(); if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();">
           </div>
 
-          <div class="frow" id="row-ninc-main">
-            <span class="flbl">Tramos inclinados:</span>
-            <input class="ctrl-input" type="number" id="nInc" value="6" min="0" max="40" oninput="onSecChange()">
+          <div class="frow" id="row-altInc-main">
+            <span class="flbl">Altura inclinada (m):</span>
+            <input class="ctrl-input" type="number" id="alturaInclinada" value="24" min="0" step="0.5" oninput="onAltIncChange()">
           </div>
-          <div class="frow" id="row-nstr-main">
-            <span class="flbl">Tramos rectos:</span>
-            <input class="ctrl-input" type="number" id="nStr" value="2" min="0" max="40" oninput="onSecChange()">
-          </div>
+          <!-- nInc / nStr ocultos — se calculan dinámicamente desde alturaInclinada -->
+          <input type="hidden" id="nInc" value="0">
+          <input type="hidden" id="nStr" value="0">
 
           <div id="guyed-params">
             <div class="sep"></div>
@@ -2608,10 +2624,9 @@ function genMonopole(cfg) {
   const {nodes, members} = initBuffers();
   const nTot = cfg.nInc + cfg.nStr;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
-  const zInc = cfg.nInc > 0
-    ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b) => a+b, 0)
-    : 0;
+  const secH = sec => +secData[sec]?.h || 6;
+  const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
+    : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
   const r0 = cfg.baseW/2, r1 = cfg.topW/2;
   const taperR = z => {
     const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
@@ -2698,7 +2713,7 @@ function genMonopoleAxis(cfg) {
   const {nodes, members} = initBuffers();
   const nTot = cfg.nInc + cfg.nStr;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
+  const secH = sec => +secData[sec]?.h || 6;
   let z = 0;
   let prevNode = addNode(nodes, 0, 0, 0);
   for (let sec = 0; sec < nTot; sec++) {
@@ -2725,10 +2740,9 @@ function genMixed(cfg, ANG, radiusFn) {
 
   // Cada tramo usa su propia altura (secData[sec].h, editable) — si no está definida,
   // cae al reparto uniforme Altura/#Tramos.
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
-  const zInc = cfg.nInc > 0
-    ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b) => a+b, 0)
-    : 0;
+  const secH = sec => +secData[sec]?.h || 6;
+  const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
+    : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
 
   const levelAt = z => {
     const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
@@ -2777,7 +2791,7 @@ function genGuyed(cfg) {
   const R0 = cfg.shaftW/Math.sqrt(3);
   const nTot = cfg.nsec;
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || (cfg.height / nTot);
+  const secH = sec => +secData[sec]?.h || 6;
 
   // Torre con pivote: la Sección 1 ES la pirámide — las 3 piernas se unen en un punto en
   // la base (z=0) y se abren hasta la Apertura normal (R0) al final de esa sección (su
@@ -5601,10 +5615,12 @@ function calcWindPressure(cfg, windData, z, vKmhOverride) {
 // ancho vale baseW en z=0 y topW al final del tramo ahusado acumulado (zInc), constante
 // después. width(z)=baseW+(topW-baseW)·min(z/zInc,1).
 function _zIncForCfg(cfg) {
+  if (cfg.alturaInclinada > 0) return cfg.alturaInclinada;
+  // Fallback para monopolo / arriostrada (sin alturaInclinada)
   const nTot = (cfg.nInc||0) + (cfg.nStr||0);
   if (!cfg.nInc || nTot === 0) return 0;
   let z = 0;
-  for (let i = 0; i < cfg.nInc; i++) z += +secData[i]?.h || (cfg.height/nTot);
+  for (let i = 0; i < cfg.nInc; i++) z += +secData[i]?.h || (cfg.height / nTot);
   return z;
 }
 function _faceWidthAt(cfg, z) {
@@ -6252,13 +6268,29 @@ function renderCableCatalogTable() {
 const CONEXION_FACTORS = { 'Antorchada': 1, 'Californiada': 1, 'Grapas Crosby': 0.8 };
 
 function getConfig() {
-  const nInc = Math.max(0, +document.getElementById('nInc').value || 0);
-  const nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+  const tipo = document.getElementById('ttype').value;
+  let nInc, nStr, alturaInclinada;
+  if (tipo === 'monopole' || tipo === 'guyed') {
+    nInc = Math.max(0, +document.getElementById('nInc').value || 0);
+    nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+    alturaInclinada = 0;
+  } else {
+    alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
+    nInc = 0; let cumH = 0;
+    for (let i = 0; i < secData.length; i++) {
+      if (cumH < alturaInclinada - 0.001) nInc++;
+      cumH += +secData[i]?.h || 0;
+    }
+    nStr = Math.max(0, secData.length - nInc);
+    document.getElementById('nInc').value = nInc;
+    document.getElementById('nStr').value = nStr;
+  }
   return {
-    type:      document.getElementById('ttype').value,
+    type:      tipo,
     baseW:     +document.getElementById('baseW').value  || 4,
     topW:      +document.getElementById('topW').value   || 2,
     height:    +document.getElementById('height').value || 30,
+    alturaInclinada,
     nInc, nStr,
     nsec:      nInc + nStr || 1,
     shaftW:    +document.getElementById('shaftW').value || 1,
@@ -6377,52 +6409,49 @@ function onTypeChange() {
   setDisp('dim-hdr-top',  !isGuyed);
   setDisp('topW',         !isGuyed);
   setDisp('row-apertura-top', isGuyed);
-  setDisp('row-ninc-main',    !isGuyed);
-  setDisp('dim-lbl-valor',    !isGuyed);
+  setDisp('row-altInc-main', !isGuyed && v !== 'monopole');
+  setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
-  document.querySelector('#row-nstr-main .flbl').textContent = isGuyed ? 'Tramos:' : 'Tramos rectos:';
   if (isGuyed) ensureGuyHeights();
   refresh();
 }
 
 function onSecChange() {
-  const n = (+document.getElementById('nInc').value || 0)
-           + (+document.getElementById('nStr').value || 0);
-  buildSectionRows(n);
+  buildSectionRows(secData.length || 1);
+  refresh();
+}
+function onAltIncChange() {
+  buildSectionRows(secData.length);
   refresh();
 }
 
 // Torre con pivote: la Sección 1 es una sección independiente más (pirámide en la base) —
 // se inserta/retira al inicio de secData y "Tramos" (nStr) se ajusta en consecuencia.
 function setPivotSection(enabled) {
-  const nStrEl = document.getElementById('nStr');
-  let nStr = +nStrEl.value || 0;
   if (enabled) {
     secData.unshift({
       diag:'X', bays:1, h:3, M:'-', D:'-', topH:true, Htop:'-', bayTopH:false, Hbay:'-',
       Ds:'-', Hs:'-', planTop:'none', PbTop:'-', PbTop2:'-', planBay:'none', PbBay:'-', PbBay2:'-',
       hip:'none', HhipH:'-', HhipD:'-', HhipDia:'-', staggerFlip:false,
     });
-    nStr += 1;
   } else if (secData.length > 0) {
     secData.shift();
-    nStr = Math.max(1, nStr - 1);
   }
-  nStrEl.value = nStr;
-  buildSectionRows(nStr);
+  buildSectionRows(secData.length);
   refresh();
 }
 
-// Editar "Altura" directamente resetea todos los tramos al reparto uniforme (H/#Tramos) —
-// el estado "inicial" descrito por el usuario. Editar un tramo individual en el modal
-// es lo que hace que la Altura total termine siendo distinta (suma de los tramos).
+// Editar "Altura" directamente pregunta antes de aplicar: si el usuario confirma, el
+// valor tecleado se guarda tal cual como la nueva altura final de la torre (techo usado
+// al agregar tramos con "+ agregar tramo") — NO redistribuye las alturas de los tramos
+// existentes. Si cancela, el campo vuelve a mostrar la Altura real (suma de los tramos).
 function onHeightChange() {
-  const newH = +document.getElementById('height').value || 30;
-  const n = secData.length || 1;
-  const hEq = +(newH / n).toFixed(2);
-  secData.forEach(s => { s.h = hEq; });
-  buildSectionRows(secData.length);
-  refresh();
+  const el = document.getElementById('height');
+  const newH = +el.value || 30;
+  const currentH = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
+  if (Math.abs(newH - currentH) < 0.005) return;  // sin cambio real
+  const ok = confirm(`¿Dejar ${newH} m como la nueva altura final de la torre?\n\nLos tramos existentes no cambian; este valor se usa como límite al seguir agregando tramos.`);
+  if (!ok) { el.value = currentH; return; }
 }
 
 // ── Setup panel: cambio de tipo ────────────────────────────────
@@ -6468,12 +6497,17 @@ function _buildPreviewCfg(tipo) {
     nStr = Math.max(1, +document.getElementById('s-nStr')?.value || 2);
     if (guyPivot) nStr += 1;   // sección extra para la pirámide del pivote (igual que setPivotSection)
   } else {
-    nInc = +document.getElementById('s-nInc')?.value || 0;
-    nStr = +document.getElementById('s-nStr')?.value || 0;
-    if (nInc + nStr === 0) nStr = 1;
+    // triangular / square: nInc/nStr calculados desde alturaInclinada (solo para previsualización)
+    const altH = +document.getElementById('s-altInc')?.value || 0;
+    const prevSecs = 6;
+    const hPrev = height / prevSecs;
+    nInc = altH > 0 ? Math.max(0, Math.min(prevSecs, Math.round(altH / hPrev))) : 0;
+    nStr = prevSecs - nInc || 1;
   }
+  const alturaInclinada = (tipo !== 'monopole' && tipo !== 'guyed')
+    ? (+document.getElementById('s-altInc')?.value || 0) : 0;
   return {
-    type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1,
+    type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1, alturaInclinada,
     shaftW: +document.getElementById('s-shaftW')?.value || 1,
     guyLevels: guyHeights.length || 3,
     guyHeights: guyHeights.slice(),
@@ -6530,8 +6564,8 @@ function onSetupTipoChange() {
   const hide = (id, on) => document.getElementById(id).style.display = on ? '' : 'none';
   hide('s-row-base',  v !== 'guyed');
   hide('s-row-top',   v !== 'guyed' && v !== 'monopole' ? true : v === 'monopole');
-  hide('s-row-ninc',  v !== 'monopole' && v !== 'guyed');
-  hide('s-row-nstr',  !isMono);
+  hide('s-row-altInc', v !== 'monopole' && v !== 'guyed');
+  hide('s-row-nstr',   v === 'guyed');
   hide('s-row-guyApertura', v === 'guyed');
   hide('s-row-guyAnchorR',  v === 'guyed');
   hide('s-row-guyLevels',   v === 'guyed');
@@ -6541,7 +6575,7 @@ function onSetupTipoChange() {
   hide('s-row-monoTipo',  isMono);
   hide('s-row-monoTramos', isMono);
   if (!isMono) { hide('s-row-monoTramosInc', false); hide('s-row-monoTramosRec', false); hide('s-row-monoAperturas', false); }
-  document.getElementById('s-nstr-lbl').textContent = v === 'guyed' ? 'NÚMERO DE TRAMOS' : 'TRAMOS RECTOS';
+  document.getElementById('s-nstr-lbl').textContent = 'NÚMERO DE TRAMOS';
   document.getElementById('tf-header-title').textContent = isMono ? 'Nuevo Monopolo' : 'Nueva Torre';
   document.getElementById('gen-btn-label').textContent = isMono ? 'Generar Monopolo' : 'Generar Torre';
   document.getElementById('s-baseW-lbl').textContent = isMono ? 'DIÁMETRO INICIAL (m)' : 'APERTURA INICIAL (m)';
@@ -7058,6 +7092,10 @@ function generateTowerFromSetup() {
   syncVal('dado', 's-dado');
   syncVal('baseW',  's-baseW');
   syncVal('topW',   's-topW');
+  // Sincronizar alturaInclinada desde el flyout (s-altInc → alturaInclinada)
+  { const sAI = document.getElementById('s-altInc');
+    const ai  = document.getElementById('alturaInclinada');
+    if (sAI && ai) ai.value = sAI.value; }
   syncVal('nInc',   's-nInc');
   syncVal('nStr',   's-nStr');
   syncVal('shaftW',    's-shaftW');
@@ -7072,9 +7110,9 @@ function generateTowerFromSetup() {
   document.getElementById('fechaCreacion').value  = document.getElementById('s-fecha').value;
   _updateFechaFmt();
 
-  // Reinicia las alturas de tramo al reparto uniforme H/#Tramos para esta nueva torre
-  // (evita heredar alturas de un secData previo con una Altura distinta).
-  secData.forEach(s => { if (s) s.h = undefined; });
+  // Torre nueva: vaciar secData por completo (no solo las alturas) para que arranque
+  // siempre con un único tramo, sin heredar la cantidad de tramos de una torre previa.
+  secData = [];
 
   // Radio de retenidas inicial (solo Arriostrada) — define el radio de los anclajes
   // por defecto en vez del valor fijo de 15m.
@@ -7103,7 +7141,18 @@ function generateTowerFromSetup() {
   }
 
   onTypeChange();
-  onSecChange();
+  // Nueva torre: arrancar con 1 solo tramo; alturaInclinada ya está sincronizada.
+  // Primer tramo = H/6 (igual que el preview de 6 tramos) para escala visual correcta.
+  { const H = +document.getElementById('height').value || 0;
+    const altInc = +document.getElementById('alturaInclinada').value || 0;
+    document.getElementById('nInc').value = altInc > 0 ? 1 : 0;
+    document.getElementById('nStr').value = altInc > 0 ? 0 : 1;
+    onSecChange();
+    if (secData[0]) {
+      secData[0].h = 6;
+      buildSectionRows(secData.length);
+    }
+  }
 
   if (tipo === 'monopole') {
     const sides = +document.getElementById('s-monoForma').value || 12;
@@ -8711,16 +8760,60 @@ function printReport() {
 // ── Exportar Memoria de Cálculo a Word (.docx) ──────────────────────────────
 // Usa docx.js cargado de forma diferida la primera vez que se invoca (no penaliza
 // el tiempo de carga inicial de la app — mismo criterio que las dependencias opcionales).
+async function _svgStringToPng(svgStr, scaleFactor = 2) {
+  if (!svgStr) return null;
+  const m = svgStr.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+  if (!m) return null;
+  const srcW = parseFloat(m[1]), srcH = parseFloat(m[2]);
+  const canW = Math.round(srcW * scaleFactor), canH = Math.round(srcH * scaleFactor);
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canW; canvas.height = canH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canW, canH);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const img  = new Image();
+    img.onload  = () => {
+      ctx.drawImage(img, 0, 0, canW, canH);
+      URL.revokeObjectURL(url);
+      const b64 = canvas.toDataURL('image/png').split(',')[1];
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      resolve({ bytes, srcW, srcH });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+function _captureViewerPng() {
+  try {
+    renderer.render(scene, camera);
+    const b64 = renderer.domElement.toDataURL('image/png').split(',')[1];
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, w: renderer.domElement.width, h: renderer.domElement.height };
+  } catch(e) { console.warn('_captureViewerPng:', e); return null; }
+}
+
 let _docxLibLoaded = false;
 async function _ensureDocxLib() {
   if (_docxLibLoaded) return;
-  await new Promise((res, rej) => {
+  const tryLoad = src => new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js';
-    s.onload = () => { _docxLibLoaded = true; res(); };
-    s.onerror = () => rej(new Error('No se pudo cargar docx.js — verifica conexión a internet'));
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error(`No se pudo cargar: ${src}`));
     document.head.appendChild(s);
   });
+  // Intentar local primero (funciona sin internet en el .exe y en dev)
+  try { await tryLoad('./docx.umd.js'); }
+  catch {
+    try { await tryLoad('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js'); }
+    catch { throw new Error('No se pudo cargar docx.js — verifica tu conexión a internet'); }
+  }
+  _docxLibLoaded = true;
 }
 
 async function exportMemoriaDocx() {
@@ -8730,7 +8823,9 @@ async function exportMemoriaDocx() {
     await _ensureDocxLib();
     showToast('Generando documento Word…');
     const cfg = getConfig();
-    const doc = _buildDocxDoc(cfg);
+    const snapshot = _captureViewerPng();
+    const elevPng  = await _svgStringToPng(_reportElevationSvg(cfg));
+    const doc = _buildDocxDoc(cfg, snapshot, elevPng);
     const fn  = _assetFileBase(cfg).replace(/\s+/g, '_') + '.docx';
     if (qtBridge) {
       const b64 = await docx.Packer.toBase64String(doc);
@@ -8748,7 +8843,7 @@ async function exportMemoriaDocx() {
   }
 }
 
-function _buildDocxDoc(cfg) {
+function _buildDocxDoc(cfg, snapshot, elevPng) {
   const D   = docx;
   const PW  = 9360;   // twips — Letter con márgenes 1in/0.8in
   const BLUE = '1B3A6B', LBL = 'EEF2F8', WHITE = 'FFFFFF', GREY = 'F4F6F8', DARK = '1A1A1A';
@@ -8769,12 +8864,14 @@ function _buildDocxDoc(cfg) {
   };
 
   const h1 = text => new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1,
     pageBreakBefore: true,
     spacing: { before: 0, after: 240 },
     border: { bottom: { style: D.BorderStyle.SINGLE, size: 12, color: BLUE } },
     children: [run(text, { bold: true, size: SH1, color: BLUE })],
   });
   const h2 = text => new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_2,
     spacing: { before: 280, after: 120 },
     children: [run(text, { bold: true, size: SH2, color: BLUE })],
   });
@@ -8787,39 +8884,36 @@ function _buildDocxDoc(cfg) {
   });
 
   // ── Tabla genérica ────────────────────────────────────────────────────────
-  const mkCell = (text, { fill, color = DARK, bold = false, w, sz = SSM, align = D.AlignmentType.CENTER } = {}) =>
+  // Las tablas usan el estilo nativo de Word "TableGrid4-Accent1"
+  // ("Tabla con cuadrícula 4 - Énfasis 1") para que Word gestione colores,
+  // bordes y repetición de encabezado sin formateo manual celda por celda.
+  const mkCell = (text, { bold = false, w, sz = SSM, align = D.AlignmentType.CENTER, color } = {}) =>
     new D.TableCell({
       ...(w ? { width: { size: w, type: D.WidthType.DXA } } : {}),
-      shading: fill ? { fill, type: D.ShadingType.SOLID, color: 'auto' } : undefined,
       verticalAlign: D.VerticalAlign.CENTER,
       margins: { top: 40, bottom: 40, left: 100, right: 100 },
       children: [new D.Paragraph({
         alignment: align,
         spacing: { before: 0, after: 0 },
-        children: [run(String(text ?? '—'), { size: sz, bold, color })],
+        children: [run(String(text ?? '—'), { size: sz, bold, ...(color ? { color } : {}) })],
       })],
     });
-
-  const TBL_BORDERS = {
-    top:     { style: D.BorderStyle.SINGLE, size: 4, color: 'BBBBBB' },
-    bottom:  { style: D.BorderStyle.SINGLE, size: 4, color: 'BBBBBB' },
-    left:    { style: D.BorderStyle.SINGLE, size: 4, color: 'BBBBBB' },
-    right:   { style: D.BorderStyle.SINGLE, size: 4, color: 'BBBBBB' },
-    insideH: { style: D.BorderStyle.SINGLE, size: 2, color: 'DDDDDD' },
-    insideV: { style: D.BorderStyle.SINGLE, size: 2, color: 'DDDDDD' },
-  };
 
   const dtable = (headers, rows, colWidths) => {
     const n = headers.length;
     const w = colWidths || headers.map(() => Math.floor(PW / n));
     const hRow = new D.TableRow({
       tableHeader: true,
-      children: headers.map((h, i) => mkCell(h, { fill: BLUE, color: WHITE, bold: true, w: w[i] })),
+      children: headers.map((h, i) => mkCell(h, { bold: true, w: w[i] })),
     });
-    const dRows = rows.map((r, ri) => new D.TableRow({
-      children: r.map((v, i) => mkCell(v, { fill: ri % 2 !== 0 ? GREY : undefined, w: w[i] })),
+    const dRows = rows.map(r => new D.TableRow({
+      children: r.map((v, i) => mkCell(v, { w: w[i] })),
     }));
-    return new D.Table({ rows: [hRow, ...dRows], width: { size: PW, type: D.WidthType.DXA }, borders: TBL_BORDERS });
+    return new D.Table({
+      style: 'TableGrid4-Accent1',
+      rows: [hRow, ...dRows],
+      width: { size: PW, type: D.WidthType.DXA },
+    });
   };
 
   // ── Encabezado y pie de página ────────────────────────────────────────────
@@ -9005,24 +9099,20 @@ function _buildDocxDoc(cfg) {
           : [r.sec, '—', '—', '—', '—', '—', '—', '—', '—', '—']);
       });
       // Fila de total
+      const colW = [500,950,950,950,800,800,800,800,800,1010];
       const totalRow = new D.TableRow({ children: [
-        mkCell('', { fill: LBL, w: 500 }),
-        mkCell('', { fill: LBL, w: 950 }), mkCell('', { fill: LBL, w: 950 }),
-        mkCell('', { fill: LBL, w: 950 }), mkCell('', { fill: LBL, w: 800 }),
-        mkCell('', { fill: LBL, w: 800 }), mkCell('', { fill: LBL, w: 800 }),
-        mkCell('', { fill: LBL, w: 800 }), mkCell('TOTAL', { fill: LBL, bold: true, color: BLUE, w: 800 }),
-        mkCell(fmt1(total) + ' kgf', { fill: LBL, bold: true, color: BLUE, w: 1010 }),
+        ...colW.slice(0, 8).map(w => mkCell('', { w })),
+        mkCell('TOTAL', { bold: true, w: colW[8] }),
+        mkCell(fmt1(total) + ' kgf', { bold: true, w: colW[9] }),
       ]});
       const hRow = new D.TableRow({ tableHeader: true, children:
         ['Sec.','Af (m²)','Ar (m²)','Ag (m²)','ε','Cf','Df','Dr','Rr','FST (kgf)']
-          .map((h, i) => mkCell(h, { fill: BLUE, color: WHITE, bold: true,
-            w: [500,950,950,950,800,800,800,800,800,1010][i] }))
+          .map((h, i) => mkCell(h, { bold: true, w: colW[i] }))
       });
-      const dRows = forceRows.map((r, ri) => new D.TableRow({ children:
-        r.map((v, i) => mkCell(v, { fill: ri % 2 !== 0 ? GREY : undefined,
-          w: [500,950,950,950,800,800,800,800,800,1010][i] }))
+      const dRows = forceRows.map(r => new D.TableRow({ children:
+        r.map((v, i) => mkCell(v, { w: colW[i] }))
       }));
-      const tbl = new D.Table({ rows: [hRow, ...dRows, totalRow], width: { size: PW, type: D.WidthType.DXA }, borders: TBL_BORDERS });
+      const tbl = new D.Table({ style: 'TableGrid4-Accent1', rows: [hRow, ...dRows, totalRow], width: { size: PW, type: D.WidthType.DXA } });
       return [
         h2(`Dirección de Viento θ = ${angleDeg}°`),
         para([
@@ -9050,8 +9140,118 @@ function _buildDocxDoc(cfg) {
   // ── Cap. 7 — Combinaciones de Carga ────────────────────────────────────────
   const ch7 = [h1('7. Combinaciones de Carga'), pend('módulo de combinaciones de carga')];
 
-  // ── Cap. 8 — Configuración de la Torre ────────────────────────────────────
-  const ch8 = [h1('8. Configuración de la Torre'), pend('diagrama de elevación y tabla de propiedades de sección por tramo')];
+  // ── Cap. 8 — Configuración de la Torre (siempre al final) ─────────────────
+  // Replica exactamente el capítulo 8 del reporte HTML: esquema de elevación SVG
+  // (convertido a PNG) + tabla de perfiles con encabezados rotados, side-by-side.
+  const secV = val => (val && val !== '-') ? val : '';
+  const secCols8 = [
+    ['Piernas',         s => secV(s.M)],
+    ['Diagonales',      s => secV(s.D)],
+    ['Horizontales',    s => secV(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null))],
+    ['Diag. Sec.',      s => secV(s.Ds)],
+    ['Horiz. Sec.',     s => secV(s.Hs)],
+    ['Diag. Internas',  s => secV(s.HhipD)],
+    ['Horiz. Internas', s => secV(s.HhipH)],
+    ['Plan-Bracing',    s => secV(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null))],
+    ['Diafragma',       s => secV(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null))],
+  ];
+  const sectWeights = _reportSectionWeights();
+  const secOrder8   = cfg.secData.map((_, i) => i).reverse();  // tope → base
+
+  // Celda con texto rotado (para encabezados de columna)
+  const rotHdrCell = (text, w) => new D.TableCell({
+    width: { size: w, type: D.WidthType.DXA },
+    textDirection: D.TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT,
+    verticalAlign: D.VerticalAlign.BOTTOM,
+    shading: { fill: BLUE, type: D.ShadingType.SOLID, color: 'auto' },
+    margins: { top: 60, bottom: 60, left: 60, right: 60 },
+    children: [new D.Paragraph({
+      spacing: { before: 0, after: 0 },
+      children: [run(text, { bold: true, size: SSM, color: WHITE })],
+    })],
+  });
+
+  // Ancho de columnas para la tabla de sección (twips): Sec + 9 cols + Peso = 6200 total
+  const CW8 = [460, 540, 540, 540, 540, 540, 560, 560, 560, 560, 500];
+  // Fila de encabezado con texto rotado + fila mínima de 1.4 pulgadas (2016 twips)
+  const secHdrRow8 = new D.TableRow({
+    tableHeader: true,
+    height: { value: 2016, rule: D.HeightRule.AT_LEAST },
+    children: [
+      rotHdrCell('Sección', CW8[0]),
+      ...secCols8.map(([lbl], ci) => rotHdrCell(lbl, CW8[ci + 1])),
+      rotHdrCell('Peso (Kg)', CW8[10]),
+    ],
+  });
+  const secDataRows8 = secOrder8.map(i => {
+    const s = cfg.secData[i] || {};
+    const wt = sectWeights[i] != null ? sectWeights[i].toFixed(1) : '';
+    return new D.TableRow({ children: [
+      mkCell(i + 1, { bold: true, w: CW8[0] }),
+      ...secCols8.map(([, fn], ci) => mkCell(fn(s) || '', { w: CW8[ci + 1] })),
+      mkCell(wt, { w: CW8[10] }),
+    ]});
+  });
+  const secPropsTable8 = new D.Table({
+    style: 'TableGrid4-Accent1',
+    rows: [secHdrRow8, ...secDataRows8],
+    width: { size: CW8.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
+  });
+
+  // Imagen del esquema de elevación SVG
+  const elevTW = 3160;  // ancho columna imagen (twips) ≈ 2.19 in
+  const elevImgPara = (() => {
+    if (!elevPng) return pend('esquema de elevación no disponible');
+    const maxDocxW = 200;  // píxeles en transformation (≈ 2.08in a 96 DPI)
+    const scale = Math.min(1, maxDocxW / elevPng.srcW);
+    const imgW  = Math.round(elevPng.srcW * scale);
+    const imgH  = Math.round(elevPng.srcH * scale);
+    return new D.Paragraph({
+      alignment: D.AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 },
+      children: [new D.ImageRun({ data: elevPng.bytes, transformation: { width: imgW, height: imgH } })],
+    });
+  })();
+
+  // Wrapper side-by-side: imagen | tabla
+  const sideWrapper8 = new D.Table({
+    rows: [new D.TableRow({ children: [
+      new D.TableCell({
+        width: { size: elevTW, type: D.WidthType.DXA },
+        borders: noEdge,
+        verticalAlign: D.VerticalAlign.TOP,
+        children: [elevImgPara instanceof D.Paragraph ? elevImgPara : pend('—')],
+      }),
+      new D.TableCell({
+        width: { size: PW - elevTW, type: D.WidthType.DXA },
+        borders: noEdge,
+        verticalAlign: D.VerticalAlign.TOP,
+        children: [secPropsTable8],
+      }),
+    ]})],
+    width: { size: PW, type: D.WidthType.DXA },
+    borders: noEdge,
+  });
+
+  const ch8 = [
+    h1('8. Configuración de la Torre'),
+    h2('8.1 Geometría de la Torre — Diagrama de Elevación y Perfiles'),
+    sideWrapper8,
+  ];
+
+  // ── Página de Tabla de Contenido (antes del cap. 1) ────────────────────────
+  const tocPage = [
+    new D.Paragraph({
+      pageBreakBefore: true,
+      alignment: D.AlignmentType.CENTER,
+      spacing: { before: 480, after: 480 },
+      children: [run('TABLA DE CONTENIDO', { bold: true, size: SH1, color: BLUE })],
+    }),
+    new D.TableOfContents('Tabla de Contenido', {
+      hyperlink: true,
+      headingStyleRange: '1-2',
+    }),
+  ];
 
   // ── Documento ─────────────────────────────────────────────────────────────
   return new D.Document({
@@ -9064,7 +9264,7 @@ function _buildDocxDoc(cfg) {
       },
       headers: { default: pageHeader },
       footers: { default: pageFooter },
-      children: [...cover, ...ch1, ...ch2, ...ch3, ...ch4, ...ch5, ...ch6, ...ch7, ...ch8],
+      children: [...cover, ...tocPage, ...ch1, ...ch2, ...ch3, ...ch4, ...ch5, ...ch6, ...ch7, ...ch8],
     }],
   });
 }
@@ -10585,6 +10785,21 @@ function loadProjectData(cfg, filename) {
     set('height',        cfg.height);
     set('nInc',          cfg.nInc);
     set('nStr',          cfg.nStr);
+    // Restaurar alturaInclinada: usar valor guardado o calcularlo desde nInc + alturas de secData
+    { const ai = document.getElementById('alturaInclinada');
+      if (ai) {
+        if (cfg.alturaInclinada != null) {
+          ai.value = cfg.alturaInclinada;
+        } else if (cfg.nInc > 0 && Array.isArray(cfg.secData)) {
+          // Backward compat: sumar alturas de los primeros nInc tramos
+          let cumH = 0;
+          for (let i = 0; i < Math.min(cfg.nInc, cfg.secData.length); i++) cumH += +cfg.secData[i]?.h || 0;
+          ai.value = cumH > 0 ? +cumH.toFixed(2) : 0;
+        } else {
+          ai.value = 0;
+        }
+      }
+    }
     set('shaftW',        cfg.shaftW);
     guyHeights = Array.isArray(cfg.guyHeights) ? cfg.guyHeights.slice() : [];
     guyCableData  = Array.isArray(cfg.guyCableData)  ? cfg.guyCableData.slice()  : [];
@@ -10625,7 +10840,7 @@ function loadProjectData(cfg, filename) {
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
-      buildSectionRows(cfg.nInc + cfg.nStr);
+      buildSectionRows(cfg.secData.length || (cfg.nInc + cfg.nStr));
       refresh();
     }
     refitView();
@@ -10642,6 +10857,41 @@ function setUnit(btn, unit) {
   btn.classList.add('active');
 }
 
+// ── Insertar / eliminar tramos ────────────────────────────────
+// Actualiza el campo "Altura" del dim-grid con la suma real de los tramos — se llama
+// al editar un tramo individual en el modal (sec-modal), que sí puede cambiar el total.
+function _syncHeightField() {
+  const el = document.getElementById('height');
+  if (el) el.value = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
+}
+
+function insertSeccion(i) {
+  const copy = JSON.parse(JSON.stringify(secData[i]));
+  // La "Altura" del dim-grid es el techo de la torre: si agregar este tramo hace que la
+  // suma de alturas lo rebase, se avisa y NO se agrega (no se dibuja ese tramo).
+  const cap = +document.getElementById('height')?.value || 0;
+  const currentH = secData.reduce((s, d) => s + (+d.h || 0), 0);
+  const newH = +copy.h || 0;
+  if (cap > 0 && currentH + newH > cap + 0.001) {
+    showToast(`No se agregó el tramo: la altura total (${(currentH + newH).toFixed(2)} m) superaría la altura de la torre (${cap} m).`, 'warn', 6000);
+    return;
+  }
+  secData.splice(i + 1, 0, copy);
+  buildSectionRows(secData.length);
+  refresh();
+  refitView();
+  scheduleHistoryPush();
+}
+
+function deleteSeccion(i) {
+  if (secData.length <= 1) { showToast('La torre debe tener al menos un tramo.', 'warn'); return; }
+  secData.splice(i, 1);
+  if (aislarTramoSec === i) aislarTramoSec = null;
+  buildSectionRows(secData.length);
+  refresh();
+  scheduleHistoryPush();
+}
+
 // ── Sección read-only + modal ──────────────────────────────────
 
 let modalTemp = {};
@@ -10653,7 +10903,7 @@ function buildSectionRows(n) {
 
   const cfg  = getConfig();
   const nInc = cfg.nInc;
-  const h    = +(cfg.height / n).toFixed(2);
+  const h    = 6;  // altura por defecto de secciones nuevas; el usuario la edita
 
   const prev = secData.slice();
   secData = Array.from({length: n}, (_, i) => ({
@@ -10706,9 +10956,13 @@ function buildSectionRows(n) {
     const g = steelGrades.find(g => g.name === cal);
     return g ? `${val} <span style="color:var(--txt-sec);font-size:9px;">· ${g.name} Fy ${g.fy}</span>` : val;
   };
+  const altH = cfg.alturaInclinada || 0;
+  let _cumH = 0;
   secData.forEach((s, i) => {
-    const tipo    = i < nInc ? 'INC' : 'REC';
-    const tipoLbl = i < nInc ? 'Inclinado' : 'Recto';
+    const isInc   = altH > 0 ? _cumH < altH - 0.001 : i < nInc;
+    _cumH += +s.h || 0;
+    const tipo    = isInc ? 'INC' : 'REC';
+    const tipoLbl = isInc ? 'Inclinado' : 'Recto';
     const isolatedHere = aislarTramoSec === i;
     const card = document.createElement('div');
     card.className = 'sec-card' + (isolatedHere ? ' sec-card-isolated' : '');
@@ -10724,6 +10978,7 @@ function buildSectionRows(n) {
         <button class="sec-edit-btn ${isolatedHere?'sec-edit-btn-active':''}" style="flex-shrink:0" title="${isolatedHere ? 'Mostrar torre completa' : 'Aislar este tramo en el visor'}"
           onclick="toggleAislarTramo(${i})">👁</button>
         <button class="sec-edit-btn" style="flex-shrink:0" title="Editar sección" onclick="openSecModal(${i})">✎</button>
+        <button class="sec-edit-btn sec-delete-btn" style="flex-shrink:0;margin-left:2px;" title="Eliminar este tramo" onclick="deleteSeccion(${i})">✕</button>
       </div>
       ${cfg.type==='monopole' ? `
       <div class="sec-row-detail"><span class="sec-row-code">Altura:</span><span class="sec-row-val">${s.h} m</span></div>
@@ -10739,6 +10994,11 @@ function buildSectionRows(n) {
       <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">-</span></div>
       `}`;
     c.appendChild(card);
+    // Separador con botón + entre secciones (copia la sección actual hacia arriba en la torre)
+    const strip = document.createElement('div');
+    strip.className = 'sec-add-strip';
+    strip.innerHTML = `<button class="sec-add-strip-btn" title="Copiar tramo ${i+1} y agregar arriba" onclick="insertSeccion(${i})">+ agregar tramo</button>`;
+    c.appendChild(strip);
   });
 }
 
@@ -11758,10 +12018,28 @@ function applySecModal() {
     })(),
     monoFy:    val('mt-monoFy'),
   };
+
+  // Validar que este tramo no rebase la altura inclinada (la pendiente se calcula con
+  // los datos iniciales — Apertura inicial/final/Altura inclinada — y aplica fija hasta
+  // esa altura; pasada esa altura los tramos son rectos). Si el tramo arranca dentro de
+  // la zona inclinada pero su altura lo hace terminar después de ella, se recorta para
+  // que quepa exacto hasta la altura inclinada (no se permite mezclar ambos comportamientos
+  // dentro del mismo tramo).
+  { const altH = +document.getElementById('alturaInclinada')?.value || 0;
+    if (altH > 0) {
+      let cumH = 0;
+      for (let i = 0; i < modalIdx; i++) cumH += +secData[i]?.h || 0;
+      const cumEnd = cumH + (+secData[modalIdx].h || 0);
+      if (cumH < altH - 0.001 && cumEnd > altH + 0.001) {
+        secData[modalIdx].h = +(altH - cumH).toFixed(2);
+        showToast(`El tramo ${modalIdx + 1} rebasaba la altura inclinada (${altH} m); se ajustó a ${secData[modalIdx].h} m para que quepa dentro de ella.`, 'warn', 6000);
+      }
+    }
+  }
+
   document.getElementById('sec-modal-overlay').classList.remove('open');
   buildSectionRows(secData.length);
-  // Altura total = suma de las alturas de cada tramo (puede cambiar la Altura de la torre)
-  document.getElementById('height').value = +secData.reduce((s,d) => s + (+d.h || 0), 0).toFixed(2);
+  _syncHeightField();
   refresh();
 }
 
