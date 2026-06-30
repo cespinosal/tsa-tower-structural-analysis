@@ -8754,12 +8754,16 @@ async function _ensureDocxLib() {
   if (_docxLibLoaded) return;
   const tryLoad = src => new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src = src; s.onload = res; s.onerror = rej;
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error(`No se pudo cargar: ${src}`));
     document.head.appendChild(s);
   });
   // Intentar local primero (funciona sin internet en el .exe y en dev)
   try { await tryLoad('./docx.umd.js'); }
-  catch { await tryLoad('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js'); }
+  catch {
+    try { await tryLoad('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js'); }
+    catch { throw new Error('No se pudo cargar docx.js — verifica tu conexión a internet'); }
+  }
   _docxLibLoaded = true;
 }
 
