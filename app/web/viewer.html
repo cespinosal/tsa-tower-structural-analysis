@@ -8825,17 +8825,20 @@ async function exportMemoriaDocx() {
     const cfg = getConfig();
     const snapshot = _captureViewerPng();
     const elevPng  = await _svgStringToPng(_reportElevationSvg(cfg));
-    const doc = _buildDocxDoc(cfg, snapshot, elevPng);
+    const planPng  = await _svgStringToPng(_reportPlanSvg(cfg));
+    const doc = _buildDocxDoc(cfg, snapshot, elevPng, planPng);
     const fn  = _assetFileBase(cfg).replace(/\s+/g, '_') + '.docx';
     if (qtBridge) {
       const b64 = await docx.Packer.toBase64String(doc);
       qtBridge.saveDocx(b64, fn);
+      if (typeof qtBridge.openFile === 'function') qtBridge.openFile(fn);
     } else {
       const blob = await docx.Packer.toBlob(doc);
       const url  = URL.createObjectURL(blob);
       Object.assign(document.createElement('a'), { href: url, download: fn }).click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      showToast('Word descargado.', 'ok');
+      window.open(url, '_blank');   // intento de apertura automática según OS/navegador
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      showToast('Word guardado.', 'ok');
     }
   } catch (e) {
     showToast('Error al generar Word: ' + e.message);
@@ -8843,7 +8846,7 @@ async function exportMemoriaDocx() {
   }
 }
 
-function _buildDocxDoc(cfg, snapshot, elevPng) {
+function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const D   = docx;
   const PW  = 9360;   // twips — Letter con márgenes 1in/0.8in
   const BLUE = '1B3A6B', LBL = 'EEF2F8', WHITE = 'FFFFFF', GREY = 'F4F6F8', DARK = '1A1A1A';
@@ -9233,10 +9236,81 @@ function _buildDocxDoc(cfg, snapshot, elevPng) {
     borders: noEdge,
   });
 
+  // ── Sección 8.2: Vista en planta + Material Strength ─────────────────────
+  const planImgPara = (() => {
+    if (!planPng) return pend('vista en planta no disponible');
+    const maxW = 180;
+    const scale = Math.min(1, maxW / planPng.srcW);
+    return new D.Paragraph({
+      alignment: D.AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 },
+      children: [new D.ImageRun({ data: planPng.bytes, transformation: {
+        width: Math.round(planPng.srcW * scale), height: Math.round(planPng.srcH * scale),
+      }})],
+    });
+  })();
+
+  const { calidadSet } = _reportSectionPropsTable(cfg);
+  const matEntries = [...calidadSet].map(name => {
+    const g = steelGrades.find(x => x.name === name);
+    return [name, g ? `${g.fy} kg/cm²` : '—'];
+  });
+  const CW82 = [1500, 1800, 1500, 1800];
+  const matTable82 = matEntries.length > 0 ? new D.Table({
+    style: 'TableGrid4-Accent1',
+    width: { size: CW82.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
+    rows: [
+      new D.TableRow({ tableHeader: true, children: [
+        mkCell('Grade', { bold: true, w: CW82[0] }),
+        mkCell('Yield',  { bold: true, w: CW82[1] }),
+        mkCell('Grade', { bold: true, w: CW82[2] }),
+        mkCell('Yield',  { bold: true, w: CW82[3] }),
+      ]}),
+      ...(() => {
+        const rows = [];
+        for (let i = 0; i < matEntries.length; i += 2) {
+          const [g1, y1] = matEntries[i], p2 = matEntries[i + 1];
+          rows.push(new D.TableRow({ children: [
+            mkCell(g1,          { w: CW82[0] }),
+            mkCell(y1,          { w: CW82[1] }),
+            mkCell(p2 ? p2[0] : '', { w: CW82[2] }),
+            mkCell(p2 ? p2[1] : '', { w: CW82[3] }),
+          ]}));
+        }
+        return rows;
+      })(),
+    ],
+  }) : pend('sin calidades de acero definidas');
+
+  const planTW = 2800;
+  const sideWrapper8_2 = new D.Table({
+    rows: [new D.TableRow({ children: [
+      new D.TableCell({
+        width: { size: planTW, type: D.WidthType.DXA },
+        borders: noEdge,
+        verticalAlign: D.VerticalAlign.TOP,
+        children: [planImgPara],
+      }),
+      new D.TableCell({
+        width: { size: PW - planTW, type: D.WidthType.DXA },
+        borders: noEdge,
+        verticalAlign: D.VerticalAlign.TOP,
+        children: [
+          new D.Paragraph({ spacing: { before: 0, after: 100 }, children: [run('Material Strength', { bold: true, size: SSM, color: BLUE })] }),
+          matTable82,
+        ],
+      }),
+    ]})],
+    width: { size: PW, type: D.WidthType.DXA },
+    borders: noEdge,
+  });
+
   const ch8 = [
     h1('8. Configuración de la Torre'),
     h2('8.1 Geometría de la Torre — Diagrama de Elevación y Perfiles'),
     sideWrapper8,
+    h2('8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)'),
+    sideWrapper8_2,
   ];
 
   // ── Página de Tabla de Contenido (antes del cap. 1) ────────────────────────
