@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>TSA — Guía de usuario</title>
+<style>
+  :root{--bg:#0A1628;--bg-panel:#0D1E35;--bg-bar:#060F1C;--border:#1E3A5F;--txt:#E2E8F0;--txt-sec:#94A3B8;--cyan:#00D4FF;--accent:#185FA5;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI',Arial,sans-serif;font-size:14px;line-height:1.6;}
+  .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;background:var(--bg-bar);border-bottom:1px solid var(--border);padding:12px 24px;}
+  .topbar .logo-main{font-size:17px;font-weight:700;letter-spacing:.5px;}
+  .topbar .logo-sub{font-size:10px;color:var(--txt-sec);letter-spacing:1px;margin-left:4px;}
+  .layout{display:flex;max-width:1180px;margin:0 auto;}
+  .sidebar{position:sticky;top:49px;align-self:flex-start;width:230px;flex-shrink:0;height:calc(100vh - 49px);overflow-y:auto;padding:22px 14px;border-right:1px solid var(--border);}
+  .sidebar h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt-sec);margin:18px 0 6px;padding-left:8px;}
+  .sidebar h4:first-child{margin-top:0;}
+  .sidebar a{display:block;padding:5px 8px;border-radius:5px;color:var(--txt-sec);text-decoration:none;font-size:12.5px;}
+  .sidebar a:hover{background:rgba(0,212,255,.07);color:var(--txt);}
+  .content{flex:1;min-width:0;padding:36px 44px 100px;}
+  h1{font-size:28px;margin:0 0 6px;}
+  h2{font-size:19px;margin:46px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:60px;}
+  h2:first-of-type{margin-top:0;}
+  h3{font-size:14.5px;color:var(--cyan);margin:26px 0 8px;scroll-margin-top:60px;}
+  h4.sub{font-size:13px;color:#8FB8D0;margin:18px 0 6px;}
+  p{color:var(--txt);max-width:760px;}
+  .tagline{color:var(--txt-sec);font-size:15px;max-width:700px;margin:0 0 26px;}
+  ul,ol{max-width:740px;padding-left:22px;}
+  li{margin-bottom:4px;}
+  code,kbd{background:#071326;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'Courier New',monospace;font-size:12px;color:var(--cyan);}
+  table{width:100%;max-width:820px;border-collapse:collapse;margin:10px 0 18px;font-size:12.5px;}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);}
+  th{color:var(--txt-sec);font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.4px;}
+  td:first-child,th:first-child{white-space:nowrap;}
+  .quicknav{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:18px 0 36px;}
+  .quicknav a{display:block;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;text-decoration:none;color:var(--txt);}
+  .quicknav a:hover{border-color:var(--cyan);}
+  .quicknav .qn-title{font-size:13px;font-weight:600;margin-bottom:3px;}
+  .quicknav .qn-desc{font-size:11.5px;color:var(--txt-sec);}
+  .callout{max-width:760px;border-radius:8px;padding:14px 16px;margin:16px 0;font-size:12.5px;}
+  .callout.warn{background:rgba(255,165,0,.08);border:1px solid rgba(255,165,0,.35);}
+  .callout.info{background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.3);}
+  .callout b{display:block;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  .badge{display:inline-block;font-size:9.5px;padding:1px 7px;border-radius:10px;background:var(--accent);color:#fff;margin-left:6px;vertical-align:middle;}
+  .badge.soon{background:#3a3a3a;color:var(--txt-sec);}
+  .badge.done{background:#1a4a2a;color:#4ade80;}
+  hr{border:none;border-top:1px solid var(--border);margin:30px 0;}
+  .pill-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 18px;}
+  .pill{background:#0b1828;border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11.5px;}
+  .formula-block{background:#060f1c;border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:6px;padding:12px 16px;margin:12px 0 18px;max-width:760px;font-family:'Courier New',monospace;font-size:13px;color:var(--cyan);line-height:1.9;}
+  .formula-block .comment{color:#556;font-style:italic;font-family:'Segoe UI',sans-serif;font-size:11px;}
+  .lightbox-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(3,8,16,.88);align-items:center;justify-content:center;cursor:zoom-out;}
+  .lightbox-overlay.open{display:flex;}
+  .lightbox-box{display:flex;flex-direction:column;align-items:center;max-width:90vw;max-height:90vh;}
+  .lightbox-box img{max-width:90vw;max-height:82vh;border-radius:6px;box-shadow:0 0 40px rgba(0,0,0,.5);}
+  .lightbox-caption{margin-top:12px;color:var(--txt);font-size:14px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo-main">&#127959; TSA</span>
+  <span class="logo-sub">TOWER STRUCTURAL ANALYSIS &mdash; GU&Iacute;A DE USUARIO</span>
+</div>
+<div class="layout">
+<nav class="sidebar">
+  <h4>Empezando</h4>
+  <a href="#intro">Introducci&oacute;n</a>
+  <a href="#primeros-pasos">Primeros pasos</a>
+  <a href="#ejemplos">Ejemplos precargados</a>
+  <a href="#tipos">Tipos de estructura</a>
+  <h4>Modelado</h4>
+  <a href="#secciones">Secciones y tramos</a>
+  <a href="#bracing">Patrones de arriostramiento</a>
+  <a href="#monopolo">Monopolo</a>
+  <a href="#arriostrada">Torres arriostradas (guyed)</a>
+  <h4>Materiales y perfiles</h4>
+  <a href="#bases-datos">Bases de datos</a>
+  <a href="#calidades">Calidades de acero</a>
+  <a href="#perfiles">Cat&aacute;logo de perfiles (IMCA/AISC)</a>
+  <a href="#user">Perfiles propios (USER)</a>
+  <a href="#retenidas-db">Cables de retenida</a>
+  <a href="#picker">Elegir perfil + calidad</a>
+  <h4>Visualizaci&oacute;n</h4>
+  <a href="#visor3d">Visor 3D</a>
+  <a href="#inspeccion">Inspecci&oacute;n de miembros</a>
+  <a href="#aislar-tramo">Aislar tramo</a>
+  <h4>Tablas interactivas</h4>
+  <a href="#tablas">Nodos / Barras / Retenidas</a>
+  <a href="#apoyos">Apoyos</a>
+  <a href="#revisiones">Hoja de Revisiones</a>
+  <h4>An&aacute;lisis de viento</h4>
+  <a href="#viento">Panel de Viento (ANSI/TIA-222-H)</a>
+  <a href="#viento-paso1">Paso 1 &mdash; Config. General</a>
+  <a href="#viento-paso2">Paso 2 &mdash; Par&aacute;metros de Viento</a>
+  <a href="#viento-cargas">Paso 3 &mdash; Cargas de Viento</a>
+  <a href="#viento-formulas">F&oacute;rmulas &mdash; qz y FST</a>
+  <h4>Antenas y equipos</h4>
+  <a href="#antenas">Panel de Antenas</a>
+  <a href="#antenas-campos">Campos del panel</a>
+  <h4>Exportar</h4>
+  <a href="#exportar-reporte">Reporte Word (.docx)</a>
+  <a href="#reporte-ch1">Cap. 1 &mdash; Info. General</a>
+  <a href="#reporte-ch2">Cap. 2 &mdash; Par&aacute;metros de Dise&ntilde;o</a>
+  <a href="#reporte-ch4">Cap. 4 &mdash; Lista de Materiales</a>
+  <a href="#reporte-ch5">Cap. 5 &mdash; C&oacute;digos de Elementos</a>
+  <a href="#reporte-ch6">Cap. 6 &mdash; An&aacute;lisis de Viento EPA</a>
+  <a href="#reporte-ch8">Cap. 8 &mdash; Config. de la Torre</a>
+  <a href="#exportar">Exportar a STAAD.Pro</a>
+  <a href="#exportar-dxf">Exportar a DXF</a>
+  <h4>Proyecto</h4>
+  <a href="#guardar-abrir">Guardar / abrir proyecto</a>
+  <a href="#unidades">Unidades</a>
+  <a href="#configuracion">Configuraci&oacute;n</a>
+  <a href="#atajos">Atajos de teclado</a>
+  <h4>Comunidad</h4>
+  <a href="#feedback">Dar feedback</a>
+  <h4>Importante</h4>
+  <a href="#aviso">Aviso profesional</a>
+  <a href="#pendientes">Funciones en desarrollo</a>
+</nav>
+<main class="content">
+<h1 id="intro">TSA &mdash; Gu&iacute;a de usuario</h1>
+<p class="tagline">TSA (Tower Structural Analysis) es una aplicaci&oacute;n de escritorio para modelar geom&eacute;tricamente torres de telecomunicaci&oacute;n &mdash; autosoportadas, arriostradas y monopolos &mdash; visualizarlas en 3D, asignarles perfiles y calidades de acero, calcular cargas de viento seg&uacute;n ANSI/TIA-222-H, y exportar la geometr&iacute;a y el reporte de c&aacute;lculo completo.</p>
+
+<div class="quicknav">
+  <a href="#ejemplos"><div class="qn-title">&#128194; Ejemplos precargados</div><div class="qn-desc">4 torres listas en Archivo &rarr; Ejemplos</div></a>
+  <a href="#tipos"><div class="qn-title">&#127959; Tipos de estructura</div><div class="qn-desc">3 piernas, 4 piernas, arriostrada, monopolo</div></a>
+  <a href="#secciones"><div class="qn-title">&#128208; Secciones y tramos</div><div class="qn-desc">Editar geometr&iacute;a y arriostramiento por tramo</div></a>
+  <a href="#bases-datos"><div class="qn-title">&#128452; Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
+  <a href="#visor3d"><div class="qn-title">&#128251; Visor 3D</div><div class="qn-desc">Navegaci&oacute;n, nodos, inspecci&oacute;n de miembros</div></a>
+  <a href="#viento"><div class="qn-title">&#127787; Dise&ntilde;o por Viento</div><div class="qn-desc">ANSI/TIA-222-H: qz, EPA y FST por secci&oacute;n</div></a>
+  <a href="#antenas"><div class="qn-title">&#128225; Antenas y equipos</div><div class="qn-desc">Panel de entrada de antenas, RRUs y equipos</div></a>
+  <a href="#exportar-reporte"><div class="qn-title">&#128196; Reporte Word</div><div class="qn-desc">Memoria de c&aacute;lculo completa en .docx</div></a>
+</div>
+
+<div class="callout warn">
+  <b>&#9888; Aviso profesional</b>
+  TSA genera la geometr&iacute;a y prepara los datos del modelo, pero <b style="display:inline">no sustituye el criterio ni la responsabilidad de un ingeniero estructurista</b>. Todo dise&ntilde;o final debe ser revisado, calculado y firmado por un profesional autorizado antes de su uso en obra.
+</div>
+
+<hr>
+
+<h2 id="primeros-pasos">Primeros pasos</h2>
+<ol>
+  <li>En la barra lateral izquierda, haz clic en el &iacute;cono <b>Torre</b> (o en Inicio &rarr; "Nuevo proyecto").</li>
+  <li>Se abre el panel <b>"Nueva Torre"</b>. Llena los datos de PROYECTO (Asset Name, Site Name, Pa&iacute;s, Ingeniero Responsable, Fecha) &mdash; son metadatos, no afectan la geometr&iacute;a.</li>
+  <li>En ESTRUCTURA, elige el <b>Tipo de estructura</b> y completa los campos de geometr&iacute;a (altura, aperturas, n&uacute;mero de tramos, etc.). Ver&aacute;s una <b>vista previa</b> en tiempo real a la derecha del panel.</li>
+  <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo" si elegiste ese tipo).</li>
+  <li>El panel derecho aparece con las secciones de PROYECTO y GEOMETR&Iacute;A, editables en cualquier momento.</li>
+</ol>
+
+<h2 id="ejemplos">Ejemplos precargados</h2>
+<p>El men&uacute; <b>Inicio &rarr; EJEMPLOS</b> trae 4 proyectos completos listos para abrir con un clic:</p>
+<div class="pill-row">
+  <span class="pill">Monopolo</span><span class="pill">Autosoportada 4P</span>
+  <span class="pill">Autosoportada 3P</span><span class="pill">Arriostrada</span>
+</div>
+<p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">Incluidos directamente en la app &mdash; funcionan sin conexi&oacute;n, en la app de escritorio y en el sitio publicado.</p>
+
+<h2 id="tipos">Tipos de estructura</h2>
+<table>
+  <thead><tr><th>Tipo</th><th>Descripci&oacute;n</th><th>Apoyos en la base</th></tr></thead>
+  <tbody>
+    <tr><td>Autosoportada 3 piernas</td><td>Torre triangular en celosia, autoestable.</td><td>Articulado (PINNED)</td></tr>
+    <tr><td>Autosoportada 4 piernas</td><td>Torre cuadrada en celosia, autoestable.</td><td>Articulado (PINNED)</td></tr>
+    <tr><td>Arriostrada (guyed)</td><td>M&aacute;stil esbelto sostenido por retenidas (cables) ancladas al terreno.</td><td>Piernas: PINNED &middot; Anclajes: FIXED</td></tr>
+    <tr><td>Monopolo</td><td>Fuste circular o poligonal (8/12/16/18 lados) &mdash; tronco-c&oacute;nico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
+  </tbody>
+</table>

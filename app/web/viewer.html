@@ -553,7 +553,23 @@ body {
    pedido explícito del usuario (2026-06-28: "Hacer más ancho el menú para que quepan
    todos los campos"). Solo afecta a #viento-flyout (selector por id, más específico que
    .torre-flyout) — Nueva Torre sigue en 268px. */
-#viento-flyout { width: 380px; }
+#viento-flyout   { width: 380px; }
+#antenas-flyout  { width: 560px; }
+
+/* ── Panel Antenas ──────────────────────────────────────────── */
+.ant-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ant-table th { background: #0D1B2A; color: #64CCDD; padding: 5px 6px; text-align: left; font-weight: 600; border-bottom: 1px solid #1E3050; white-space: nowrap; }
+.ant-table td { padding: 3px 3px; border-bottom: 1px solid #141e2c; vertical-align: middle; }
+.ant-table tr:hover td { background: #0a1628; }
+.ant-inp  { background: #060f1c; border: 1px solid #1E3050; color: #CBD5E1; border-radius: 3px; padding: 3px 5px; width: 100%; font-size: 11px; box-sizing: border-box; }
+.ant-inp:focus { border-color: var(--cyan); outline: none; }
+.ant-num  { width: 56px; text-align: right; }
+.ant-sel  { background: #060f1c; border: 1px solid #1E3050; color: #CBD5E1; border-radius: 3px; padding: 3px 4px; font-size: 11px; width: 100%; }
+.ant-del  { background: none; border: none; color: #556; cursor: pointer; padding: 2px 6px; font-size: 13px; line-height: 1; }
+.ant-del:hover { color: #ff6b6b; }
+.ant-add-btn { display: block; margin: 10px 14px; background: none; border: 1px dashed #2E4060; color: var(--cyan); border-radius: 4px; padding: 6px 0; cursor: pointer; font-size: 12px; width: calc(100% - 28px); }
+.ant-add-btn:hover { background: #0D2040; }
+.ant-table-wrap { overflow-x: auto; padding: 10px 14px 0; }
 /* Quitar el atributo step NO oculta las flechas de spinner (son el control nativo del
    navegador para type="number", aparecen siempre salvo que se oculten por CSS) — el
    usuario las señaló en una captura tras el cambio anterior, hay que ocultarlas de
@@ -1511,6 +1527,24 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Torre</span>
     </button>
 
+    <!-- Antenas -->
+    <button class="side-btn" id="antenas-btn" onclick="openAntenasFlyout()">
+      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Panel izquierdo -->
+        <rect x="3" y="3" width="3.5" height="9" rx="0.5"/>
+        <!-- Panel derecho -->
+        <rect x="15.5" y="3" width="3.5" height="9" rx="0.5"/>
+        <!-- Brazos -->
+        <line x1="6.5" y1="6.5" x2="11" y2="6.5"/>
+        <line x1="11"  y1="6.5" x2="15.5" y2="6.5"/>
+        <!-- Mástil -->
+        <line x1="11" y1="3" x2="11" y2="20"/>
+        <!-- Base -->
+        <line x1="8" y1="20" x2="14" y2="20"/>
+      </svg>
+      <span class="side-tip">Antenas</span>
+    </button>
+
     <!-- Viento -->
     <button class="side-btn" id="viento-btn" onclick="openVientoFlyout()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1547,23 +1581,13 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Reporte</span>
     </button>
 
-    <!-- Exportar Word -->
+    <!-- Exportar Reporte -->
     <button class="side-btn" onclick="exportMemoriaDocx()">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="2" width="16" height="18" rx="2"/>
         <path d="M7 8l2.5 7 1.5-4 1.5 4L15 8"/>
       </svg>
-      <span class="side-tip">Exportar Word</span>
-    </button>
-
-    <!-- Exportar PDF -->
-    <button class="side-btn" onclick="exportMemoriaPdf()">
-      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 3v11"/>
-        <polyline points="7,10 11,14 15,10"/>
-        <path d="M4 17h14v2H4z"/>
-      </svg>
-      <span class="side-tip">Exportar PDF</span>
+      <span class="side-tip">Exportar Reporte</span>
     </button>
 
     <!-- Ubicación -->
@@ -1574,6 +1598,40 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       </svg>
       <span class="side-tip">Ubicación</span>
     </button>
+
+    <!-- Antenas flyout -->
+    <div class="torre-flyout" id="antenas-flyout">
+      <div class="tf-header">
+        <span>Antenas y Equipos</span>
+        <button onclick="closeAntenasFlyout()">✕</button>
+      </div>
+      <div class="tf-scroll">
+        <div class="ant-table-wrap">
+          <table class="ant-table">
+            <thead>
+              <tr>
+                <th style="min-width:120px">Descripción</th>
+                <th style="min-width:80px">Tipo</th>
+                <th style="min-width:58px">h (m)</th>
+                <th style="min-width:55px">Az (°)</th>
+                <th style="min-width:58px">Peso (kg)</th>
+                <th style="min-width:58px">EPA 0°</th>
+                <th style="min-width:58px">EPA 60°</th>
+                <th style="min-width:58px">EPA 90°</th>
+                <th style="width:24px"></th>
+              </tr>
+            </thead>
+            <tbody id="antenas-tbody"></tbody>
+          </table>
+        </div>
+        <button class="ant-add-btn" onclick="addAntenaRow()">+ Agregar antena / equipo</button>
+        <div style="padding:0 14px 8px;color:#667;font-size:10px;">EPA = Área Efectiva Proyectada al Viento (m²) por dirección</div>
+      </div>
+      <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn" onclick="closeAntenasFlyout()">Cancelar</button>
+        <button class="btn-accent" onclick="applyAntenas()">Aplicar</button>
+      </div>
+    </div>
 
     <!-- Popover de ubicación ya elegida (miniatura + editar) -->
     <div class="location-popover" id="location-popover">
@@ -5363,7 +5421,8 @@ function _onTopoCatChange() {
 // torre queda activa/visible a la derecha mientras se ajusta el viento (pedido explícito
 // del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
 function openVientoFlyout() {
-  closeTorreFlyout();   // ambos comparten la misma posición en pantalla — no abrir los 2 a la vez
+  closeTorreFlyout();
+  closeAntenasFlyout();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
@@ -5395,6 +5454,7 @@ function openVientoFlyout() {
 }
 function closeVientoFlyout() {
   document.getElementById('viento-flyout').classList.remove('open');
+  document.getElementById('viento-btn')?.classList.remove('active');
 }
 let _flyoutDirs = [0, 60, 90];
 function _renderDirsChips() {
@@ -6135,6 +6195,10 @@ function setupKeyboardShortcuts() {
     else if (e.key === 'Escape') { closeMemberInfo(); }
   });
 }
+
+// ── Antenas y Equipos ──────────────────────────────────────────
+// { desc, tipo, z, azimuth, peso, epa0, epa60, epa90 }
+let antenasData = [];
 
 // ── Estado del proyecto ────────────────────────────────────────
 let projectGenerated = false;
@@ -7190,10 +7254,66 @@ function closeTorreFlyout() {
   document.getElementById('torre-flyout').classList.remove('open');
 }
 
+// ── Flyout Antenas ─────────────────────────────────────────────
+const _ANT_TIPOS = ['Panel', 'Parabólica', 'RRU', 'Otros'];
+
+function openAntenasFlyout() {
+  closeTorreFlyout();
+  closeVientoFlyout();
+  document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
+  document.getElementById('antenas-btn').classList.add('active');
+  _renderAntenasTable();
+  document.getElementById('antenas-flyout').classList.add('open');
+}
+
+function closeAntenasFlyout() {
+  document.getElementById('antenas-flyout').classList.remove('open');
+  document.getElementById('antenas-btn')?.classList.remove('active');
+}
+
+function _renderAntenasTable() {
+  const tbody = document.getElementById('antenas-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  antenasData.forEach((a, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td><input class="ant-inp" value="${_esc(a.desc||'')}" oninput="antenasData[${i}].desc=this.value" placeholder="Descripción"></td>` +
+      `<td><select class="ant-sel" onchange="antenasData[${i}].tipo=this.value">${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}</select></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.z??''}" oninput="antenasData[${i}].z=+this.value" min="0"></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.azimuth??0}" oninput="antenasData[${i}].azimuth=+this.value" min="0" max="359"></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.peso??''}" oninput="antenasData[${i}].peso=+this.value" min="0"></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.epa0??''}" oninput="antenasData[${i}].epa0=+this.value" min="0"></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.epa60??''}" oninput="antenasData[${i}].epa60=+this.value" min="0"></td>` +
+      `<td><input class="ant-inp ant-num" type="number" value="${a.epa90??''}" oninput="antenasData[${i}].epa90=+this.value" min="0"></td>` +
+      `<td><button class="ant-del" onclick="deleteAntenaRow(${i})" title="Eliminar">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function _esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function addAntenaRow() {
+  antenasData.push({ desc: '', tipo: 'Panel', z: 0, azimuth: 0, peso: 0, epa0: 0, epa60: 0, epa90: 0 });
+  _renderAntenasTable();
+}
+
+function deleteAntenaRow(i) {
+  antenasData.splice(i, 1);
+  _renderAntenasTable();
+}
+
+function applyAntenas() {
+  // Guardar cambios pendientes (los inputs ya actualizan antenasData en tiempo real)
+  // TODO: refrescar vista 3D con geometrías de antenas
+  closeAntenasFlyout();
+}
+
 function switchToTorre() {
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
-  closeVientoFlyout();   // comparte la misma posición en pantalla que torre-flyout
+  closeVientoFlyout();
+  closeAntenasFlyout();
   // Ocultar la vista de Cargas de Viento al cambiar a Torre — si no, su clase "visible"
   // se queda pegada y compite con rpanel-info la próxima vez que se muestre el panel —
   // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
@@ -7587,15 +7707,21 @@ const REPORT_TYPE_LABELS = { triangular: 'Autosoportada 3 piernas', square: 'Aut
 const GUY_ACCESSORY_TYPES = new Set(['stabarm', 'puntal', 'tensor', 'horizPuntal', 'horizTensor']);
 function _reportSteelTakeoff() {
   if (!_towerData) return { rows: [], total: 0 };
+  const _famToTipo = { li: 'Angle', ld: 'Angle', oc: 'Tube', os: 'Solid', c: 'Channel' };
   const totals = {};
   _towerData.members.forEach(m => {
-    if (m.type === 'monothk' || GUY_ACCESSORY_TYPES.has(m.type)) return;   // pared del monopolo: geometría tubular, no perfil de catálogo
+    if (m.type === 'monothk' || GUY_ACCESSORY_TYPES.has(m.type)) return;
     const { profile, calidadName, isCableCal } = getMemberProfile(m);
     if (!profile || profile === '—' || isCableCal) return;
     const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
     const len = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
     const key = profile + '|' + (calidadName || '');
-    if (!totals[key]) totals[key] = { profile, calidad: calidadName, length: 0 };
+    if (!totals[key]) {
+      const loc = _findProfileLocation(profile);
+      const tipo = loc ? (_famToTipo[loc.fam] || loc.fam || '—') : '—';
+      totals[key] = { profile, calidad: calidadName, tipo, count: 0, length: 0 };
+    }
+    totals[key].count += 1;
     totals[key].length += len;
   });
   const rows = Object.values(totals).map(t => {
@@ -7877,7 +8003,7 @@ function _reportElevationSvg(cfg, range) {
   const legendY = padTop - 8;
   ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Altura</text>`;
   ticks += `<text x="${(cx + tickHalfW + 4).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Apertura</text>`;
-  return `<svg class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
 }
 // Tabla vertical "planos llave" — una fila por sección, de arriba hacia abajo (igual
 // que la altura real de la torre), con columnas rotadas 90° y Nivel/Apertura marcando
@@ -7991,6 +8117,244 @@ function _reportMonopoleVerticalTable(cfg, secIdxList) {
 function _reportSectionPropsTable(cfg, secIdxList) {
   return cfg.type === 'monopole' ? _reportMonopoleVerticalTable(cfg, secIdxList) : _reportSectionVerticalTable(cfg, secIdxList);
 }
+// Genera la tabla de propiedades de sección como SVG puro (texto rotado con transform)
+// para embeberla como imagen en el Word — evita los problemas de textDirection en tablas Word.
+// Mismos anchos de columna y alturas de fila que _reportSectionVerticalTable.
+function _reportSectionTableSvg(cfg, secIdxList) {
+  const weights    = _reportSectionWeights();
+  const isGuyed    = cfg.type === 'guyed';
+  const totalH     = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const PX_BUDGET  = _reportPxBudget(isGuyed);
+  const v          = val => (val && val !== '-') ? String(val) : '';
+  const esc        = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const order      = secIdxList || cfg.secData.map((_, i) => i).reverse();
+  const padTop = 90, padBottom = 16;
+  const BLU = '#1B3A6B', WHT = '#FFFFFF', GRY = '#F4F6F8', DRK = '#1A1A1A';
+
+  let cols, colW;
+  if (cfg.type === 'monopole') {
+    cols = [
+      ['Tipo',          s => (+s.monoSides || 0) >= 24 ? 'Redondo' : 'Poligonal'],
+      ['Lados',         s => (+s.monoSides || 0) >= 24 ? '—' : v(s.monoSides)],
+      ['Espesor (mm)',  s => s.monoThk === '-' ? '' : v(s.monoThk)],
+      ['Calidad',       s => { const g = steelGrades.find(x => x.name === s.monoFy); return g ? g.name : ''; }],
+    ];
+    colW = [22, 30, 28, 40, 50];
+  } else {
+    cols = [
+      ['Piernas',         s => v(s.M)],
+      ['Diagonales',      s => v(s.D)],
+      ['Horizontales',    s => v(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null))],
+      ['Diag. Sec.',      s => v(s.Ds)],
+      ['Horiz. Sec.',     s => v(s.Hs)],
+      ['Diag. Internas',  s => v(s.HhipD)],
+      ['Horiz. Internas', s => v(s.HhipH)],
+      ['Plan-Bracing',    s => v(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null))],
+      ['Diafragma',       s => v(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null))],
+    ];
+    colW = [22, ...cols.map(() => 20), 22];
+  }
+  const headers    = cfg.type === 'monopole'
+    ? ['Tramo', ...cols.map(c => c[0])]
+    : ['Sección', ...cols.map(c => c[0]), 'Peso (Kg)'];
+  const W          = colW.reduce((a, b) => a + b, 0);
+  const getRowH    = i => Math.max(85, Math.round((+(cfg.secData[i]?.h || 0)) / totalH * PX_BUDGET));
+  const totalDataH = order.reduce((a, i) => a + getRowH(i), 0);
+  const H          = padTop + totalDataH + padBottom;
+
+  const p = [];
+  p.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">`);
+  p.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${WHT}"/>`);
+
+  // Encabezado con fondo azul y texto rotado hacia arriba (rotate -90°)
+  p.push(`<rect x="0" y="0" width="${W}" height="${padTop}" fill="${BLU}"/>`);
+  let cx = 0;
+  headers.forEach((hdr, ci) => {
+    const cw = colW[ci];
+    const mx = +(cx + cw / 2).toFixed(2), my = +(padTop / 2).toFixed(2);
+    if (ci > 0) p.push(`<line x1="${cx}" y1="0" x2="${cx}" y2="${padTop}" stroke="rgba(255,255,255,0.25)" stroke-width="0.5"/>`);
+    p.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="7" font-weight="bold" fill="${WHT}">${esc(hdr)}</text>`);
+    cx += cw;
+  });
+  p.push(`<line x1="0" y1="${padTop}" x2="${W}" y2="${padTop}" stroke="${WHT}" stroke-width="1"/>`);
+
+  // Filas de datos con texto rotado hacia arriba
+  let y = padTop;
+  order.forEach((i, ri) => {
+    const s   = cfg.secData[i] || {};
+    const rh  = getRowH(i);
+    const bg  = ri % 2 === 0 ? WHT : GRY;
+    p.push(`<rect x="0" y="${y}" width="${W}" height="${rh}" fill="${bg}"/>`);
+    const vals = cfg.type === 'monopole'
+      ? [String(i + 1), ...cols.map(([, fn]) => fn(s))]
+      : [String(i + 1), ...cols.map(([, fn]) => fn(s)), weights[i] != null ? weights[i].toFixed(1) : ''];
+    cx = 0;
+    vals.forEach((val, ci) => {
+      const cw = colW[ci];
+      if (ci > 0) p.push(`<line x1="${cx}" y1="${y}" x2="${cx}" y2="${y + rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
+      if (val) {
+        const mx = +(cx + cw / 2).toFixed(2), my = +(y + rh / 2).toFixed(2);
+        p.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="6.5" fill="${DRK}">${esc(val)}</text>`);
+      }
+      cx += cw;
+    });
+    p.push(`<line x1="0" y1="${y + rh}" x2="${W}" y2="${y + rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
+    y += rh;
+  });
+
+  p.push(`<rect x="0" y="0" width="${W}" height="${padTop + totalDataH}" fill="none" stroke="#AAAAAA" stroke-width="1"/>`);
+  p.push('</svg>');
+  return p.join('');
+}
+// SVG combinado elevación + tabla de secciones en una SOLA imagen para Word.
+// Ambas partes comparten las mismas alturas de fila (getRowH) garantizando alineación
+// perfecta — la elevación adapta sus coordenadas Y a esas alturas en vez de usar
+// px/metro proporcional, que causaba desfase cuando las secciones eran pequeñas.
+function _reportElevAndTableSvg(cfg, secIdxList, range) {
+  const data = _towerData;
+  if (!data || !data.nodes.length) return '';
+  const isGuyed    = cfg.type === 'guyed';
+  const isMono     = cfg.type === 'monopole';
+  const PX_BUDGET  = _reportPxBudget(isGuyed);
+  const totalH     = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const padTop = 90, padBottom = 16;
+  const order      = secIdxList || cfg.secData.map((_, i) => i).reverse();
+  const getRowH    = i => Math.max(85, Math.round((+(cfg.secData[i]?.h || 0)) / totalH * PX_BUDGET));
+  const cumY = [];
+  let cum = 0;
+  order.forEach(i => { cumY.push(cum); cum += getRowH(i); });
+  const totalDataH = cum;
+  const H = padTop + totalDataH + padBottom;
+  const secZs = [0];
+  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
+  const gMinZ = Math.min(...data.nodes.map(n => n.z));
+  const gMaxZ = Math.max(...data.nodes.map(n => n.z));
+  const zLo = range ? range.zLo : gMinZ, zHi = range ? range.zHi : gMaxZ;
+  // z (absolute node coord) → SVG y, interpolado dentro de cada sección por su rowH
+  const zToY = z => {
+    const zA = z - gMinZ;
+    for (let ri = 0; ri < order.length; ri++) {
+      const si = order[ri], bot = secZs[si], top = secZs[si + 1] ?? bot;
+      if (zA >= bot - 1e-6 && zA <= top + 1e-6) {
+        const t = (zA - bot) / ((top - bot) || 1);
+        return padTop + cumY[ri] + getRowH(si) * (1 - t);
+      }
+    }
+    return zA <= (secZs[order[order.length - 1]] ?? 0) ? H - padBottom : padTop;
+  };
+  // ── Elevación (columna izquierda) ────────────────────────────────────────
+  const W_ELEV = 260, padX = 34;
+  const xs = data.nodes.map(n => n.x);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const scaleX = _reportPxPerMeter(cfg);
+  const cx = isGuyed ? W_ELEV * 0.25 : W_ELEV / 2;
+  const tickHalfW = isGuyed ? 26 : (W_ELEV / 2 - padX + 5);
+  const epx = x => cx + (x - (minX + maxX) / 2) * scaleX;
+  // Face detection
+  const par = {};
+  const find = id => { while (par[id] !== undefined && par[id] !== id) id = par[id]; return id; };
+  const uni  = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) par[ra] = rb; };
+  data.members.forEach(m => { if (m.type === 'leg') { if (par[m.ni] === undefined) par[m.ni] = m.ni; if (par[m.nj] === undefined) par[m.nj] = m.nj; uni(m.ni, m.nj); } });
+  const legCols = new Map();
+  data.members.forEach(m => { if (m.type !== 'leg') return; [m.ni, m.nj].forEach(idx => { const r = find(idx); if (!legCols.has(r)) legCols.set(r, new Set()); legCols.get(r).add(idx); }); });
+  let faceYAt = null;
+  if (legCols.size >= 2) {
+    const ci2 = [...legCols.values()].map(ids => { let bi = [...ids][0]; ids.forEach(i => { if (data.nodes[i].z > data.nodes[bi].z) bi = i; }); return { ids, y: data.nodes[bi].y }; });
+    let bp = null, bd = Infinity;
+    for (let i = 0; i < ci2.length; i++) for (let j = i + 1; j < ci2.length; j++) { const d = Math.abs(ci2[i].y - ci2[j].y); if (d < bd) { bd = d; bp = [ci2[i], ci2[j]]; } }
+    const samp = [...bp[0].ids].map(i => ({ z: data.nodes[i].z, y: data.nodes[i].y })).sort((a, b) => a.z - b.z);
+    faceYAt = z => { if (z <= samp[0].z) return samp[0].y; for (let i = 1; i < samp.length; i++) { if (z <= samp[i].z) { const t = (z - samp[i-1].z) / ((samp[i].z - samp[i-1].z) || 1); return samp[i-1].y + (samp[i].y - samp[i-1].y) * t; } } return samp[samp.length-1].y; };
+  }
+  const onFaceNode = idx => !faceYAt || Math.abs(data.nodes[idx].y - faceYAt(data.nodes[idx].z)) < 0.05;
+  const onFace     = m => onFaceNode(m.ni) && onFaceNode(m.nj);
+  const colorFor   = m => m.type === 'guy' ? '#C9A227' : m.type === 'stabarm' ? '#2E8B57' : m.type === 'leg' ? '#0A1628' : m.type === 'diagonal' ? '#2E8B57' : '#7A8B9A';
+  const ETYPES = new Set(['leg', 'diagonal', 'horizontal', 'guy']);
+  const bestGuy = new Map();
+  if (isGuyed) data.members.forEach(m => { if (m.type !== 'guy') return; const x = data.nodes[m.ni].x; if (x <= 0) return; const cur = bestGuy.get(m.guyLevel); if (!cur || x > cur) bestGuy.set(m.guyLevel, x); });
+  let lines = '';
+  data.members.forEach(m => {
+    if (!ETYPES.has(m.type)) return;
+    if (m.type === 'guy') { if (!isGuyed) return; const x = data.nodes[m.ni].x; if (x <= 0 || x !== bestGuy.get(m.guyLevel)) return; }
+    else if (!onFace(m)) return;
+    const a = data.nodes[m.ni], b = data.nodes[m.nj];
+    if (range && (Math.max(a.z, b.z) < zLo - 1e-6 || Math.min(a.z, b.z) > zHi + 1e-6)) return;
+    lines += `<line x1="${epx(a.x).toFixed(1)}" y1="${zToY(a.z).toFixed(1)}" x2="${epx(b.x).toFixed(1)}" y2="${zToY(b.z).toFixed(1)}" stroke="${colorFor(m)}" stroke-width="0.7"/>`;
+    if (m.type === 'guy' && (!range || (b.z >= zLo - 1e-6 && b.z <= zHi + 1e-6))) {
+      const cd = guyCableData[(m.guyLevel ?? 1) - 1];
+      const label = cd?.diamData ? `${cd.diamData.name}" ${cd.diamData.calidad}` : '';
+      if (label) {
+        const x1 = epx(a.x), y1 = zToY(a.z), x2 = epx(b.x), y2 = zToY(b.z);
+        let t = (x1 !== x2) ? (cx + tickHalfW + 24 - x2) / (x1 - x2) : 0.18;
+        t = Math.max(0.05, Math.min(0.85, t));
+        const lx = x2 + (x1 - x2) * t, ly = y2 + (y1 - y2) * t;
+        lines += `<text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" font-size="5.5" fill="#7A5C00" transform="rotate(${(Math.atan2(y1-y2,x1-x2)*180/Math.PI).toFixed(1)},${lx.toFixed(1)},${ly.toFixed(1)})">${label}</text>`;
+      }
+    }
+  });
+  // Ticks en límites de sección (alineados al cumY compartido)
+  const apertura = (zA, si) => { if (isMono) { const f = cfg.secData[si]?.monoAp; if (si >= (cfg.nInc||0) && f != null) return f; return cfg.baseW + (cfg.topW - cfg.baseW) * (zA / totalH); } return isGuyed ? cfg.shaftW : (cfg.baseW + (cfg.topW - cfg.baseW) * (zA / totalH)); };
+  let ticks = '';
+  order.forEach((si, ri) => {
+    const zTop = secZs[si + 1], yTop = padTop + cumY[ri];
+    ticks += `<line x1="${(cx-tickHalfW).toFixed(1)}" y1="${yTop.toFixed(1)}" x2="${(cx+tickHalfW).toFixed(1)}" y2="${yTop.toFixed(1)}" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>`;
+    ticks += `<text x="${(cx-tickHalfW-24).toFixed(1)}" y="${(yTop+2.5).toFixed(1)}" font-size="6.5" fill="#666">${zTop.toFixed(1)}m</text>`;
+    ticks += `<text x="${(cx+tickHalfW+4).toFixed(1)}" y="${(yTop+2.5).toFixed(1)}" font-size="6.5" fill="#666">${apertura(zTop, si).toFixed(2)}</text>`;
+    if (ri === order.length - 1) {
+      const zBot = secZs[si], yBot = padTop + cumY[ri] + getRowH(si);
+      ticks += `<line x1="${(cx-tickHalfW).toFixed(1)}" y1="${yBot.toFixed(1)}" x2="${(cx+tickHalfW).toFixed(1)}" y2="${yBot.toFixed(1)}" stroke="#999" stroke-width="0.4" stroke-dasharray="3,2"/>`;
+      ticks += `<text x="${(cx-tickHalfW-24).toFixed(1)}" y="${(yBot+2.5).toFixed(1)}" font-size="6.5" fill="#666">${zBot.toFixed(1)}m</text>`;
+      ticks += `<text x="${(cx+tickHalfW+4).toFixed(1)}" y="${(yBot+2.5).toFixed(1)}" font-size="6.5" fill="#666">${apertura(zBot, si).toFixed(2)}</text>`;
+    }
+  });
+  ticks += `<text x="${(cx-tickHalfW-24).toFixed(1)}" y="${(padTop-8).toFixed(1)}" font-size="7" font-weight="700" fill="#333">Altura</text>`;
+  ticks += `<text x="${(cx+tickHalfW+4).toFixed(1)}" y="${(padTop-8).toFixed(1)}" font-size="7" font-weight="700" fill="#333">Apertura</text>`;
+  // ── Tabla (columna derecha) ──────────────────────────────────────────────
+  const weights = _reportSectionWeights();
+  const vv  = val => (val && val !== '-') ? String(val) : '';
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const BLU = '#1B3A6B', WHT = '#FFFFFF', GRY = '#F4F6F8', DRK = '#1A1A1A';
+  let cols2, colW2;
+  if (isMono) {
+    cols2 = [['Tipo', s => (+s.monoSides||0)>=24?'Redondo':'Poligonal'], ['Lados', s => (+s.monoSides||0)>=24?'—':vv(s.monoSides)], ['Espesor (mm)', s => s.monoThk==='-'?'':vv(s.monoThk)], ['Calidad', s => { const g=steelGrades.find(x=>x.name===s.monoFy); return g?g.name:''; }]];
+    colW2 = [22, 30, 28, 40, 50];
+  } else {
+    cols2 = [['Piernas', s=>vv(s.M)], ['Diagonales', s=>vv(s.D)], ['Horizontales', s=>vv(s.topH?s.Htop:(s.bayTopH?s.Hbay:null))], ['Diag. Sec.', s=>vv(s.Ds)], ['Horiz. Sec.', s=>vv(s.Hs)], ['Diag. Internas', s=>vv(s.HhipD)], ['Horiz. Internas', s=>vv(s.HhipH)], ['Plan-Bracing', s=>vv(s.planTop!=='none'?s.PbTop:(s.planBay!=='none'?s.PbBay:null))], ['Diafragma', s=>vv(s.planTop==='A-A'?s.PbTop2:(s.planBay==='A-A'?s.PbBay2:null))]];
+    colW2 = [22, ...cols2.map(() => 20), 22];
+  }
+  const hdrs2 = isMono ? ['Tramo', ...cols2.map(c=>c[0])] : ['Sección', ...cols2.map(c=>c[0]), 'Peso (Kg)'];
+  const W_TBL = colW2.reduce((a, b) => a + b, 0);
+  const tp = [];
+  tp.push(`<rect x="0" y="0" width="${W_TBL}" height="${H}" fill="${WHT}"/>`);
+  tp.push(`<rect x="0" y="0" width="${W_TBL}" height="${padTop}" fill="${BLU}"/>`);
+  let tcx = 0;
+  hdrs2.forEach((hdr, ci) => {
+    const cw = colW2[ci], mx = +(tcx+cw/2).toFixed(2), my = +(padTop/2).toFixed(2);
+    if (ci > 0) tp.push(`<line x1="${tcx}" y1="0" x2="${tcx}" y2="${padTop}" stroke="rgba(255,255,255,0.25)" stroke-width="0.5"/>`);
+    tp.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="7" font-weight="bold" fill="${WHT}">${esc(hdr)}</text>`);
+    tcx += cw;
+  });
+  tp.push(`<line x1="0" y1="${padTop}" x2="${W_TBL}" y2="${padTop}" stroke="${WHT}" stroke-width="1"/>`);
+  order.forEach((i, ri) => {
+    const s = cfg.secData[i] || {}, rh = getRowH(i), y = padTop + cumY[ri], bg = ri % 2 === 0 ? WHT : GRY;
+    tp.push(`<rect x="0" y="${y}" width="${W_TBL}" height="${rh}" fill="${bg}"/>`);
+    const vals = isMono ? [String(i+1), ...cols2.map(([,fn])=>fn(s))] : [String(i+1), ...cols2.map(([,fn])=>fn(s)), weights[i]!=null?weights[i].toFixed(1):''];
+    tcx = 0;
+    vals.forEach((val, ci) => {
+      const cw = colW2[ci];
+      if (ci > 0) tp.push(`<line x1="${tcx}" y1="${y}" x2="${tcx}" y2="${y+rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
+      if (val) { const mx = +(tcx+cw/2).toFixed(2), my = +(y+rh/2).toFixed(2); tp.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="6.5" fill="${DRK}">${esc(val)}</text>`); }
+      tcx += cw;
+    });
+    tp.push(`<line x1="0" y1="${y+rh}" x2="${W_TBL}" y2="${y+rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
+  });
+  tp.push(`<rect x="0" y="0" width="${W_TBL}" height="${padTop+totalDataH}" fill="none" stroke="#AAAAAA" stroke-width="1"/>`);
+  const W_TOTAL = W_ELEV + W_TBL;
+  return [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W_TOTAL} ${H}">`,
+    `<rect x="0" y="0" width="${W_TOTAL}" height="${H}" fill="#fff"/>`,
+    ticks, lines,
+    `<g transform="translate(${W_ELEV},0)">${tp.join('')}</g>`,
+    '</svg>'].join('');
+}
 // MATERIAL STRENGTH — calidades de acero realmente usadas (no el catálogo completo),
 // con su Fy, en pares Grade|Yield por fila.
 function _buildMaterialStrengthHtml(calidadSet) {
@@ -8063,7 +8427,7 @@ function _reportPlanSvg(cfg) {
     content += `<polygon points="${poly}" fill="none" stroke="#0A1628" stroke-width="1"/>`;
     pts.forEach(p => { content += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.2" fill="#0A1628"/>`; });
   }
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:200px;height:200px;border:1px solid #ddd;flex-shrink:0;">${content}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:200px;height:200px;border:1px solid #ddd;flex-shrink:0;">${content}</svg>`;
 }
 // ════════════════════════════════════════════════════════════════════════════════
 // MEMORIA DE CÁLCULO — documento de 8 capítulos en formato carta (reemplaza el
@@ -8824,9 +9188,35 @@ async function exportMemoriaDocx() {
     showToast('Generando documento Word…');
     const cfg = getConfig();
     const snapshot = _captureViewerPng();
-    const elevPng  = await _svgStringToPng(_reportElevationSvg(cfg));
-    const planPng  = await _svgStringToPng(_reportPlanSvg(cfg));
-    const doc = _buildDocxDoc(cfg, snapshot, elevPng, planPng);
+    // SVG combinado (elevación + tabla en una sola imagen) — garantiza alineación perfecta
+    const elevPngs = await (async () => {
+      const totalH_  = (cfg.secData || []).reduce((a, s) => a + (+s.h || 0), 0) || 1;
+      const budget_  = cfg.type === 'guyed' ? 1800 : 600;
+      const order_   = (cfg.secData || []).map((_, i) => i).reverse();
+      const rowH_    = i => Math.max(85, Math.round((+(cfg.secData[i]?.h || 0)) / totalH_ * budget_));
+      const svgH_    = 90 + order_.reduce((a, i) => a + rowH_(i), 0) + 16;
+      if (svgH_ * 15 <= 11000) {
+        const png = await _svgStringToPng(_reportElevAndTableSvg(cfg, order_));
+        return [{ png }];
+      }
+      // Dividir: acumular filas desde el tope hasta llenar la primera página
+      const pageDataPx = Math.floor(11000 / 15) - 90;
+      let cumH = 0, splitAt = Math.ceil(order_.length / 2);
+      for (let k = 0; k < order_.length; k++) {
+        if (cumH + rowH_(order_[k]) > pageDataPx) { splitAt = k || 1; break; }
+        cumH += rowH_(order_[k]);
+      }
+      const sec1_ = order_.slice(0, splitAt), sec2_ = order_.slice(splitAt);
+      const upperH_ = sec1_.reduce((a, i) => a + (+(cfg.secData[i]?.h || 0)), 0);
+      const zSplit_ = totalH_ - upperH_;
+      const [png1, png2] = await Promise.all([
+        _svgStringToPng(_reportElevAndTableSvg(cfg, sec1_, { zLo: zSplit_, zHi: totalH_ })),
+        _svgStringToPng(_reportElevAndTableSvg(cfg, sec2_, { zLo: 0,       zHi: zSplit_ })),
+      ]);
+      return [{ png: png1 }, { png: png2 }];
+    })();
+    const planPng = await _svgStringToPng(_reportPlanSvg(cfg));
+    const doc = _buildDocxDoc(cfg, snapshot, elevPngs, planPng);
     const fn  = _assetFileBase(cfg).replace(/\s+/g, '_') + '.docx';
     if (qtBridge) {
       const b64 = await docx.Packer.toBase64String(doc);
@@ -8836,9 +9226,8 @@ async function exportMemoriaDocx() {
       const blob = await docx.Packer.toBlob(doc);
       const url  = URL.createObjectURL(blob);
       Object.assign(document.createElement('a'), { href: url, download: fn }).click();
-      window.open(url, '_blank');   // intento de apertura automática según OS/navegador
       setTimeout(() => URL.revokeObjectURL(url), 30000);
-      showToast('Word guardado.', 'ok');
+      showToast('Word descargado — ábrelo desde Descargas.', 'ok', 6000);
     }
   } catch (e) {
     showToast('Error al generar Word: ' + e.message);
@@ -8846,19 +9235,20 @@ async function exportMemoriaDocx() {
   }
 }
 
-function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
+function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   const D   = docx;
   const PW  = 9360;   // twips — Letter con márgenes 1in/0.8in
   const BLUE = '1B3A6B', LBL = 'EEF2F8', WHITE = 'FFFFFF', GREY = 'F4F6F8', DARK = '1A1A1A';
   const SXS = 14, SSM = 16, SBD = 20, SH2 = 24, SH1 = 28;
-  const NB  = { style: D.BorderStyle.NONE, size: 0, color: 'auto' };
+  const NB  = { style: D.BorderStyle.NIL,  size: 0, color: 'auto' };
+  const GB  = { style: D.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' }; // borde columna gris fino
   const fmt1 = v => (v == null || isNaN(+v)) ? '—' : (+v).toFixed(1);
   const fmt2 = v => (v == null || isNaN(+v)) ? '—' : (+v).toFixed(2);
   const fmt3 = v => (v == null || isNaN(+v)) ? '—' : (+v).toFixed(3);
 
   // ── Primitivas ────────────────────────────────────────────────────────────
   const run = (text, o = {}) =>
-    new D.TextRun({ text: String(text ?? ''), font: 'Arial', size: SBD, color: DARK, ...o });
+    new D.TextRun({ text: String(text ?? ''), font: 'Segoe UI', size: SBD, color: DARK, ...o });
 
   const para = (children, o = {}) => {
     if (typeof children === 'string') children = [run(children, o.run || {})];
@@ -8882,18 +9272,18 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const pend   = mod => new D.Paragraph({
     children: [run(`Pendiente — ${mod}`, { italics: true, size: SBD, color: 'B36200' })],
     spacing: { before: 120, after: 120 },
-    shading: { fill: 'FFF3E0', type: D.ShadingType.SOLID },
+    shading: { fill: 'FFF3E0', type: D.ShadingType.CLEAR },
     indent: { left: 280, right: 280 },
   });
 
   // ── Tabla genérica ────────────────────────────────────────────────────────
-  // Las tablas usan el estilo nativo de Word "TableGrid4-Accent1"
-  // ("Tabla con cuadrícula 4 - Énfasis 1") para que Word gestione colores,
-  // bordes y repetición de encabezado sin formateo manual celda por celda.
-  const mkCell = (text, { bold = false, w, sz = SSM, align = D.AlignmentType.CENTER, color } = {}) =>
+  const mkCell = (text, { bold = false, w, sz = SSM, align = D.AlignmentType.CENTER, color, textDir, vAlign, nb, fill, bords } = {}) =>
     new D.TableCell({
       ...(w ? { width: { size: w, type: D.WidthType.DXA } } : {}),
-      verticalAlign: D.VerticalAlign.CENTER,
+      ...(textDir ? { textDirection: textDir } : {}),
+      ...(nb ? { borders: { top: NB, bottom: NB, left: NB, right: NB } } : bords ? { borders: bords } : {}),
+      ...(fill ? { shading: { fill, type: D.ShadingType.CLEAR } } : {}),
+      verticalAlign: vAlign ?? D.VerticalAlign.CENTER,
       margins: { top: 40, bottom: 40, left: 100, right: 100 },
       children: [new D.Paragraph({
         alignment: align,
@@ -8905,17 +9295,19 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const dtable = (headers, rows, colWidths) => {
     const n = headers.length;
     const w = colWidths || headers.map(() => Math.floor(PW / n));
+    const CB = { top: NB, bottom: NB, left: GB, right: GB };
     const hRow = new D.TableRow({
-      tableHeader: true,
-      children: headers.map((h, i) => mkCell(h, { bold: true, w: w[i] })),
+      tableHeader: true, cantSplit: true,
+      children: headers.map((h, i) => mkCell(h, { bold: true, w: w[i], align: D.AlignmentType.LEFT, color: WHITE, fill: BLUE, bords: CB })),
     });
-    const dRows = rows.map(r => new D.TableRow({
-      children: r.map((v, i) => mkCell(v, { w: w[i] })),
+    const dRows = rows.map((r, ri) => new D.TableRow({
+      cantSplit: true,
+      children: r.map((v, i) => mkCell(v, { w: w[i], fill: ri % 2 === 1 ? GREY : 'FFFFFF', bords: CB })),
     }));
     return new D.Table({
-      style: 'TableGrid4-Accent1',
       rows: [hRow, ...dRows],
       width: { size: PW, type: D.WidthType.DXA },
+      borders: { top: NB, bottom: NB, left: NB, right: NB, insideH: NB, insideV: NB },
     });
   };
 
@@ -8940,7 +9332,7 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
       hdrCell([run(`${revStr} · ${dateStr}`,         { size: SSM, color: '666666' })], D.AlignmentType.RIGHT, 3000),
     ]})],
     width: { size: PW, type: D.WidthType.DXA },
-    borders: { ...noEdge, bottom: { style: D.BorderStyle.SINGLE, size: 6, color: '888888' } },
+    borders: noEdge,
   });
 
   const ftrTbl = new D.Table({
@@ -8948,14 +9340,14 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
       hdrCell([run('TSA — Tower Structural Analysis', { size: SSM, color: '888888' })], D.AlignmentType.LEFT, 3000),
       hdrCell([
         run('Página ', { size: SSM, color: '888888' }),
-        new D.TextRun({ children: [D.PageNumber.CURRENT], size: SSM, color: '888888', font: 'Arial' }),
+        new D.TextRun({ children: [D.PageNumber.CURRENT], size: SSM, color: '888888', font: 'Segoe UI' }),
         run(' de ', { size: SSM, color: '888888' }),
-        new D.TextRun({ children: [D.PageNumber.TOTAL_PAGES], size: SSM, color: '888888', font: 'Arial' }),
+        new D.TextRun({ children: [D.PageNumber.TOTAL_PAGES], size: SSM, color: '888888', font: 'Segoe UI' }),
       ], D.AlignmentType.CENTER, 3360),
       hdrCell([run(_VIENTO_CODIGO_LABELS[windData.codigo] || '—', { size: SSM, color: '888888' })], D.AlignmentType.RIGHT, 3000),
     ]})],
     width: { size: PW, type: D.WidthType.DXA },
-    borders: { ...noEdge, top: { style: D.BorderStyle.SINGLE, size: 6, color: '888888' } },
+    borders: noEdge,
   });
 
   const pageHeader = new D.Header({ children: [hdrTbl] });
@@ -8975,17 +9367,36 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
     ['Fecha',                 dateStr],
   ];
   const cover = [
-    new D.Paragraph({ spacing: { before: 720, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.SOLID }, children: [run('', { size: SSM })] }),
-    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.SOLID },
-      children: [run('INFORME DE ANÁLISIS ESTRUCTURAL', { bold: true, size: 36, color: WHITE })] }),
-    new D.Paragraph({ spacing: { before: 0, after: 720 }, shading: { fill: BLUE, type: D.ShadingType.SOLID }, children: [run('', { size: SSM })] }),
+    // Banner "INFORME" al tope absoluto de la página (sin espaciado antes)
+    new D.Paragraph({ spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR }, children: [run('', { size: SXS })] }),
+    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR },
+      children: [run('INFORME DE ANÁLISIS ESTRUCTURAL', { bold: true, size: 48, color: WHITE })] }),
+    new D.Paragraph({ spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR }, children: [run('', { size: SXS })] }),
     blank(), blank(),
     para([run(projName.toUpperCase(), { bold: true, size: 36, color: BLUE })], { alignment: D.AlignmentType.CENTER }),
     blank(), blank(),
-    dtable(['Parámetro', 'Valor'], coverMeta, [3200, 6160]),
-    blank(), blank(), blank(), blank(), blank(),
-    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.SOLID },
+    // Tabla de parámetros sin bordes (nb:true en cada celda + borders:noEdge en tabla)
+    (() => {
+      const L = D.AlignmentType.LEFT, R = D.AlignmentType.RIGHT;
+      const CW = [2800, 120, PW - 2920];
+      const covRow = (a, b, hdr) => new D.TableRow({ tableHeader: !!hdr, children: [
+        mkCell(a, { w: CW[0], align: R, bold: !!hdr, nb: true }),
+        mkCell('', { w: CW[1], nb: true }),
+        mkCell(b, { w: CW[2], align: L, bold: !!hdr, nb: true }),
+      ]});
+      return new D.Table({
+        rows: [covRow('Parámetro', 'Valor', true), ...coverMeta.map(([l, v]) => covRow(l, v))],
+        width: { size: PW, type: D.WidthType.DXA },
+        borders: noEdge,
+      });
+    })(),
+    // Espaciador que empuja el banner TSA al fondo de la página
+    new D.Paragraph({ spacing: { before: 5760, after: 0 }, children: [] }),
+    // Banner "TSA" al pie absoluto de la página
+    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR }, children: [run('', { size: SXS })] }),
+    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR },
       children: [run('TSA — Tower Structural Analysis', { size: SH2, color: WHITE })] }),
+    new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 0, after: 0 }, shading: { fill: BLUE, type: D.ShadingType.CLEAR }, children: [run('', { size: SXS })] }),
   ];
 
   // ── Cap. 1 — Información General ──────────────────────────────────────────
@@ -9009,32 +9420,53 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const Vult = _tiaVelocidadUltimaKmh(windData);
   const Vop  = windData.velOperacional;
 
+  // Tabla izquierda sin bordes — usada en cap. 2 para evitar el estilo TableGrid con bordes
+  const L = D.AlignmentType.LEFT;
+  const ltable = (rows, colWidths) => {
+    const w = colWidths || rows[0].map(() => Math.floor(PW / rows[0].length));
+    return new D.Table({
+      rows: rows.map(r => new D.TableRow({
+        children: r.map((v, i) => mkCell(v, { w: w[i], align: L, nb: true,
+          ...(i === 0 ? { bold: true } : {}) })),
+      })),
+      width: { size: PW, type: D.WidthType.DXA },
+      borders: noEdge,
+    });
+  };
+  const bullet = text => para([run(`• ${text}`)], { indent: { left: 280 }, spacing: { before: 0, after: 60 } });
+
   const ch2 = [
     h1('2. Parámetros de Diseño'),
     h2('2.1 Norma de Diseño'),
-    dtable(['Parámetro', 'Valor'], [
-      ['Código',             _VIENTO_CODIGO_LABELS[windData.codigo] || '—'],
-      ['Método',             _VIENTO_METODO_POR_CODIGO[windData.codigo] || '—'],
-      ['Categoría de Riesgo', windData.catRiesgo || '—'],
+    ltable([
+      ['Norma de Diseño:',   _VIENTO_CODIGO_LABELS[windData.codigo]  || '—'],
+      ['Método de Diseño:',  _VIENTO_METODO_POR_CODIGO[windData.codigo] || '—'],
     ], [3500, 5860]),
+    bullet('ANSI/TIA-222-H'),
+    bullet('AISC 360 – Specification for Structural Steel Buildings'),
+    bullet('ASCE 7 – Minimum Design Loads for Buildings'),
     h2('2.2 Materiales'),
-    pend('propiedades mecánicas del acero — módulo no implementado'),
+    ...(() => {
+      const { calidadSet } = _reportSectionPropsTable(cfg);
+      if (!calidadSet.size) return [pend('sin calidades de acero asignadas en las secciones')];
+      const matRows = [...calidadSet].map(name => {
+        const g = steelGrades.find(x => x.name === name);
+        return [name, g ? String(g.fy) : '—', g ? String(g.fu) : '—', g ? String(g.e) : '—'];
+      });
+      return [dtable(['Calidad', 'Fy (kg/cm²)', 'Fu (kg/cm²)', 'E (kg/cm²)'], matRows, [2340, 2340, 2340, 2340])];
+    })(),
     h2('2.3 Parámetros de Viento'),
-    dtable(['Parámetro', 'Valor'], [
-      ['Velocidad Última',       Vult  ? `${fmt1(Vult)} km/h`  : '—'],
-      ['Velocidad Operacional',  Vop   ? `${fmt1(Vop)} km/h`   : '—'],
+    ltable([
+      ['Velocidad Última',        Vult ? `${fmt1(Vult)} km/h` : '—'],
+      ['Velocidad Operacional',   Vop  ? `${fmt1(Vop)} km/h`  : '—'],
       ['Categoría de Exposición', windData.catExposicion || '—'],
-      ['ASNM',                   windData.asnm ? `${windData.asnm} m` : '—'],
+      ['ASNM',                    windData.asnm ? `${windData.asnm} m` : '—'],
       ['Cat. Topográfica',        _TOPOCAT_LABELS[windData.topoCat] || 'Plano'],
       ['Kd (dir. factor)',        fmt3(Kd)],
       ['Ke (elev. factor)',       fmt3(Ke)],
       ['Gh (gust factor)',        fmt3(Gh)],
       ['Ángulos de incidencia',   (windData.directions || [0]).map(a => a + '°').join(', ')],
     ], [3500, 5860]),
-    h2('2.4 Parámetros de Hielo'),
-    pend('módulo de hielo no implementado'),
-    h2('2.5 Parámetros Sísmicos'),
-    pend('módulo sísmico no implementado'),
   ];
 
   // ── Cap. 3 — Cargas ────────────────────────────────────────────────────────
@@ -9045,19 +9477,37 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
 
   // ── Cap. 4 — Lista de Materiales ───────────────────────────────────────────
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
-  const matRows = [];
-  for (let i = 0; i < nsec; i++) {
-    const sd = secData[i] || {};
-    matRows.push([`${i + 1}`, sd.h ? `${(+sd.h).toFixed(2)} m` : '—',
-      sd.leg || '—', sd.diag || '—', sd.ring || '—', sd.diagSec || '—', sd.planBracing || '—']);
-  }
+  const _takeoff4 = _reportSteelTakeoff();
+  const _takeoffRows4 = _takeoff4.rows.map(r => [
+    r.profile,
+    r.tipo || '—',
+    r.calidad || '—',
+    String(r.count),
+    fmt1(r.length),
+    r.pesoTotal != null ? fmt1(r.pesoTotal) : '—',
+  ]);
+  // Fila de total
+  const _CB4 = { top: NB, bottom: NB, left: GB, right: GB };
+  const _totalW4 = [3000, 1100, 1500, 700, 1280, 1780];
+  const _totalRow4 = new D.TableRow({ children: [
+    ...[ 0, 1, 2, 3, 4].map(i => mkCell('', { w: _totalW4[i], fill: 'FFFFFF', bords: _CB4 })),
+    mkCell(fmt1(_takeoff4.total) + ' kg', { bold: true, w: _totalW4[5], fill: LBL, bords: _CB4 }),
+  ]});
+  const _hRow4 = new D.TableRow({ tableHeader: true, children:
+    ['Perfil', 'Tipo', 'Material', 'Cant.', 'Long. Total (m)', 'Peso Total (kg)']
+      .map((h, i) => mkCell(h, { bold: true, w: _totalW4[i], align: D.AlignmentType.LEFT, color: WHITE, fill: BLUE, bords: _CB4 }))
+  });
+  const _dRows4 = _takeoffRows4.map((r, ri) => new D.TableRow({ children:
+    r.map((v, i) => mkCell(v, { w: _totalW4[i], fill: ri % 2 === 1 ? GREY : 'FFFFFF', bords: _CB4,
+      align: i >= 3 ? D.AlignmentType.CENTER : D.AlignmentType.LEFT }))
+  }));
+  const _tbl41 = _takeoffRows4.length > 0
+    ? new D.Table({ rows: [_hRow4, ..._dRows4, _totalRow4], width: { size: PW, type: D.WidthType.DXA }, borders: { top: NB, bottom: NB, left: NB, right: NB, insideH: NB, insideV: NB } })
+    : pend('sin perfiles de acero asignados en las secciones');
   const ch4 = [
     h1('4. Lista de Materiales'),
-    h2('4.1 Perfiles por Sección (Solo Estructura)'),
-    dtable(['Sec.', 'Altura', 'Piernas', 'Diag. Ppal.', 'Hor. Ppal.', 'Diag. Sec.', 'Plan Br.'],
-      matRows, [500, 900, 1600, 1600, 1600, 1600, 1560]),
-    h2('4.2 Peso Total'),
-    pend('cálculo de peso — requiere área transversal y longitud por miembro'),
+    h2('4.1 Lista de Materiales por Perfil (Solo Estructura)'),
+    _tbl41,
   ];
 
   // ── Cap. 5 — Identificación de Elementos ───────────────────────────────────
@@ -9080,16 +9530,54 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
       zBase += h; zBaseTower += h;
     }
     const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
-    const vLabel = vKmhOverride ? `${fmt1(vKmhOverride)} km/h` : `${fmt1(Vult)} km/h`;
+    const vKmh  = vKmhOverride ?? Vult;
+    const vMs   = fmt1(vKmh / 3.6);
+    const vLabel = `${fmt1(vKmh)} km/h`;
 
-    const qzSection = [
-      h2('Presiones de Diseño qz'),
-      para([run(`Velocidad de diseño: ${vLabel}    Gh = ${fmt2(Gh)}    Ke = ${fmt3(Ke)}    Kd = ${fmt3(Kd)}`, { size: SSM })], { spacing: { after: 120 } }),
-      dtable(['Sec.', 'z (m)', 'Kz', 'Kzt', 'qz (kg/m²)'],
-        rows.map(r => [r.sec, r.z.toFixed(1), fmt3(r.Kz), fmt3(r.Kzt), fmt1(r.qz / 9.80665)]),
-        [600, 1440, 1680, 1680, 3960]),
+    // ── Bloque de procedimiento y definiciones ─────────────────────────────
+    const procedBlock = [
+      h2('Procedimiento de Cálculo'),
+      para([run('1.  Presión de velocidad del viento  (ANSI/TIA-222-H §2.6.11.6):', { bold: true, size: SSM })], { spacing: { after: 60 } }),
+      para([run('qz  =  0.613 · Kz · Kzt · Ks · Ke · Kd · V²     [N/m²]', { size: SSM })], { spacing: { after: 120 } }),
+      ltable([
+        ['V',   'Velocidad de diseño',                                              `${vLabel} = ${vMs} m/s`],
+        ['Kd',  'Factor de direccionalidad  (TIA Tabla 2-2)',                       fmt3(Kd)],
+        ['Ke',  `Factor de elevación §2.6.8  (ASNM = ${windData.asnm ?? 0} m)`,    fmt3(Ke)],
+        ['Ks',  'Factor de velocidad en azoteas §2.6.7  (estructura a nivel suelo)','1.000'],
+        ['Gh',  'Factor de ráfaga §2.6.10',                                         fmt3(Gh)],
+        ['Kz',  `Coef. de presión de exposición §2.6.5  (Categ. ${windData.catExposicion ?? '—'})`, 'varía con z  (ver tabla)'],
+        ['Kzt', `Factor topográfico §2.6.6  (${_TOPOCAT_LABELS?.[windData.topoCat] || 'Plano'})`,   'varía con z  (ver tabla)'],
+      ], [700, 5500, 3160]),
+      blank(),
+      para([run('2.  Fuerza total de viento por sección  (ANSI/TIA-222-H §2.6.11.1):', { bold: true, size: SSM })], { spacing: { after: 60 } }),
+      para([run('FST  =  qz · Gh · (EPA)s     [kgf]', { size: SSM })], { spacing: { after: 80 } }),
+      para([run('(EPA)s  =  Cf · [ Df · ΣAf  +  Dr · Σ(Ar · Rr) ]     [m²]', { size: SSM })], { spacing: { after: 120 } }),
+      ltable([
+        ['Af', 'Área proyectada de perfiles angulares/planos por sección',       'm²'],
+        ['Ar', 'Área proyectada de perfiles circulares (tubos) por sección',     'm²'],
+        ['Ag', 'Área bruta de la cara de la sección  (ancho × altura)',          'm²'],
+        ['ε',  'Solidez = ΣAf / Ag  (fracción del área bruta ocupada por perfiles)', '—'],
+        ['Cf', 'Coeficiente de fuerza en función de ε  (TIA §2.6.11.1.1)',      '—'],
+        ['Df', 'Factor de arrastre perfiles angulares/planos',                   '= 1.000'],
+        ['Dr', 'Factor de arrastre perfiles circulares (función de V·D)',         '—'],
+        ['Rr', 'Factor de reducción por número de Reynolds',                      '—'],
+      ], [700, 6000, 2660]),
     ];
 
+    // ── Tabla de presiones qz ──────────────────────────────────────────────
+    const qzSection = [
+      h2('Tabla de Presiones de Diseño qz'),
+      dtable(
+        ['Sec.', 'z (m)', 'Kz', 'Kzt', 'qz (N/m²)', 'qz (kg/m²)'],
+        rows.map(r => [
+          r.sec, r.z.toFixed(1), fmt3(r.Kz), fmt3(r.Kzt),
+          fmt1(r.qz), fmt1(r.qz / 9.80665),
+        ]),
+        [500, 1200, 1500, 1500, 2330, 2330],
+      ),
+    ];
+
+    // ── Tablas de fuerza FST por ángulo de viento ──────────────────────────
     const angleSections = dirs.flatMap(angleDeg => {
       const forceRows = [];
       let total = 0;
@@ -9101,38 +9589,39 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
              fmt3(f.epsilon), fmt2(f.Cf), fmt2(f.Df), fmt2(f.Dr), fmt2(f.Rr), fmt1(f.F_kgf)]
           : [r.sec, '—', '—', '—', '—', '—', '—', '—', '—', '—']);
       });
-      // Fila de total
       const colW = [500,950,950,950,800,800,800,800,800,1010];
-      const totalRow = new D.TableRow({ children: [
-        ...colW.slice(0, 8).map(w => mkCell('', { w })),
-        mkCell('TOTAL', { bold: true, w: colW[8] }),
-        mkCell(fmt1(total) + ' kgf', { bold: true, w: colW[9] }),
+      const _CB6 = { top: NB, bottom: NB, left: GB, right: GB };
+      const totalRow = new D.TableRow({ cantSplit: true, children: [
+        ...colW.slice(0, 8).map(w => mkCell('', { w, fill: 'FFFFFF', bords: _CB6 })),
+        mkCell('TOTAL', { bold: true, w: colW[8], fill: LBL, bords: _CB6 }),
+        mkCell(fmt1(total) + ' kgf', { bold: true, w: colW[9], fill: LBL, bords: _CB6 }),
       ]});
-      const hRow = new D.TableRow({ tableHeader: true, children:
+      const hRow = new D.TableRow({ tableHeader: true, cantSplit: true, children:
         ['Sec.','Af (m²)','Ar (m²)','Ag (m²)','ε','Cf','Df','Dr','Rr','FST (kgf)']
-          .map((h, i) => mkCell(h, { bold: true, w: colW[i] }))
+          .map((h, i) => mkCell(h, { bold: true, w: colW[i], align: D.AlignmentType.LEFT, color: WHITE, fill: BLUE, bords: _CB6 }))
       });
-      const dRows = forceRows.map(r => new D.TableRow({ children:
-        r.map((v, i) => mkCell(v, { w: colW[i] }))
+      const dRows = forceRows.map((r, ri) => new D.TableRow({ cantSplit: true, children:
+        r.map((v, i) => mkCell(v, { w: colW[i], fill: ri % 2 === 1 ? GREY : 'FFFFFF', bords: _CB6 }))
       }));
-      const tbl = new D.Table({ style: 'TableGrid4-Accent1', rows: [hRow, ...dRows, totalRow], width: { size: PW, type: D.WidthType.DXA } });
+      const tbl = new D.Table({ rows: [hRow, ...dRows, totalRow], width: { size: PW, type: D.WidthType.DXA }, borders: { top: NB, bottom: NB, left: NB, right: NB, insideH: NB, insideV: NB } });
       return [
-        h2(`Dirección de Viento θ = ${angleDeg}°`),
-        para([
-          run('FST = qz · Gh · (EPA)s', { size: SSM, bold: true }),
-          run('     (EPA)s = Cf · [Df · ΣAf + Dr · Σ(Ar · Rr)]     ANSI/TIA-222-H §2.6.11.1', { size: SSM }),
-        ], { spacing: { after: 120 } }),
+        new D.Paragraph({
+          heading: D.HeadingLevel.HEADING_2,
+          pageBreakBefore: true,
+          spacing: { before: 0, after: 120 },
+          children: [run(`Fuerza de Viento FST — Dirección θ = ${angleDeg}°`, { bold: true, size: SH2, color: BLUE })],
+        }),
         tbl, blank(),
       ];
     });
-    return [...qzSection, blank(), ...angleSections];
+    return [...procedBlock, blank(), ...qzSection, blank(), ...angleSections];
   }
 
   const ch6 = [
     h1('6. Análisis de Carga de Viento (EPA)'),
     h2('6.1 Cálculo de EPA — Viento Último'),
     ...windAngleTables(Vult),
-    h2('6.2 Cálculo de EPA — Viento de Servicio (Operacional)'),
+    new D.Paragraph({ heading: D.HeadingLevel.HEADING_2, pageBreakBefore: true, spacing: { before: 0, after: 120 }, children: [run('6.2 Cálculo de EPA — Viento de Servicio (Operacional)', { bold: true, size: SH2, color: BLUE })] }),
     ...(Vop ? windAngleTables(Vop) : [pend('velocidad operacional no capturada')]),
     h2('6.3 Cargas de Viento en Accesorios'),
     pend('módulo de antenas/escaleras/plataformas no implementado'),
@@ -9144,97 +9633,41 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const ch7 = [h1('7. Combinaciones de Carga'), pend('módulo de combinaciones de carga')];
 
   // ── Cap. 8 — Configuración de la Torre (siempre al final) ─────────────────
-  // Replica exactamente el capítulo 8 del reporte HTML: esquema de elevación SVG
-  // (convertido a PNG) + tabla de perfiles con encabezados rotados, side-by-side.
-  const secV = val => (val && val !== '-') ? val : '';
-  const secCols8 = [
-    ['Piernas',         s => secV(s.M)],
-    ['Diagonales',      s => secV(s.D)],
-    ['Horizontales',    s => secV(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null))],
-    ['Diag. Sec.',      s => secV(s.Ds)],
-    ['Horiz. Sec.',     s => secV(s.Hs)],
-    ['Diag. Internas',  s => secV(s.HhipD)],
-    ['Horiz. Internas', s => secV(s.HhipH)],
-    ['Plan-Bracing',    s => secV(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null))],
-    ['Diafragma',       s => secV(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null))],
-  ];
-  const sectWeights = _reportSectionWeights();
-  const secOrder8   = cfg.secData.map((_, i) => i).reverse();  // tope → base
-
-  // Celda con texto rotado (para encabezados de columna)
-  const rotHdrCell = (text, w) => new D.TableCell({
-    width: { size: w, type: D.WidthType.DXA },
-    textDirection: D.TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT,
-    verticalAlign: D.VerticalAlign.BOTTOM,
-    shading: { fill: BLUE, type: D.ShadingType.SOLID, color: 'auto' },
-    margins: { top: 60, bottom: 60, left: 60, right: 60 },
-    children: [new D.Paragraph({
-      spacing: { before: 0, after: 0 },
-      children: [run(text, { bold: true, size: SSM, color: WHITE })],
-    })],
-  });
-
-  // Ancho de columnas para la tabla de sección (twips): Sec + 9 cols + Peso = 6200 total
-  const CW8 = [460, 540, 540, 540, 540, 540, 560, 560, 560, 560, 500];
-  // Fila de encabezado con texto rotado + fila mínima de 1.4 pulgadas (2016 twips)
-  const secHdrRow8 = new D.TableRow({
-    tableHeader: true,
-    height: { value: 2016, rule: D.HeightRule.AT_LEAST },
-    children: [
-      rotHdrCell('Sección', CW8[0]),
-      ...secCols8.map(([lbl], ci) => rotHdrCell(lbl, CW8[ci + 1])),
-      rotHdrCell('Peso (Kg)', CW8[10]),
-    ],
-  });
-  const secDataRows8 = secOrder8.map(i => {
-    const s = cfg.secData[i] || {};
-    const wt = sectWeights[i] != null ? sectWeights[i].toFixed(1) : '';
-    return new D.TableRow({ children: [
-      mkCell(i + 1, { bold: true, w: CW8[0] }),
-      ...secCols8.map(([, fn], ci) => mkCell(fn(s) || '', { w: CW8[ci + 1] })),
-      mkCell(wt, { w: CW8[10] }),
-    ]});
-  });
-  const secPropsTable8 = new D.Table({
-    style: 'TableGrid4-Accent1',
-    rows: [secHdrRow8, ...secDataRows8],
-    width: { size: CW8.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
-  });
-
-  // Imagen del esquema de elevación SVG
-  const elevTW = 3160;  // ancho columna imagen (twips) ≈ 2.19 in
-  const elevImgPara = (() => {
-    if (!elevPng) return pend('esquema de elevación no disponible');
-    const maxDocxW = 200;  // píxeles en transformation (≈ 2.08in a 96 DPI)
-    const scale = Math.min(1, maxDocxW / elevPng.srcW);
-    const imgW  = Math.round(elevPng.srcW * scale);
-    const imgH  = Math.round(elevPng.srcH * scale);
+  // Imagen combinada (elevación + tabla) de _reportElevAndTableSvg — una sola
+  // imagen por página, garantiza alineación perfecta entre torre y tabla.
+  const mkImgPara = (png, maxDocxW) => {
+    if (!png) return null;
+    const scale = Math.min(1, maxDocxW / png.srcW);
     return new D.Paragraph({
+      alignment: D.AlignmentType.LEFT,
+      spacing: { before: 0, after: 0 },
+      children: [new D.ImageRun({ data: png.bytes, transformation: {
+        width: Math.round(png.srcW * scale), height: Math.round(png.srcH * scale),
+      }})],
+    });
+  };
+  // Escala uniforme para TODAS las páginas de 8.1:
+  //   - Ajusta a ancho O alto disponible (lo que sea el límite)
+  //   - Usa el mínimo entre páginas → mismo ancho en todos los splits
+  // maxW = ancho total de página en docx-px; maxH ≈ cuerpo de página menos encabezados
+  const _elevMaxW = Math.round(PW / 15);        // 624 docx-px
+  const _elevMaxH = 740;                          // ~11100 twips — conservador para p.1 con títulos
+  const _elevScale = elevPngs.reduce((minS, ep) => {
+    if (!ep.png) return minS;
+    return Math.min(minS, _elevMaxW / ep.png.srcW, _elevMaxH / ep.png.srcH);
+  }, 2.0);  // 2.0 = máximo posible (SVG se renderiza a 2×)
+  const buildElevBlock = (ep, addPageBreak) => {
+    if (!ep.png) return [pend('esquema de elevación no disponible')];
+    const docxW = Math.round(ep.png.srcW * _elevScale);
+    const docxH = Math.round(ep.png.srcH * _elevScale);
+    const imgPara = new D.Paragraph({
       alignment: D.AlignmentType.CENTER,
       spacing: { before: 0, after: 0 },
-      children: [new D.ImageRun({ data: elevPng.bytes, transformation: { width: imgW, height: imgH } })],
+      children: [new D.ImageRun({ data: ep.png.bytes, transformation: { width: docxW, height: docxH } })],
     });
-  })();
-
-  // Wrapper side-by-side: imagen | tabla
-  const sideWrapper8 = new D.Table({
-    rows: [new D.TableRow({ children: [
-      new D.TableCell({
-        width: { size: elevTW, type: D.WidthType.DXA },
-        borders: noEdge,
-        verticalAlign: D.VerticalAlign.TOP,
-        children: [elevImgPara instanceof D.Paragraph ? elevImgPara : pend('—')],
-      }),
-      new D.TableCell({
-        width: { size: PW - elevTW, type: D.WidthType.DXA },
-        borders: noEdge,
-        verticalAlign: D.VerticalAlign.TOP,
-        children: [secPropsTable8],
-      }),
-    ]})],
-    width: { size: PW, type: D.WidthType.DXA },
-    borders: noEdge,
-  });
+    if (!addPageBreak) return [imgPara];
+    return [new D.Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0 }, children: [run('')] }), imgPara];
+  };
 
   // ── Sección 8.2: Vista en planta + Material Strength ─────────────────────
   const planImgPara = (() => {
@@ -9251,36 +9684,52 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   })();
 
   const { calidadSet } = _reportSectionPropsTable(cfg);
+
+  // ── Tabla de perfiles por sección (Word 8.2) ─────────────────────────────
+  // Solo columnas con al menos un valor asignado (filtra vacías automáticamente)
+  const _vv82 = v => (v && v !== '-') ? String(v) : '';
+  const _w82  = _reportSectionWeights();
+  const _isMono82 = cfg.type === 'monopole';
+  const _allProfCols = _isMono82 ? [
+    ['Tipo',         s => (+s.monoSides||0) >= 24 ? 'Redondo' : 'Poligonal'],
+    ['Lados',        s => (+s.monoSides||0) >= 24 ? '—' : _vv82(s.monoSides)],
+    ['Espesor (mm)', s => s.monoThk === '-' ? '' : _vv82(s.monoThk)],
+    ['Calidad',      s => { const g = steelGrades.find(x => x.name === s.monoFy); return g ? g.name : ''; }],
+  ] : [
+    ['Piernas',         s => _vv82(s.M)],
+    ['Diagonales',      s => _vv82(s.D)],
+    ['Horizontales',    s => _vv82(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null))],
+    ['Diag. Sec.',      s => _vv82(s.Ds)],
+    ['Horiz. Sec.',     s => _vv82(s.Hs)],
+    ['Diag. Int.',      s => _vv82(s.HhipD)],
+    ['Horiz. Int.',     s => _vv82(s.HhipH)],
+    ['Plan-Bracing',    s => _vv82(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null))],
+    ['Diafragma',       s => _vv82(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null))],
+  ];
+  const _activeProfCols = _allProfCols.filter(([, fn]) => cfg.secData.some(s => fn(s) !== ''));
+  const _fixedW82 = 500 + 700 + 900; // Sec. + h(m) + Peso(kg)
+  const _profColW = Math.max(800, Math.floor((PW - _fixedW82) / (_activeProfCols.length || 1)));
+  const _colW82full = [500, 700, ..._activeProfCols.map(() => _profColW), 900];
+  // Secciones de arriba hacia abajo (orden inverso al índice)
+  const _secOrder82 = cfg.secData.map((_, i) => i).reverse();
+  const secPropsTable82 = dtable(
+    ['Sec.', 'h (m)', ..._activeProfCols.map(c => c[0]), 'Peso (kg)'],
+    _secOrder82.map(i => {
+      const s = cfg.secData[i];
+      const w = _w82[i] != null ? _w82[i].toFixed(1) : '—';
+      return [String(i + 1), fmt1(+s.h || 0), ..._activeProfCols.map(([, fn]) => fn(s) || '—'), w];
+    }),
+    _colW82full,
+  );
+
+  // ── Tabla de calidades de acero ───────────────────────────────────────────
   const matEntries = [...calidadSet].map(name => {
     const g = steelGrades.find(x => x.name === name);
-    return [name, g ? `${g.fy} kg/cm²` : '—'];
+    return [name, g ? `${g.fy}` : '—', g ? `${g.fu}` : '—'];
   });
-  const CW82 = [1500, 1800, 1500, 1800];
-  const matTable82 = matEntries.length > 0 ? new D.Table({
-    style: 'TableGrid4-Accent1',
-    width: { size: CW82.reduce((a, b) => a + b, 0), type: D.WidthType.DXA },
-    rows: [
-      new D.TableRow({ tableHeader: true, children: [
-        mkCell('Grade', { bold: true, w: CW82[0] }),
-        mkCell('Yield',  { bold: true, w: CW82[1] }),
-        mkCell('Grade', { bold: true, w: CW82[2] }),
-        mkCell('Yield',  { bold: true, w: CW82[3] }),
-      ]}),
-      ...(() => {
-        const rows = [];
-        for (let i = 0; i < matEntries.length; i += 2) {
-          const [g1, y1] = matEntries[i], p2 = matEntries[i + 1];
-          rows.push(new D.TableRow({ children: [
-            mkCell(g1,          { w: CW82[0] }),
-            mkCell(y1,          { w: CW82[1] }),
-            mkCell(p2 ? p2[0] : '', { w: CW82[2] }),
-            mkCell(p2 ? p2[1] : '', { w: CW82[3] }),
-          ]}));
-        }
-        return rows;
-      })(),
-    ],
-  }) : pend('sin calidades de acero definidas');
+  const matTable82 = matEntries.length > 0
+    ? dtable(['Calidad', 'Fy (kg/cm²)', 'Fu (kg/cm²)'], matEntries, [2340, 2340, 2340])
+    : pend('sin calidades de acero definidas');
 
   const planTW = 2800;
   const sideWrapper8_2 = new D.Table({
@@ -9308,8 +9757,11 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   const ch8 = [
     h1('8. Configuración de la Torre'),
     h2('8.1 Geometría de la Torre — Diagrama de Elevación y Perfiles'),
-    sideWrapper8,
+    ...elevPngs.flatMap((ep, pi) => buildElevBlock(ep, pi > 0)),
     h2('8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)'),
+    secPropsTable82,
+    blank(),
+    para([run('Calidades de Acero', { bold: true, size: SBD, color: BLUE })], { spacing: { before: 200, after: 120 } }),
     sideWrapper8_2,
   ];
 
@@ -9328,18 +9780,24 @@ function _buildDocxDoc(cfg, snapshot, elevPng, planPng) {
   ];
 
   // ── Documento ─────────────────────────────────────────────────────────────
+  const pageProps = { size: { width: 12240, height: 15840 }, margin: { top: 1080, bottom: 1080, left: 1440, right: 1152, header: 480, footer: 480 } };
   return new D.Document({
-    sections: [{
-      properties: {
-        page: {
-          size:   { width: 12240, height: 15840 },  // Letter en twips
-          margin: { top: 1080, bottom: 1080, left: 1440, right: 1152, header: 480, footer: 480 },
-        },
+    // Actualiza todos los campos (incluida la tabla de contenido) al abrir en Word
+    settings: { updateFields: true },
+    sections: [
+      {
+        // Portada + Índice: sin encabezado ni pie de página
+        properties: { page: pageProps, type: D.SectionType.NEXT_PAGE },
+        children: [...cover, ...tocPage],
       },
-      headers: { default: pageHeader },
-      footers: { default: pageFooter },
-      children: [...cover, ...tocPage, ...ch1, ...ch2, ...ch3, ...ch4, ...ch5, ...ch6, ...ch7, ...ch8],
-    }],
+      {
+        // Contenido: con encabezado y pie de página; numeración reinicia en Página 1
+        properties: { page: { ...pageProps, pageNumbers: { start: 1 } } },
+        headers: { default: pageHeader },
+        footers: { default: pageFooter },
+        children: [...ch1, ...ch2, ...ch3, ...ch4, ...ch5, ...ch6, ...ch7, ...ch8],
+      },
+    ],
   });
 }
 
