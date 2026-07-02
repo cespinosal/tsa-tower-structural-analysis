@@ -527,10 +527,17 @@ body {
 #dado, #baseW, #topW, #height, #shaftW, #nInc, #nStr, #alturaInclinada { -moz-appearance: textfield; }
 #rpanel-viento { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-viento.visible { display: flex; }
+#rpanel-antenas { display: none; flex-direction: column; flex: 1; min-height: 0; }
+#rpanel-antenas.visible { display: flex; }
 /* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
    contenido de Cargas de Viento quedaba pegado a los bordes laterales, pedido explícito
    del usuario (2026-06-28). */
-#rpanel-viento-body { padding: 12px 14px; }
+#rpanel-viento-body  { padding: 12px 14px; }
+#rpanel-antenas-body { padding: 12px 14px; }
+.ant-panel-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
+.ant-panel-card .apc-title { font-weight: 600; color: var(--txt); margin-bottom: 5px; font-size: 12.5px; }
+.ant-panel-card .apc-row { display: flex; justify-content: space-between; color: var(--txt-sec); margin-top: 2px; }
+.ant-panel-card .apc-val { color: var(--cyan); font-family: 'Courier New', monospace; font-size: 11.5px; }
 
 /* ── Torre flyout (desplegable junto al botón Torre) ─────────── */
 .torre-flyout {
@@ -554,7 +561,7 @@ body {
    todos los campos"). Solo afecta a #viento-flyout (selector por id, más específico que
    .torre-flyout) — Nueva Torre sigue en 268px. */
 #viento-flyout   { width: 380px; }
-#antenas-flyout  { width: 560px; }
+#antenas-flyout  { width: 760px; }
 
 /* ── Panel Antenas ──────────────────────────────────────────── */
 .ant-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -569,6 +576,8 @@ body {
 .ant-del:hover { color: #ff6b6b; }
 .ant-add-btn { display: block; margin: 10px 14px; background: none; border: 1px dashed #2E4060; color: var(--cyan); border-radius: 4px; padding: 6px 0; cursor: pointer; font-size: 12px; width: calc(100% - 28px); }
 .ant-add-btn:hover { background: #0D2040; }
+.ant-add-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px 4px; flex-wrap: wrap; }
+.ant-add-bar .ant-az-inp { width: 50px; background:#060f1c; border:1px solid #1E3050; color:#CBD5E1; border-radius:3px; padding:3px 5px; font-size:11px; text-align:right; }
 .ant-table-wrap { overflow-x: auto; padding: 10px 14px 0; }
 /* Quitar el atributo step NO oculta las flechas de spinner (son el control nativo del
    navegador para type="number", aparecen siempre salvo que se oculten por CSS) — el
@@ -1467,7 +1476,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   <button class="tab active" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Códigos</button>
   <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()">&nbsp;&nbsp;Cargas de Viento</button>
-  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Antenas</button>
+  <button class="tab" id="tab-antenas" onclick="toggleAntenasTab()">📡 &nbsp;Antenas</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Escaleras</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Plataformas</button>
   <div class="tabbar-end">
@@ -1527,6 +1536,16 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Torre</span>
     </button>
 
+    <!-- Viento -->
+    <button class="side-btn" id="viento-btn" onclick="openVientoFlyout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.59 4.59A2 2 0 1 1 11 8H2"/>
+        <path d="M12.59 11.59A2 2 0 1 1 14 15H2"/>
+        <path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/>
+      </svg>
+      <span class="side-tip">Viento</span>
+    </button>
+
     <!-- Antenas -->
     <button class="side-btn" id="antenas-btn" onclick="openAntenasFlyout()">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1543,16 +1562,6 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <line x1="8" y1="20" x2="14" y2="20"/>
       </svg>
       <span class="side-tip">Antenas</span>
-    </button>
-
-    <!-- Viento -->
-    <button class="side-btn" id="viento-btn" onclick="openVientoFlyout()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9.59 4.59A2 2 0 1 1 11 8H2"/>
-        <path d="M12.59 11.59A2 2 0 1 1 14 15H2"/>
-        <path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/>
-      </svg>
-      <span class="side-tip">Viento</span>
     </button>
 
     <!-- Optimización -->
@@ -1612,20 +1621,30 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
               <tr>
                 <th style="min-width:120px">Descripción</th>
                 <th style="min-width:80px">Tipo</th>
-                <th style="min-width:58px">h (m)</th>
-                <th style="min-width:55px">Az (°)</th>
-                <th style="min-width:58px">Peso (kg)</th>
-                <th style="min-width:58px">EPA 0°</th>
-                <th style="min-width:58px">EPA 60°</th>
-                <th style="min-width:58px">EPA 90°</th>
+                <th style="min-width:60px" title="Altura del centroide de la antena">h centroide (m)</th>
+                <th style="min-width:52px">Az (°)</th>
+                <th style="min-width:60px">Ancho (m)</th>
+                <th style="min-width:60px">Alto (m)</th>
+                <th style="min-width:56px">Esp (m)</th>
+                <th style="min-width:56px">Peso (kg)</th>
+                <th style="min-width:62px">EPA 0° m²</th>
+                <th style="min-width:62px">EPA 60° m²</th>
+                <th style="min-width:62px">EPA 90° m²</th>
                 <th style="width:24px"></th>
               </tr>
             </thead>
             <tbody id="antenas-tbody"></tbody>
           </table>
         </div>
-        <button class="ant-add-btn" onclick="addAntenaRow()">+ Agregar antena / equipo</button>
-        <div style="padding:0 14px 8px;color:#667;font-size:10px;">EPA = Área Efectiva Proyectada al Viento (m²) por dirección</div>
+        <div class="ant-add-bar">
+          <span style="color:var(--txt-sec);font-size:11px;">Agregar</span>
+          <input id="ant-add-count" type="number" value="1" min="1" max="99" class="ant-inp ant-num"
+            style="width:44px" oninput="_updateAntAddAngles()">
+          <span style="color:var(--txt-sec);font-size:11px;">antena(s) &nbsp;Az(°):</span>
+          <div id="ant-add-angles" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1"></div>
+          <button class="btn-accent" style="padding:4px 10px;font-size:11px" onclick="_addAntenasMulti()">+ Agregar</button>
+        </div>
+        <div style="padding:2px 14px 8px;color:#556;font-size:10px;">EPA = Área Efectiva Proyectada al Viento (m²) por dirección de viento</div>
       </div>
       <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn" onclick="closeAntenasFlyout()">Cancelar</button>
@@ -2074,6 +2093,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="rpanel-header">Cargas de Viento</div>
       <div class="rpanel-scroll" id="rpanel-viento-body"></div>
     </div><!-- /rpanel-viento -->
+
+    <!-- ═══ ANTENAS VIEW ════════════════════════════════════════ -->
+    <div id="rpanel-antenas">
+      <div class="rpanel-header">Antenas y Equipos</div>
+      <div class="rpanel-scroll" id="rpanel-antenas-body"></div>
+    </div><!-- /rpanel-antenas -->
 
   </div><!-- /rpanel -->
 
@@ -4102,6 +4127,7 @@ function _buildWindForceArrows() {
 function toggleWindForces() {
   windForcesOn = !windForcesOn;
   document.getElementById('tab-cargasviento').classList.toggle('active', windForcesOn);
+  antenasGroup.visible = antenasOn && !windForcesOn;
   if (windForcesOn && !_windForceResults) _buildWindForceArrows();
   else if (!windForcesOn && !windForceLabelsOn) { _windForceResults = null; _clearWindForceArrows(); }
   else _redrawWindForceArrows();
@@ -4313,8 +4339,10 @@ function updateAxisLabels() {
   }
 }
 
-const towerGroup = new THREE.Group();
+const towerGroup   = new THREE.Group();
+const antenasGroup = new THREE.Group();
 scene.add(towerGroup);
+scene.add(antenasGroup);
 scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
@@ -4470,6 +4498,7 @@ function renderTower(data) {
   if (document.getElementById('tabla-barras-overlay')?.classList.contains('open')) renderTablaBarras();
   if (document.getElementById('tabla-retenidas-overlay')?.classList.contains('open')) renderTablaRetenidas();
   if (document.getElementById('tabla-apoyos-overlay')?.classList.contains('open')) renderTablaApoyos();
+  renderAntenas3D();
 }
 
 // ── Dual grid ─────────────────────────────────────────────────────────
@@ -5986,6 +6015,7 @@ function switchTab(tabEl, view) {
   // Cargas de Viento necesita más ancho (tabla de 5 columnas) que el panel de info
   // normal — pedido explícito del usuario (2026-06-28).
   document.getElementById('rpanel').classList.toggle('wide', view === 'viento');
+  document.getElementById('rpanel-antenas').classList.remove('visible');
   if (view === 'viento') {
     document.getElementById('rpanel-info').classList.remove('visible');
     document.getElementById('rpanel-viento').classList.add('visible');
@@ -6197,8 +6227,9 @@ function setupKeyboardShortcuts() {
 }
 
 // ── Antenas y Equipos ──────────────────────────────────────────
-// { desc, tipo, z, azimuth, peso, epa0, epa60, epa90 }
+// { desc, tipo, z, azimuth, ancho, alto, espesor, peso, epa0, epa60, epa90 }
 let antenasData = [];
+let antenasOn   = true;
 
 // ── Estado del proyecto ────────────────────────────────────────
 let projectGenerated = false;
@@ -6378,6 +6409,7 @@ function getConfig() {
     revisionData:   JSON.parse(JSON.stringify(revisionData)),
     windData:       JSON.parse(JSON.stringify(windData)),
     dadoHeight:     dadoHeight,
+    antenasData:    JSON.parse(JSON.stringify(antenasData)),
   };
 }
 
@@ -7263,6 +7295,8 @@ function openAntenasFlyout() {
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('antenas-btn').classList.add('active');
   _renderAntenasTable();
+  document.getElementById('ant-add-count').value = 1;
+  _updateAntAddAngles();
   document.getElementById('antenas-flyout').classList.add('open');
 }
 
@@ -7276,25 +7310,84 @@ function _renderAntenasTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
   antenasData.forEach((a, i) => {
+    const dimInp = (field, val, step) =>
+      `<input class="ant-inp ant-num" type="number" value="${val??''}" step="${step}" min="0"` +
+      ` oninput="antenasData[${i}].${field}=+this.value;_calcEPA(antenasData[${i}]);_refreshEPACells(${i})">`;
+    const epaInp = (field, val) =>
+      `<input class="ant-inp ant-num" id="ant-${field}-${i}" type="number" value="${val??''}" step="0.001" min="0"` +
+      ` oninput="antenasData[${i}].${field}=+this.value">`;
     const tr = document.createElement('tr');
     tr.innerHTML =
       `<td><input class="ant-inp" value="${_esc(a.desc||'')}" oninput="antenasData[${i}].desc=this.value" placeholder="Descripción"></td>` +
       `<td><select class="ant-sel" onchange="antenasData[${i}].tipo=this.value">${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}</select></td>` +
       `<td><input class="ant-inp ant-num" type="number" value="${a.z??''}" oninput="antenasData[${i}].z=+this.value" min="0"></td>` +
       `<td><input class="ant-inp ant-num" type="number" value="${a.azimuth??0}" oninput="antenasData[${i}].azimuth=+this.value" min="0" max="359"></td>` +
+      `<td>${dimInp('ancho',   a.ancho,   0.01)}</td>` +
+      `<td>${dimInp('alto',    a.alto,    0.01)}</td>` +
+      `<td>${dimInp('espesor', a.espesor, 0.001)}</td>` +
       `<td><input class="ant-inp ant-num" type="number" value="${a.peso??''}" oninput="antenasData[${i}].peso=+this.value" min="0"></td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.epa0??''}" oninput="antenasData[${i}].epa0=+this.value" min="0"></td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.epa60??''}" oninput="antenasData[${i}].epa60=+this.value" min="0"></td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.epa90??''}" oninput="antenasData[${i}].epa90=+this.value" min="0"></td>` +
+      `<td>${epaInp('epa0',  a.epa0)}</td>` +
+      `<td>${epaInp('epa60', a.epa60)}</td>` +
+      `<td>${epaInp('epa90', a.epa90)}</td>` +
       `<td><button class="ant-del" onclick="deleteAntenaRow(${i})" title="Eliminar">✕</button></td>`;
     tbody.appendChild(tr);
   });
 }
 
+function _refreshEPACells(i) {
+  const a = antenasData[i];
+  const el0   = document.getElementById(`ant-epa0-${i}`);
+  const el60  = document.getElementById(`ant-epa60-${i}`);
+  const el90  = document.getElementById(`ant-epa90-${i}`);
+  if (el0)  el0.value  = a.epa0  ?? '';
+  if (el60) el60.value = a.epa60 ?? '';
+  if (el90) el90.value = a.epa90 ?? '';
+}
+
 function _esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
+// ── Agregar N antenas con ángulos individuales ─────────────────
+function _updateAntAddAngles() {
+  const n   = Math.max(1, +document.getElementById('ant-add-count').value || 1);
+  const box = document.getElementById('ant-add-angles');
+  // Leer ángulos actuales para no perderlos al cambiar N
+  const prev = [...box.querySelectorAll('.ant-az-inp')].map(el => +el.value);
+  box.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const defAz = prev[i] != null ? prev[i] : Math.round((360 / n) * i);
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = 0; inp.max = 359; inp.step = 1;
+    inp.value = defAz;
+    inp.className = 'ant-az-inp';
+    inp.title = `Az antena ${i + 1}`;
+    box.appendChild(inp);
+    if (i < n - 1) { const sep = document.createElement('span'); sep.textContent = ','; sep.style.color = '#556'; box.appendChild(sep); }
+  }
+}
+
+function _addAntenasMulti() {
+  const n   = Math.max(1, +document.getElementById('ant-add-count').value || 1);
+  const azs = [...document.getElementById('ant-add-angles').querySelectorAll('.ant-az-inp')].map(el => +el.value);
+  for (let i = 0; i < n; i++) {
+    const a = { desc: '', tipo: 'Panel', z: 0, azimuth: azs[i] ?? 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0 };
+    _calcEPA(a);
+    antenasData.push(a);
+  }
+  _renderAntenasTable();
+}
+
+function _calcEPA(a) {
+  const W = +a.ancho || 0, H = +a.alto || 0, E = +a.espesor || 0;
+  if (W === 0 && H === 0) return;
+  a.epa0  = +(W * H).toFixed(4);
+  a.epa60 = +(W * H * 0.5 + E * H * Math.sin(Math.PI / 3)).toFixed(4);
+  a.epa90 = +(E * H).toFixed(4);
+}
+
 function addAntenaRow() {
-  antenasData.push({ desc: '', tipo: 'Panel', z: 0, azimuth: 0, peso: 0, epa0: 0, epa60: 0, epa90: 0 });
+  const a = { desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0 };
+  _calcEPA(a);
+  antenasData.push(a);
   _renderAntenasTable();
 }
 
@@ -7303,9 +7396,107 @@ function deleteAntenaRow(i) {
   _renderAntenasTable();
 }
 
+function toggleAntenasTab() {
+  antenasOn = !antenasOn;
+  document.getElementById('tab-antenas').classList.toggle('active', antenasOn);
+  antenasGroup.visible = antenasOn;
+  document.getElementById('rpanel-viento').classList.remove('visible');
+  document.getElementById('rpanel').classList.remove('wide');
+  if (antenasOn) {
+    if (projectGenerated) document.getElementById('rpanel').classList.add('visible');
+    document.getElementById('rpanel-info').classList.remove('visible');
+    document.getElementById('rpanel-antenas').classList.add('visible');
+    buildAntenasPanel();
+  } else {
+    document.getElementById('rpanel-antenas').classList.remove('visible');
+    if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
+  }
+}
+
+function buildAntenasPanel() {
+  const body = document.getElementById('rpanel-antenas-body');
+  if (!body) return;
+  if (!antenasData.length) {
+    body.innerHTML = `<div style="color:var(--txt-sec);font-size:12px;padding:8px 0;">
+      Sin antenas registradas.<br>
+      <button class="btn-accent" style="margin-top:10px" onclick="openAntenasFlyout()">+ Agregar antenas</button>
+    </div>`;
+    return;
+  }
+  const fmt = v => v != null ? (+v).toFixed(3) : '—';
+  const cards = antenasData.map((a, i) => `
+    <div class="ant-panel-card">
+      <div class="apc-title">${i + 1}. ${_esc(a.desc || '(sin descripción)')}
+        <span style="float:right;font-size:10px;color:var(--txt-sec)">${a.tipo || 'Panel'}</span>
+      </div>
+      <div class="apc-row"><span>Altura</span><span class="apc-val">${fmt(a.z)} m</span></div>
+      <div class="apc-row"><span>Azimuth</span><span class="apc-val">${a.azimuth ?? 0}°</span></div>
+      <div class="apc-row"><span>Ancho × Alto × Esp</span><span class="apc-val">${fmt(a.ancho)} × ${fmt(a.alto)} × ${fmt(a.espesor)} m</span></div>
+      <div class="apc-row"><span>Peso</span><span class="apc-val">${fmt(a.peso)} kg</span></div>
+      <div class="apc-row"><span>EPA 0° / 60° / 90°</span><span class="apc-val">${fmt(a.epa0)} / ${fmt(a.epa60)} / ${fmt(a.epa90)} m²</span></div>
+    </div>`).join('');
+  body.innerHTML = cards + `<button class="btn" style="width:100%;margin-top:4px" onclick="openAntenasFlyout()">✎ Editar antenas</button>`;
+}
+
+function _antenaShape(W, E) {
+  // Sección transversal en planta: dorso plano (lado torre), frente con esquinas redondeadas
+  const hw = W / 2;
+  const r  = Math.min(E * 0.38, W * 0.15);   // radio de esquina frontal
+  const s  = new THREE.Shape();
+  s.moveTo(-hw, -E / 2);                       // dorso izq (cuadrado)
+  s.lineTo( hw, -E / 2);                       // dorso der (cuadrado)
+  s.lineTo( hw,  E / 2 - r);
+  s.quadraticCurveTo( hw,  E / 2,  hw - r,  E / 2);  // esquina frontal der
+  s.lineTo(-hw + r,  E / 2);
+  s.quadraticCurveTo(-hw,  E / 2, -hw,  E / 2 - r);  // esquina frontal izq
+  s.lineTo(-hw, -E / 2);
+  return s;
+}
+
+function renderAntenas3D() {
+  antenasGroup.children.slice().forEach(c => {
+    c.geometry && c.geometry.dispose();
+    c.material && c.material.dispose();
+    antenasGroup.remove(c);
+  });
+  antenasGroup.visible = antenasOn && !windForcesOn;
+  const cfg = getConfig();
+  antenasData.forEach(a => {
+    const W  = +a.ancho   || 0.25;
+    const H  = +a.alto    || 1.2;
+    const E  = +a.espesor || 0.06;
+    const az = (+a.azimuth || 0) * Math.PI / 180;
+    // Semiapertura de la torre en la altura de la antena (interpolación lineal)
+    const t     = Math.min(1, Math.max(0, (+a.z || 0) / (cfg.height || 1)));
+    const halfW = ((1 - t) * (cfg.baseW || 4) + t * (cfg.topW || 2)) / 2;
+    // 60 cm desde la cara exterior de las piernas + la mitad del espesor de la antena
+    const radialOffset = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.60 + E / 2;
+    const px = Math.sin(az) * radialOffset;
+    const py = Math.cos(az) * radialOffset;
+    const pz = +a.z || 0;   // h = centroide de la antena
+    // ExtrudeGeometry: sección en plano XY (con esquinas redondeadas), extruida a lo largo de Z (arriba)
+    const shape = _antenaShape(W, E);
+    const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
+    geo.translate(0, 0, -H / 2);     // centrar verticalmente en origin
+    const mat   = new THREE.MeshBasicMaterial({ color: 0xC8C0B4, side: THREE.DoubleSide });
+    const mesh  = new THREE.Mesh(geo, mat);
+    mesh.position.set(px, py, pz);
+    mesh.rotation.z = -az;
+    antenasGroup.add(mesh);
+    // Aristas en amarillo
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo, 15),
+      new THREE.LineBasicMaterial({ color: 0x8A8078 })
+    );
+    edges.position.copy(mesh.position);
+    edges.rotation.copy(mesh.rotation);
+    antenasGroup.add(edges);
+  });
+}
+
 function applyAntenas() {
-  // Guardar cambios pendientes (los inputs ya actualizan antenasData en tiempo real)
-  // TODO: refrescar vista 3D con geometrías de antenas
+  renderAntenas3D();
+  if (antenasOn) buildAntenasPanel();
   closeAntenasFlyout();
 }
 
@@ -7319,6 +7510,7 @@ function switchToTorre() {
   // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
   // de menú en el sidebar").
   document.getElementById('rpanel-viento').classList.remove('visible');
+  document.getElementById('rpanel-antenas').classList.remove('visible');
   if (projectGenerated) {
     // Ya hay torre — mostrar info panel, cerrar flyout
     closeTorreFlyout();
@@ -7339,6 +7531,7 @@ function nuevoProyecto() {
   memberOverrides = {};
   supportOverrides = {};
   revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
+  antenasData = [];
   aislarTramoSec = null;
   dadoHeight = 0;
   ['s-assetnum','s-asset','s-cliente','s-pais','s-ing','s-revision'].forEach(id => document.getElementById(id).value = '');
@@ -11369,6 +11562,8 @@ function loadProjectData(cfg, filename) {
     if (!Array.isArray(windData.directions) || !windData.directions.length) windData.directions = [0, 60, 90];
     dadoHeight = +cfg.dadoHeight || 0;
     if (document.getElementById('dado')) document.getElementById('dado').value = dadoHeight;
+    antenasData = Array.isArray(cfg.antenasData) ? JSON.parse(JSON.stringify(cfg.antenasData)) : [];
+    _renderAntenasTable();
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
