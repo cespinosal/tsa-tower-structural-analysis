@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>TSA — Guía de usuario</title>
+<title>TSA &mdash; Gu&iacute;a de usuario</title>
 <style>
   :root{--bg:#0A1628;--bg-panel:#0D1E35;--bg-bar:#060F1C;--border:#1E3A5F;--txt:#E2E8F0;--txt-sec:#94A3B8;--cyan:#00D4FF;--accent:#185FA5;}
   *{box-sizing:border-box;}
@@ -46,8 +46,8 @@
   hr{border:none;border-top:1px solid var(--border);margin:30px 0;}
   .pill-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 18px;}
   .pill{background:#0b1828;border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11.5px;}
-  .formula-block{background:#060f1c;border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:6px;padding:12px 16px;margin:12px 0 18px;max-width:760px;font-family:'Courier New',monospace;font-size:13px;color:var(--cyan);line-height:1.9;}
-  .formula-block .comment{color:#556;font-style:italic;font-family:'Segoe UI',sans-serif;font-size:11px;}
+  .fblock{background:#060f1c;border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:6px;padding:12px 16px;margin:12px 0 18px;max-width:760px;font-family:'Courier New',monospace;font-size:12.5px;color:var(--cyan);line-height:1.9;}
+  .fblock .cm{color:#556;font-style:italic;font-family:'Segoe UI',sans-serif;font-size:11px;}
   .lightbox-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(3,8,16,.88);align-items:center;justify-content:center;cursor:zoom-out;}
   .lightbox-overlay.open{display:flex;}
   .lightbox-box{display:flex;flex-direction:column;align-items:center;max-width:90vw;max-height:90vh;}
@@ -75,7 +75,7 @@
   <h4>Materiales y perfiles</h4>
   <a href="#bases-datos">Bases de datos</a>
   <a href="#calidades">Calidades de acero</a>
-  <a href="#perfiles">Cat&aacute;logo de perfiles (IMCA/AISC)</a>
+  <a href="#perfiles">Cat&aacute;logo IMCA/AISC</a>
   <a href="#user">Perfiles propios (USER)</a>
   <a href="#retenidas-db">Cables de retenida</a>
   <a href="#picker">Elegir perfil + calidad</a>
@@ -89,7 +89,7 @@
   <a href="#revisiones">Hoja de Revisiones</a>
   <h4>An&aacute;lisis de viento</h4>
   <a href="#viento">Panel de Viento (ANSI/TIA-222-H)</a>
-  <a href="#viento-paso1">Paso 1 &mdash; Config. General</a>
+  <a href="#viento-paso1">Paso 1 &mdash; Configuraci&oacute;n General</a>
   <a href="#viento-paso2">Paso 2 &mdash; Par&aacute;metros de Viento</a>
   <a href="#viento-cargas">Paso 3 &mdash; Cargas de Viento</a>
   <a href="#viento-formulas">F&oacute;rmulas &mdash; qz y FST</a>
@@ -103,7 +103,7 @@
   <a href="#reporte-ch4">Cap. 4 &mdash; Lista de Materiales</a>
   <a href="#reporte-ch5">Cap. 5 &mdash; C&oacute;digos de Elementos</a>
   <a href="#reporte-ch6">Cap. 6 &mdash; An&aacute;lisis de Viento EPA</a>
-  <a href="#reporte-ch8">Cap. 8 &mdash; Config. de la Torre</a>
+  <a href="#reporte-ch8">Cap. 8 &mdash; Configuraci&oacute;n de la Torre</a>
   <a href="#exportar">Exportar a STAAD.Pro</a>
   <a href="#exportar-dxf">Exportar a DXF</a>
   <h4>Proyecto</h4>
@@ -119,50 +119,443 @@
 </nav>
 <main class="content">
 <h1 id="intro">TSA &mdash; Gu&iacute;a de usuario</h1>
-<p class="tagline">TSA (Tower Structural Analysis) es una aplicaci&oacute;n de escritorio para modelar geom&eacute;tricamente torres de telecomunicaci&oacute;n &mdash; autosoportadas, arriostradas y monopolos &mdash; visualizarlas en 3D, asignarles perfiles y calidades de acero, calcular cargas de viento seg&uacute;n ANSI/TIA-222-H, y exportar la geometr&iacute;a y el reporte de c&aacute;lculo completo.</p>
-
+<p class="tagline">TSA (Tower Structural Analysis) es una aplicaci&oacute;n de escritorio para modelar geom&eacute;tricamente torres de telecomunicaci&oacute;n &mdash; autosoportadas, arriostradas y monopolos &mdash; visualizarlas en 3D, asignarles perfiles de acero, calcular cargas de viento seg&uacute;n ANSI/TIA-222-H, y exportar la geometr&iacute;a y la memoria de c&aacute;lculo en Word.</p>
 <div class="quicknav">
   <a href="#ejemplos"><div class="qn-title">&#128194; Ejemplos precargados</div><div class="qn-desc">4 torres listas en Archivo &rarr; Ejemplos</div></a>
-  <a href="#tipos"><div class="qn-title">&#127959; Tipos de estructura</div><div class="qn-desc">3 piernas, 4 piernas, arriostrada, monopolo</div></a>
-  <a href="#secciones"><div class="qn-title">&#128208; Secciones y tramos</div><div class="qn-desc">Editar geometr&iacute;a y arriostramiento por tramo</div></a>
+  <a href="#tipos"><div class="qn-title">&#127959; Tipos de estructura</div><div class="qn-desc">3P, 4P, arriostrada, monopolo</div></a>
+  <a href="#secciones"><div class="qn-title">&#128208; Secciones y tramos</div><div class="qn-desc">Geometr&iacute;a, arriostramiento y perfiles por tramo</div></a>
   <a href="#bases-datos"><div class="qn-title">&#128452; Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
   <a href="#visor3d"><div class="qn-title">&#128251; Visor 3D</div><div class="qn-desc">Navegaci&oacute;n, nodos, inspecci&oacute;n de miembros</div></a>
   <a href="#viento"><div class="qn-title">&#127787; Dise&ntilde;o por Viento</div><div class="qn-desc">ANSI/TIA-222-H: qz, EPA y FST por secci&oacute;n</div></a>
-  <a href="#antenas"><div class="qn-title">&#128225; Antenas y equipos</div><div class="qn-desc">Panel de entrada de antenas, RRUs y equipos</div></a>
+  <a href="#antenas"><div class="qn-title">&#128225; Antenas y equipos</div><div class="qn-desc">Panel de entrada EPA, peso y altura</div></a>
   <a href="#exportar-reporte"><div class="qn-title">&#128196; Reporte Word</div><div class="qn-desc">Memoria de c&aacute;lculo completa en .docx</div></a>
 </div>
-
 <div class="callout warn">
   <b>&#9888; Aviso profesional</b>
   TSA genera la geometr&iacute;a y prepara los datos del modelo, pero <b style="display:inline">no sustituye el criterio ni la responsabilidad de un ingeniero estructurista</b>. Todo dise&ntilde;o final debe ser revisado, calculado y firmado por un profesional autorizado antes de su uso en obra.
 </div>
-
 <hr>
 
 <h2 id="primeros-pasos">Primeros pasos</h2>
 <ol>
   <li>En la barra lateral izquierda, haz clic en el &iacute;cono <b>Torre</b> (o en Inicio &rarr; "Nuevo proyecto").</li>
-  <li>Se abre el panel <b>"Nueva Torre"</b>. Llena los datos de PROYECTO (Asset Name, Site Name, Pa&iacute;s, Ingeniero Responsable, Fecha) &mdash; son metadatos, no afectan la geometr&iacute;a.</li>
-  <li>En ESTRUCTURA, elige el <b>Tipo de estructura</b> y completa los campos de geometr&iacute;a (altura, aperturas, n&uacute;mero de tramos, etc.). Ver&aacute;s una <b>vista previa</b> en tiempo real a la derecha del panel.</li>
-  <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo" si elegiste ese tipo).</li>
-  <li>El panel derecho aparece con las secciones de PROYECTO y GEOMETR&Iacute;A, editables en cualquier momento.</li>
+  <li>Se abre el panel <b>"Nueva Torre"</b>. Llena los datos de PROYECTO (Asset Name, Site Name, Pa&iacute;s, Ingeniero Responsable, Fecha) &mdash; son metadatos que aparecen en la car&aacute;tula del reporte.</li>
+  <li>En ESTRUCTURA, elige el <b>Tipo de estructura</b> y completa los campos de geometr&iacute;a (altura total, aperturas, n&uacute;mero de secciones). Vers una <b>vista previa</b> en tiempo real a la derecha del panel.</li>
+  <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo").</li>
+  <li>El panel derecho aparece con las secciones PROYECTO y GEOMETR&Iacute;A, editables en cualquier momento sin regenerar desde cero.</li>
 </ol>
 
 <h2 id="ejemplos">Ejemplos precargados</h2>
-<p>El men&uacute; <b>Inicio &rarr; EJEMPLOS</b> trae 4 proyectos completos listos para abrir con un clic:</p>
+<p>El men&uacute; <b>Inicio &rarr; EJEMPLOS</b> trae 4 proyectos completos listos para explorar:</p>
 <div class="pill-row">
   <span class="pill">Monopolo</span><span class="pill">Autosoportada 4P</span>
   <span class="pill">Autosoportada 3P</span><span class="pill">Arriostrada</span>
 </div>
-<p style="font-size:11.5px;color:var(--txt-sec);max-width:760px;">Incluidos directamente en la app &mdash; funcionan sin conexi&oacute;n, en la app de escritorio y en el sitio publicado.</p>
+<p style="font-size:11.5px;color:var(--txt-sec)">Incluidos directamente en la app &mdash; funcionan sin conexi&oacute;n a internet, en la app de escritorio y en el sitio publicado de GitHub Pages.</p>
 
 <h2 id="tipos">Tipos de estructura</h2>
 <table>
   <thead><tr><th>Tipo</th><th>Descripci&oacute;n</th><th>Apoyos en la base</th></tr></thead>
   <tbody>
-    <tr><td>Autosoportada 3 piernas</td><td>Torre triangular en celosia, autoestable.</td><td>Articulado (PINNED)</td></tr>
-    <tr><td>Autosoportada 4 piernas</td><td>Torre cuadrada en celosia, autoestable.</td><td>Articulado (PINNED)</td></tr>
-    <tr><td>Arriostrada (guyed)</td><td>M&aacute;stil esbelto sostenido por retenidas (cables) ancladas al terreno.</td><td>Piernas: PINNED &middot; Anclajes: FIXED</td></tr>
-    <tr><td>Monopolo</td><td>Fuste circular o poligonal (8/12/16/18 lados) &mdash; tronco-c&oacute;nico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
+    <tr><td>Autosoportada 3 piernas</td><td>Torre triangular en celosia. Autoestable sin cables.</td><td>Articulado (PINNED)</td></tr>
+    <tr><td>Autosoportada 4 piernas</td><td>Torre cuadrada en celosia. Autoestable sin cables.</td><td>Articulado (PINNED)</td></tr>
+    <tr><td>Arriostrada (guyed)</td><td>M&aacute;stil esbelto en celosia sostenido por retenidas (cables) ancladas al terreno.</td><td>Piernas: PINNED &middot; Anclajes: FIXED</td></tr>
+    <tr><td>Monopolo</td><td>Fuste circular o poligonal (8, 12, 16 o 18 lados) &mdash; tronco-c&oacute;nico, escalonado o combinado.</td><td>Empotrado (FIXED)</td></tr>
   </tbody>
 </table>
+
+<h2 id="secciones">Secciones y tramos</h2>
+<p>Toda torre se divide en <b>secciones</b> (o <b>tramos</b>, en Monopolo) apiladas verticalmente. En el panel derecho, dentro de "DETALLE POR SECCI&Oacute;N", cada tarjeta resume una secci&oacute;n. Los botones del encabezado son solo &iacute;cono: <b>&#128065;</b> a&iacute;sla esa secci&oacute;n en el visor 3D, <b>&#9998;</b> abre el modal completo de edici&oacute;n.</p>
+<p>Desde el modal de cada secci&oacute;n puedes editar (seg&uacute;n el tipo de estructura):</p>
+<ul>
+  <li><b>Altura del tramo</b> y <b>Bah&iacute;as</b> &mdash; repeticiones verticales dentro del mismo tramo que generan nodos intermedios.</li>
+  <li><b>Patr&oacute;n de arriostramiento</b> &mdash; &iacute;cono selector con vista previa en tiempo real de la diagonal elegida.</li>
+  <li><b>M &mdash; Montantes (piernas)</b>: perfil de la pierna principal del tramo.</li>
+  <li><b>D &mdash; Diagonales</b>: perfil de los elementos diagonales principales.</li>
+  <li><b>H &mdash; Horizontales</b>: horizontales en el TOP del tramo o en el TOP de cada bah&iacute;a, con su selector de Plan Bracing.</li>
+  <li><b>Ds / Hs &mdash; Secundarios</b>: en patrones tipo K, el perfil del elemento secundario (la parte corta del K).</li>
+  <li><b>Hip Bracing</b>: diagonales y horizontales <em>interiores</em> del panel, disponible en patrones X-25%, X-33% y X-50%. El porcentaje indica a qu&eacute; altura del panel queda el nodo de hip bracing.</li>
+  <li><b>Plan Bracing y Diafragma</b>: arriostramiento horizontal en planta (K, X, A-A con diafragma central). Se activa en el TOP del tramo o en el TOP de cada bah&iacute;a, con perfil independiente (Pb/Pb2).</li>
+</ul>
+<p>Cada campo de perfil es de solo lectura: haz clic sobre &eacute;l para abrir el <a href="#picker" style="color:var(--cyan)">buscador de perfiles</a> y asignar designaci&oacute;n + calidad de acero en un solo paso.</p>
+<div class="callout info">
+  <b>Insertar y eliminar tramos</b>
+  El panel principal de la torre incluye botones para <b>insertar</b> un tramo nuevo (copia la configuraci&oacute;n del tramo anterior para agilizar el trabajo) y <b>eliminar</b> el tramo seleccionado. Toda la torre se regenera en tiempo real al confirmar, sin necesidad de regenerar todo el proyecto.
+</div>
+
+<h3 id="aislar-tramo">Aislar tramo</h3>
+<p>El bot&oacute;n &#128065; de cada tarjeta oculta el resto de la torre en el visor 3D y deja visible &uacute;nicamente esa secci&oacute;n (todos sus montantes, diagonales y horizontales, incluyendo todas las bah&iacute;as), con zoom autom&aacute;tico. Vuelve a pulsarlo para regresar a la vista normal. Es solo una ayuda visual: las tablas, el export y los c&aacute;lculos siempre usan la torre completa.</p>
+
+<h3 id="bracing">Patrones de arriostramiento</h3>
+<table>
+  <thead><tr><th>Patr&oacute;n</th><th>Descripci&oacute;n</th><th>Perfil Hip/Secundario</th></tr></thead>
+  <tbody>
+    <tr><td>X</td><td>Cruz completa: ambas diagonales cruzan todo el panel sin interrupci&oacute;n</td><td>No</td></tr>
+    <tr><td>X-25%</td><td>Cruz con hip bracing al 25% de la altura del panel. Los miembros de hip (Ds/Hs) van del nodo de hip a los montantes laterales.</td><td>Ds/Hs (hip)</td></tr>
+    <tr><td>X-33%</td><td>Igual que X-25% pero el nodo de hip est&aacute; al 33% de la altura</td><td>Ds/Hs (hip)</td></tr>
+    <tr><td>X-50%</td><td>Igual que X-25% pero el nodo de hip est&aacute; al 50% de la altura (punto medio del panel)</td><td>Ds/Hs (hip)</td></tr>
+    <tr><td>K</td><td>Diagonal &uacute;nica tipo K: dos segmentos que se encuentran en un nodo en la mitad del montante opuesto</td><td>Ds (tramo corto del K)</td></tr>
+    <tr><td>K-inv</td><td>K invertido (el v&eacute;rtice en el montante del lado contrario)</td><td>Ds</td></tr>
+    <tr><td>Staggered</td><td>Diagonal escalonada: parte de un nodo intermedio de la bah&iacute;a y llega al extremo opuesto</td><td>No</td></tr>
+    <tr><td>Staggered-inv</td><td>Staggered con orientaci&oacute;n invertida</td><td>No</td></tr>
+  </tbody>
+</table>
+<p style="font-size:11.5px;color:var(--txt-sec)">El Plan Bracing (arriostramiento horizontal en planta) es ortogonal al patr&oacute;n de diagonales y se configura independientemente. Opciones: ninguno, K, X, A-A (con diafragma central que divide la secci&oacute;n en cuatro). El tipo A-A agrega un perfil de diafragma (Pb2) adicional al propio plan bracing (Pb).</p>
+
+<h2 id="monopolo">Monopolo</h2>
+<p>Un monopolo se define por tramos <b>inclinados</b> (ahusados, di&aacute;metro decrece linealmente desde la base hacia la cima) o tramos <b>rectos</b> (di&aacute;metro constante). Seg&uacute;n el tipo elegido en el flyout:</p>
+<table>
+  <thead><tr><th>Tipo</th><th>Tramos inclinados</th><th>Tramos rectos</th><th>Descripci&oacute;n</th></tr></thead>
+  <tbody>
+    <tr><td>Tronco-C&oacute;nico</td><td>Todos</td><td>Ninguno</td><td>El fuste completo se ahusa desde el di&aacute;metro basal hasta el superior</td></tr>
+    <tr><td>Escalonado</td><td>Ninguno</td><td>Todos</td><td>Cada tramo tiene di&aacute;metro fijo (capturado por el usuario). Los cambios de di&aacute;metro son escal&oacute;n brusco</td></tr>
+    <tr><td>Combinado</td><td>Los primeros N tramos</td><td>El resto</td><td>Los N primeros tramos se ahusan con el mismo cono general; los dem&aacute;s son rectos</td></tr>
+  </tbody>
+</table>
+<p>Por cada tramo se puede definir desde su modal de edici&oacute;n:</p>
+<ul>
+  <li><b>Forma</b> &mdash; Redondo (modelado con &ge; 24 lados para aproximar un c&iacute;rculo) o poligonal de 8, 12, 16 o 18 caras. Se puede cambiar independientemente en cada tramo.</li>
+  <li><b>Espesor de pared</b> (mm) &mdash; dibuja un anillo interior en el visor 3D. Es el espesor real del tubo o secci&oacute;n poligonal.</li>
+  <li><b>Di&aacute;metro</b> &mdash; editable solo para tramos rectos. En tramos inclinados se calcula autom&aacute;ticamente a partir del ahusado general.</li>
+  <li><b>Calidad de acero (Fy)</b> &mdash; tomada de la base de datos de Calidades de Acero. Puede variar por tramo.</li>
+</ul>
+<div class="callout info">
+  <b>Nota geom&eacute;trica</b>
+  Cuando dos tramos consecutivos cambian el n&uacute;mero de lados o tienen un salto de di&aacute;metro, la transici&oacute;n se modela como un cambio brusco (anillo nuevo sin interpolaci&oacute;n suave). En el export STAAD, cada tramo del monopolo se exporta como una sola barra con secci&oacute;n <code>PRISMATIC</code> (solo el eje central, no el pol&iacute;gono).
+</div>
+
+<h2 id="arriostrada">Torres arriostradas (guyed)</h2>
+<p>Una torre arriostrada combina un m&aacute;stil esbelto en celosia (mismo modelo de diagonales/horizontales que las autosoportadas) con <b>niveles de retenidas</b> &mdash; cables anclados al terreno en radio fijo. Se configuran en el flyout:</p>
+<ul>
+  <li><b>Apertura del fuste</b> &mdash; ancho de la secci&oacute;n del m&aacute;stil (constante en toda la altura).</li>
+  <li><b>Radio de anclaje</b> &mdash; distancia horizontal desde el centro de la base hasta cada anclaje en el suelo.</li>
+  <li><b>N&uacute;mero de niveles de retenidas</b> y <b>altura de cada nivel</b>.</li>
+  <li><b>Torre con pivote</b> &mdash; agrega una articulaci&oacute;n en la base del primer tramo.</li>
+</ul>
+<p>Cada nivel genera 3 cables en 120&deg; (torres 3P) o 4 cables en 90&deg; (torres 4P). Si el tri&aacute;ngulo estabilizador est&aacute; activo, agrega los brazos y el anillo de conexi&oacute;n. El perfil del cable (di&aacute;metro, calidad HS/EHS) se elige desde <a href="#retenidas-db" style="color:var(--cyan)">Bases de Datos &rarr; Retenidas</a>.</p>
+<hr>
+
+<h2 id="bases-datos">Bases de datos</h2>
+<p>Desde el &iacute;cono <b>Bases de datos</b> de la barra lateral se administra toda la informaci&oacute;n de materiales y perfiles que alimenta el resto de la app. Tiene 5 pesta&ntilde;as: Calidades de Acero, Retenidas, Perfiles IMCA, Perfiles AISC y USER.</p>
+<div class="callout info"><b>&#128274; Bloqueo de edici&oacute;n</b> Todas las tablas abren <b>bloqueadas</b> (solo lectura) por default. El &iacute;cono de candado del encabezado habilita la edici&oacute;n. Se vuelve a bloquear cada vez que cierras y reabres el modal.</div>
+<h3 id="calidades">Calidades de acero</h3>
+<p>Tabla editable con columnas <b>Nombre, Fy, Fu y E</b> (kg/cm&sup2;). Viene precargada con los aceros m&aacute;s comunes en estructuras de telecomunicaciones:</p>
+<div class="pill-row"><span class="pill">A37-24 &mdash; Fy 2400</span><span class="pill">A36 &mdash; Fy 2530</span><span class="pill">A572 Gr45 &mdash; Fy 3165</span><span class="pill">A992 &mdash; Fy 3515</span><span class="pill">A572 Gr50 &mdash; Fy 3515</span><span class="pill">A572 Gr60 &mdash; Fy 4220</span></div>
+<p>Puedes agregar nuevas calidades, editar los valores (Fy, Fu, E) y eliminar las que no uses. <b>E</b> se escribe en el bloque <code>CONSTANTS</code> del export STAAD. <b>Fu</b> aparece en la tabla de materiales del reporte Word.</p>
+<h3 id="perfiles">Cat&aacute;logo de perfiles (IMCA / AISC)</h3>
+<table><thead><tr><th>Familia</th><th>Qu&eacute; es</th><th>Datos incluidos</th></tr></thead><tbody>
+<tr><td><b>LI</b></td><td>&Aacute;ngulo de lados iguales</td><td>Lado (mm o in), Espesor, &Aacute;rea, Peso/m, Ix, Iy, radio de giro</td></tr>
+<tr><td><b>LD</b></td><td>&Aacute;ngulo de lados desiguales</td><td>Lado mayor A, Lado menor B, Espesor, &Aacute;rea, Peso/m</td></tr>
+<tr><td><b>OC</b></td><td>Perfiles tubulares circulares (huecos)</td><td>Di&aacute;metro exterior (mm), Espesor de pared (mm), &Aacute;rea, Peso/m</td></tr>
+<tr><td><b>OS</b></td><td>Redondos s&oacute;lidos (macizos)</td><td>Di&aacute;metro (mm), &Aacute;rea, Peso/m &mdash; 33 di&aacute;metros de 6 mm a 100 mm</td></tr>
+<tr><td><b>C</b></td><td>Canales de ala paralela (UPN / PFC)</td><td>Altura, Ala, Espesor, &Aacute;rea, Peso/m</td></tr>
+</tbody></table>
+<p><b>AISC</b>: 61 &aacute;ngulos LI, 76 LD, 51 tubulares (AISC Shapes Database v16.0) y 33 OS. <b>IMCA</b>: 61 LI, 15 LD y 131 OC del manual IMCA, m&aacute;s los 33 OS. Los datos de &aacute;rea y peso siempre se muestran en unidades m&eacute;tricas (cm&sup2;, kg/m).</p>
+<h3 id="user">Perfiles propios (USER)</h3>
+<p>En cada fila de Perfiles IMCA/AISC hay una estrella (&#9734;/&#9733;) para copiar ese perfil a tu lista personal <b>USER</b>. &Uacute;til para tener a la mano los perfiles que usas con m&aacute;s frecuencia. La pesta&ntilde;a USER tambi&eacute;n aparece en el buscador de perfiles.</p>
+<h3 id="retenidas-db">Cables de retenida</h3>
+<p>La pesta&ntilde;a <b>Retenidas</b> contiene el cat&aacute;logo de cables: Di&aacute;metro, Forma, Peso/m, &Aacute;rea, Carga de ruptura y M&oacute;dulo el&aacute;stico, dividido en calidades <b>HS</b> y <b>EHS</b>. Alimenta el selector de di&aacute;metro de cable dentro de "Editar Retenidas".</p>
+<h3 id="picker">Elegir perfil + calidad</h3>
+<p>Al hacer clic sobre cualquier campo de perfil se abre una ventana con pesta&ntilde;as IMCA / AISC / USER, selector de familia (LI/LD/OC/OS/C), buscador por designaci&oacute;n y selector de Calidad de Acero, todo en un solo paso. Al aceptar, el perfil y la calidad quedan asignados juntos.</p>
+<hr>
+<h2 id="visor3d">Visor 3D</h2>
+<table><thead><tr><th>Control</th><th>Funci&oacute;n</th></tr></thead><tbody>
+<tr><td>Arrastrar (clic derecho)</td><td>Orbitar la c&aacute;mara alrededor de la torre</td></tr>
+<tr><td>Arrastrar (clic central / rueda presionada)</td><td>Desplazar (pan) la vista sin rotar</td></tr>
+<tr><td>Rueda del rat&oacute;n</td><td>Zoom in / out</td></tr>
+<tr><td>Zoom Window</td><td>Dibuja un rect&aacute;ngulo con el rat&oacute;n para acercar exactamente a esa &aacute;rea</td></tr>
+<tr><td>Ajustar pantalla&nbsp;&nbsp;<kbd>F</kbd></td><td>Encuadra toda la geometr&iacute;a visible. Si hay un tramo aislado, encuadra solo ese tramo.</td></tr>
+<tr><td>3D / Planta XY / Alzado XZ / Alzado YZ</td><td>Vista isom&eacute;trica en perspectiva y 3 vistas ortogr&aacute;ficas exactas sin distorsi&oacute;n. En vistas ortogr&aacute;ficas la rotaci&oacute;n se desactiva (solo pan y zoom).</td></tr>
+<tr><td>Orbitar</td><td>Rotaci&oacute;n autom&aacute;tica de la c&aacute;mara</td></tr>
+<tr><td>Nodos&nbsp;&nbsp;<kbd>Shift+N</kbd></td><td>Muestra el n&uacute;mero de cada nodo. Al pasar el rat&oacute;n sobre un nodo aparecen sus coordenadas (x/y/z en metros).</td></tr>
+<tr><td>Barras&nbsp;&nbsp;<kbd>Shift+B</kbd></td><td>Muestra el n&uacute;mero de cada miembro (numeraci&oacute;n STAAD)</td></tr>
+<tr><td>Perfiles&nbsp;&nbsp;<kbd>Shift+X</kbd></td><td>Muestra la designaci&oacute;n del perfil asignado sobre cada miembro</td></tr>
+<tr><td>Apoyos&nbsp;&nbsp;<kbd>Shift+S</kbd></td><td>Muestra &iacute;conos de apoyo (tri&aacute;ngulo verde = PINNED, achurado = FIXED). La malla del grid se oculta para no encimarse con los &iacute;conos.</td></tr>
+<tr><td>Config. de malla</td><td>Tama&ntilde;o, divisiones, grosor y desvanecido del grid</td></tr>
+<tr><td>Selector de &aacute;ngulo de viento</td><td>Muestra flechas de fuerza FST sobre cada secci&oacute;n para el &aacute;ngulo seleccionado (0&deg;, 45&deg;, 90&deg;, etc.)</td></tr>
+</tbody></table>
+<h3 id="inspeccion">Inspecci&oacute;n de miembros</h3>
+<p>Haz clic sobre cualquier pierna, diagonal, horizontal o cable en el visor 3D para resaltarlo y abrir un panel lateral con: secci&oacute;n y categor&iacute;a del miembro, <b>perfil asignado</b> y <b>calidad de acero</b>, longitud real, n&uacute;meros de nodo Inicio y Fin, e ID interno. Si tienes abierta la tabla Barras o Retenidas, el clic tambi&eacute;n resalta la fila correspondiente en esa tabla (selecci&oacute;n cruzada visor &#8596; tabla).</p>
+<hr>
+<h2 id="tablas">Tablas: Nodos / Barras / Retenidas</h2>
+<p>El men&uacute; <b>Tablas</b> de la barra del visor abre paneles flotantes y arrastrables &mdash; no bloquean el visor 3D, puedes seguir viendo los cambios en tiempo real.</p>
+<ul><li><b>Bloqueo de edici&oacute;n</b> &mdash; abren bloqueadas por default. El &iacute;cono del encabezado habilita editar.</li>
+<li><b>Clic en una fila</b> &mdash; resalta el nodo/barra en el visor 3D con zoom autom&aacute;tico.</li>
+<li><b>Selecci&oacute;n cruzada</b> &mdash; clic en un miembro del visor resalta la fila en la tabla abierta.</li></ul>
+<h3>Nodos</h3>
+<p>Numeraci&oacute;n id&eacute;ntica a la del export STAAD. Con edici&oacute;n habilitada, X/Y/Z son editables manualmente. Advertencia: si regeneras la torre despu&eacute;s, el ajuste manual puede no corresponder al mismo nodo f&iacute;sico.</p>
+<h3>Barras</h3>
+<p>Numeraci&oacute;n tipo STAAD (por categor&iacute;a: montantes, diagonales principales, horizontales, hip bracing, plan bracing, retenidas). Con edici&oacute;n habilitada puedes cambiar el <b>Perfil</b> (abre el buscador de perfil + calidad) y los nodos <b>A / B</b>.</p>
+<h3>Retenidas</h3>
+<p>Solo visible en torres arriostradas. Lista los cables tipo retenida. El perfil/material se edita desde Bases de Datos &rarr; Retenidas; aqu&iacute; esas columnas son de solo lectura.</p>
+<h2 id="apoyos">Apoyos</h2>
+<p>La tabla <b>Apoyos</b> (men&uacute; Tablas) lista cada nodo de soporte con su tipo: <b>PINNED</b> o <b>FIXED</b>, detectado autom&aacute;ticamente. El tipo es <b>editable</b> fila por fila; el cambio se refleja en los &iacute;conos del visor 3D y en el bloque <code>SUPPORTS</code> del export STAAD.</p>
+<h2 id="revisiones">Hoja de Revisiones</h2>
+<p>La tabla <b>Hoja de Revisiones</b> (men&uacute; Tablas) muestra el historial de versiones de TSA con formato de bloque de t&iacute;tulo de ingenier&iacute;a. Es de <b>solo lectura</b> &mdash; el historial lo actualiza el equipo de desarrollo.</p>
+<h2 id="guardar-abrir">Guardar / abrir proyecto</h2>
+<p>Desde el men&uacute; <b>Inicio</b> en la barra superior: "Nuevo proyecto", "Abrir proyecto..." y "Guardar como...". El archivo guardado (<code>.TSA</code>) contiene toda la configuraci&oacute;n del proyecto (tipo de estructura, geometr&iacute;a, secciones, perfiles, calidades, par&aacute;metros de viento, antenas). La geometr&iacute;a 3D siempre se recalcula al abrir.</p>
+<p style="font-size:11.5px;color:var(--txt-sec)"><kbd>Ctrl</kbd>+<kbd>G</kbd> guarda directamente si ya tienes una ruta asignada; de lo contrario abre el di&aacute;logo "Guardar como".</p>
+<hr>
+<h2 id="viento">Dise&ntilde;o por Viento &mdash; ANSI/TIA-222-H</h2>
+<p>El &iacute;cono <b>Viento</b> de la barra lateral abre un flyout sin ocultar el visor 3D. El an&aacute;lisis sigue el procedimiento de la norma <b>ANSI/TIA-222-H, Secci&oacute;n 2.6</b>. Todos los factores y presiones se calculan <b>por secci&oacute;n</b> de la torre, evaluados en la elevaci&oacute;n media de cada tramo.</p>
+<h3 id="viento-paso1">Paso 1 &mdash; Configuraci&oacute;n General</h3>
+<ul>
+<li><b>C&oacute;digo de Dise&ntilde;o</b> &mdash; <code>ANSI/TIA H</code> (disponible). <code>CFE 2020</code> aparece en el selector pero deshabilitado (en proceso).</li>
+<li><b>Tipo de Estructura</b> &mdash; de solo lectura, refleja el tipo de torre actual. Afecta Kd y Gh.</li>
+<li><b>Categor&iacute;a de Riesgo</b> &mdash; I (bajo riesgo) a IV (esencial). Determina el <b>Factor de Importancia (I)</b> para convertir la velocidad Regional a &Uacute;ltima.</li>
+<li><b>Categor&iacute;a de Exposici&oacute;n</b> &mdash; B (urbano), C (terreno abierto), D (l&iacute;neas costeras). Define Zg, &alpha;&prime; y Kzmin para el c&aacute;lculo de Kz.</li>
+</ul>
+<h3 id="viento-paso2">Paso 2 &mdash; Par&aacute;metros de Viento</h3>
+<ul>
+<li><b>Velocidad de dise&ntilde;o (km/hr)</b> con 2 checks mutuamente excluyentes:
+<ul><li><b>Velocidad Regional</b> &mdash; TSA la convierte: V<sub>ult</sub> = V<sub>reg</sub> &middot; &radic;(1.6 &middot; I).</li>
+<li><b>Velocidad &Uacute;ltima</b> &mdash; ya afectada por la categor&iacute;a de riesgo; se usa directamente.</li></ul></li>
+<li><b>Velocidad Operacional (km/hr)</b> &mdash; velocidad de servicio (default 97.2 km/hr). Se usa en el reporte Word para el Cap. 6.2 (viento operacional).</li>
+<li><b>&Aacute;ngulos de viento analizados</b> &mdash; incremento angular (p. ej. 45&deg; genera: 0&deg;, 45&deg;, 90&deg;, 135&deg;, 180&deg;, 225&deg;, 270&deg;, 315&deg;). Cada &aacute;ngulo genera su propia tabla FST en el visor y en el reporte.</li>
+<li><b>ASNM (m)</b> &mdash; Altura Sobre Nivel del Mar; alimenta el Factor de Elevaci&oacute;n del Terreno Ke (&sect;2.6.8).</li>
+<li><b>Categor&iacute;a Topogr&aacute;fica</b> &mdash; Plano (Kzt = 1.0 en toda la torre) o una de 5 formas: Escarpado, Colina, Colina de cima plana, Cresta, Cresta de cima plana (seg&uacute;n Figura 2-1 de la norma, M&eacute;todo 2 riguroso). Si no es Plano, se despliegan:
+<ul><li><b>H (m)</b> &mdash; altura de la formaci&oacute;n topogr&aacute;fica.</li>
+<li><b>L (m)</b> &mdash; el doble de la distancia horizontal de la cresta a la media altura de la formaci&oacute;n.</li>
+<li><b>x (m)</b> &mdash; distancia horizontal de la torre a la cresta.</li>
+<li><b>Direcci&oacute;n</b> &mdash; A favor del viento (downwind) o En contra (upwind).</li></ul></li>
+<li><b>Kd &mdash; Factor de Direccionalidad</b> (Tabla 2-2): Autosoportada 3P/4P y Arriostrada = <b>0.85</b> &middot; Monopolo (ap&eacute;ndices expuestos) = <b>0.95</b>.</li>
+<li><b>Gh &mdash; Factor de R&aacute;faga</b> (&sect;2.6.10): en torres autosoportadas se calcula por altura; en arriostradas es 0.85; en monopolos es 1.10.</li>
+</ul>
+<p>El bot&oacute;n <b>Guardar</b> persiste los par&aacute;metros junto con el proyecto. La pesta&ntilde;a <b>Cargas de Viento</b> se actualiza <b>en tiempo real</b> con cada cambio, sin necesidad de guardar primero.</p>
+<h3 id="viento-cargas">Paso 3 &mdash; Pesta&ntilde;a "Cargas de Viento"</h3>
+<p>La pesta&ntilde;a <b>Cargas de Viento</b> de la barra de pesta&ntilde;as (arriba del visor) despliega un panel del lado derecho con los resultados:</p>
+<ul>
+<li><b>Resumen</b> &mdash; todos los par&aacute;metros capturados, m&aacute;s la Velocidad &Uacute;ltima ya convertida.</li>
+<li><b>Par&aacute;metros de Kz / Kzt</b> &mdash; factores intermedios: Kzmin, Zg, I, y si la topograf&iacute;a no es Plana: H/L, &beta;, K1, K2.</li>
+<li><b>Presi&oacute;n por Secci&oacute;n (qz)</b> &mdash; tabla con Kz, Kzt y qz (kg/m&sup2;) evaluados en la elevaci&oacute;n media de cada secci&oacute;n.</li>
+<li><b>FST por secci&oacute;n</b> &mdash; para cada &aacute;ngulo analizado, la fuerza total de viento sobre cada secci&oacute;n en kgf. Las flechas se visualizan en el visor 3D al seleccionar el &aacute;ngulo.</li>
+</ul>
+<h3 id="viento-formulas">F&oacute;rmulas utilizadas (ANSI/TIA-222-H, Secci&oacute;n 2.6)</h3>
+<h4 class="sub">Presi&oacute;n de velocidad del viento &mdash; qz (&sect;2.6.11.6)</h4>
+<div class="fblock">
+qz &nbsp;= &nbsp;0.613 &middot; Kz &middot; Kzt &middot; Ks &middot; Ke &middot; Kd &middot; V&sup2; &nbsp;&nbsp;&nbsp;[N/m&sup2;]
+<br><br>
+<span class="cm">V &nbsp;&nbsp;&nbsp;= velocidad de dise&ntilde;o [m/s]</span><br>
+<span class="cm">Kz &nbsp;&nbsp;= coeficiente de exposici&oacute;n por altura z  (&sect;2.6.5)</span><br>
+<span class="cm">Kzt &nbsp;= factor topogr&aacute;fico  (&sect;2.6.6 M&eacute;todo 2 &mdash; K1&middot;K2&middot;K3)</span><br>
+<span class="cm">Ks &nbsp;&nbsp;= 1.000  (estructura a nivel de suelo, &sect;2.6.7)</span><br>
+<span class="cm">Ke &nbsp;&nbsp;= factor de elevaci&oacute;n del terreno  (&sect;2.6.8, funci&oacute;n de ASNM)</span><br>
+<span class="cm">Kd &nbsp;&nbsp;= factor de direccionalidad  (Tabla 2-2)</span><br>
+<span class="cm">Gh &nbsp;&nbsp;= factor de r&aacute;faga (&sect;2.6.10) &mdash; aparece en la f&oacute;rmula de FST, no en qz</span>
+</div>
+<h4 class="sub">Coeficiente de exposici&oacute;n por altura &mdash; Kz (&sect;2.6.5.2)</h4>
+<div class="fblock">
+Kz = max( Kzmin, &nbsp;2.01 &middot; (z / Zg)^(2/&alpha;) )
+<br><br>
+<span class="cm">Exposici&oacute;n B: &nbsp;Zg = 365.76 m, &nbsp;&alpha; = 7.0, &nbsp;Kzmin = 0.70</span><br>
+<span class="cm">Exposici&oacute;n C: &nbsp;Zg = 274.32 m, &nbsp;&alpha; = 9.5, &nbsp;Kzmin = 0.85</span><br>
+<span class="cm">Exposici&oacute;n D: &nbsp;Zg = 213.36 m, &nbsp;&alpha; = 11.5, Kzmin = 1.03</span>
+</div>
+<h4 class="sub">Factor topogr&aacute;fico &mdash; Kzt (&sect;2.6.6.2, M&eacute;todo 2)</h4>
+<div class="fblock">
+Kzt = ( 1 + K1 &middot; K2 &middot; K3 )&sup2;
+<br><br>
+<span class="cm">K1 depende de la forma topogr&aacute;fica y H/L  (Tabla A-5 de la norma)</span><br>
+<span class="cm">K2 = 1 &minus; |x| / (&mu;&middot;L)  &mdash;&nbsp;&mu; depende del tipo de forma</span><br>
+<span class="cm">K3 = e^(&minus;&gamma;z/L)  &mdash;&nbsp;&gamma; depende del tipo de forma</span>
+</div>
+<h4 class="sub">Factor de elevaci&oacute;n &mdash; Ke (&sect;2.6.8)</h4>
+<div class="fblock">
+Ke = e^(&minus;0.000119 &middot; ASNM) &nbsp;&nbsp;&nbsp;<span class="cm">ASNM en metros</span>
+</div>
+<h4 class="sub">Fuerza total de viento por secci&oacute;n &mdash; FST (&sect;2.6.11.1)</h4>
+<div class="fblock">
+FST &nbsp;= &nbsp;qz &middot; Gh &middot; (EPA)s &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[kgf]
+<br><br>
+(EPA)s &nbsp;= &nbsp;Cf &middot; [ Df &middot; &Sigma;Af &nbsp;+ &nbsp;Dr &middot; &Sigma;(Ar &middot; Rr) ] &nbsp;&nbsp;[m&sup2;]
+<br><br>
+<span class="cm">Af &nbsp;&nbsp;= &aacute;rea proyectada de perfiles angulares/planos de la secci&oacute;n &nbsp;[m&sup2;]</span><br>
+<span class="cm">Ar &nbsp;&nbsp;= &aacute;rea proyectada de perfiles circulares (tubos) de la secci&oacute;n &nbsp;[m&sup2;]</span><br>
+<span class="cm">Ag &nbsp;&nbsp;= &aacute;rea bruta de la cara de la secci&oacute;n &nbsp;(ancho &times; altura) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[m&sup2;]</span><br>
+<span class="cm">&epsilon; &nbsp;&nbsp;&nbsp;= solidez = &Sigma;Af / Ag &nbsp;(fracci&oacute;n del &aacute;rea bruta ocupada) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[&mdash;]</span><br>
+<span class="cm">Cf &nbsp;&nbsp;= coeficiente de fuerza en funci&oacute;n de &epsilon; &nbsp;(TIA &sect;2.6.11.1.1) &nbsp;&nbsp;&nbsp;&nbsp;[&mdash;]</span><br>
+<span class="cm">Df &nbsp;&nbsp;= factor de arrastre perfiles angulares/planos = 1.000</span><br>
+<span class="cm">Dr &nbsp;&nbsp;= factor de arrastre perfiles circulares (funci&oacute;n de V&middot;D) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[&mdash;]</span><br>
+<span class="cm">Rr &nbsp;&nbsp;= factor de reducci&oacute;n por n&uacute;mero de Reynolds &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[&mdash;]</span>
+</div>
+<table><thead><tr><th>Factor</th><th>Referencia norma</th><th>Qu&eacute; calcula</th></tr></thead><tbody>
+<tr><td>Kz</td><td>&sect;2.6.5.2</td><td>Coeficiente de presi&oacute;n de velocidad por altura z y categor&iacute;a de exposici&oacute;n</td></tr>
+<tr><td>Kzt</td><td>&sect;2.6.6.2.2 (M&eacute;todo 2)</td><td>Factor topogr&aacute;fico (K1&middot;K2&middot;K3 seg&uacute;n forma, pendiente y direcci&oacute;n)</td></tr>
+<tr><td>Ke</td><td>&sect;2.6.8</td><td>Factor de elevaci&oacute;n del terreno (funci&oacute;n de ASNM)</td></tr>
+<tr><td>Kd</td><td>Tabla 2-2</td><td>Factor de direccionalidad (por tipo de estructura)</td></tr>
+<tr><td>Gh</td><td>&sect;2.6.9 / &sect;2.6.10</td><td>Factor de efecto de r&aacute;faga</td></tr>
+<tr><td>qz</td><td>&sect;2.6.11.6</td><td>Presi&oacute;n de velocidad final [N/m&sup2;]</td></tr>
+<tr><td>(EPA)s</td><td>&sect;2.6.11.1</td><td>&Aacute;rea efectiva proyectada al viento por secci&oacute;n [m&sup2;]</td></tr>
+<tr><td>FST</td><td>&sect;2.6.11.1</td><td>Fuerza total de viento sobre la secci&oacute;n [kgf]</td></tr>
+</tbody></table>
+<hr>
+<h2 id="antenas">Panel de Antenas y Equipos</h2>
+<p>El &iacute;cono <b>Antenas</b> de la barra lateral (entre Torre y Viento) abre el panel de entrada para registrar antenas, equipos y accesorios instalados en la torre. Estos datos se usar&aacute;n en los cap&iacute;tulos de cargas y accesorios del reporte Word.</p>
+<div class="callout info"><b>Para qu&eacute; sirve</b> Las antenas y equipos tienen dos efectos sobre la torre: (1) <b>carga de peso</b> (kg) que act&uacute;a en el nodo de instalaci&oacute;n, y (2) <b>carga de viento</b> a trav&eacute;s de su EPA &mdash; &Aacute;rea Efectiva Proyectada al Viento &mdash; que var&iacute;a seg&uacute;n el &aacute;ngulo de an&aacute;lisis.</div>
+<h3 id="antenas-campos">Campos del panel</h3>
+<table><thead><tr><th>Campo</th><th>Unidad</th><th>Descripci&oacute;n</th></tr></thead><tbody>
+<tr><td><b>Descripci&oacute;n</b></td><td>&mdash;</td><td>Nombre libre: modelo, marca, identificador (ej. "Panel Sector 0&deg;", "RRU Nokia")</td></tr>
+<tr><td><b>Tipo</b></td><td>&mdash;</td><td>Panel / Parab&oacute;lica / RRU / Otros</td></tr>
+<tr><td><b>h (m)</b></td><td>m</td><td>Altura de instalaci&oacute;n sobre la base de la torre (coordenada Z). Debe estar dentro del rango de altura de la torre.</td></tr>
+<tr><td><b>Az (&deg;)</b></td><td>grados</td><td>Azimut de la antena. 0&deg; = Norte. Se usa para calcular la EPA efectiva por &aacute;ngulo de viento analizado.</td></tr>
+<tr><td><b>Peso (kg)</b></td><td>kg</td><td>Peso total del equipo instalado (incluir soporte y brazo si aplica).</td></tr>
+<tr><td><b>EPA 0&deg;</b></td><td>m&sup2;</td><td>&Aacute;rea Efectiva Proyectada cuando el viento sopla de frente a la antena. Dato de fabricante.</td></tr>
+<tr><td><b>EPA 60&deg;</b></td><td>m&sup2;</td><td>EPA cuando el viento sopla a 60&deg; del frente de la antena.</td></tr>
+<tr><td><b>EPA 90&deg;</b></td><td>m&sup2;</td><td>EPA cuando el viento sopla lateral (90&deg; del frente de la antena).</td></tr>
+</tbody></table>
+<ul>
+<li>Haz clic en <b>+ Agregar antena / equipo</b> para a&ntilde;adir una fila nueva.</li>
+<li>El bot&oacute;n <b>&times;</b> al final de cada fila elimina ese equipo.</li>
+<li>Haz clic en <b>Aplicar</b> para guardar los cambios (o <b>Cancelar</b> para descartarlos).</li>
+<li>Los datos se guardan junto con el proyecto en el archivo <code>.TSA</code>.</li>
+</ul>
+<div class="callout warn"><b>EPA &mdash; datos del fabricante</b> Los valores de EPA deben provenir del datasheet del fabricante. No son &aacute;rea f&iacute;sica, sino &aacute;rea &quot;aerodin&aacute;mica efectiva&quot; que ya incorpora el coeficiente de arrastre Cd. Para equipos sin datasheet: EPA &asymp; Cd &times; A_proyectada, donde Cd &asymp; 1.0&ndash;1.3 para paneles rectangulares y &asymp; 0.9 para parab&oacute;licas.</div>
+<hr>
+<h2 id="exportar-reporte">Reporte de C&aacute;lculo &mdash; Exportar Word (.docx)</h2>
+<p>El bot&oacute;n <b>Exportar Reporte</b> de la barra superior genera una Memoria de C&aacute;lculo completa en formato <b>Microsoft Word (.docx)</b>, lista para entregar o seguir editando. El archivo se descarga autom&aacute;ticamente al navegador.</p>
+<p>El reporte incluye una <b>car&aacute;tula</b> (logo, n&uacute;mero de activo, cliente, ingeniero, fecha, coordenadas del sitio, tipo de estructura y altura total), una <b>tabla de contenidos</b> con enlace interno a cada secci&oacute;n, y 8 cap&iacute;tulos. A continuaci&oacute;n se describe el contenido de cada cap&iacute;tulo:</p>
+<h3 id="reporte-ch1">Cap&iacute;tulo 1 &mdash; Informaci&oacute;n General del Proyecto</h3>
+<p>Metadatos del proyecto capturados en el panel Torre:</p>
+<ul>
+<li>N&uacute;mero de activo (Asset Name) y nombre del sitio</li>
+<li>Cliente / Operadora</li>
+<li>Pa&iacute;s y coordenadas geogr&aacute;ficas (lat/lon)</li>
+<li>Ingeniero responsable y fecha del proyecto</li>
+<li>N&uacute;mero de revisi&oacute;n</li>
+<li>Tipo de estructura, altura total y apertura de la base</li>
+</ul>
+<h3 id="reporte-ch2">Cap&iacute;tulo 2 &mdash; Par&aacute;metros de Dise&ntilde;o</h3>
+<ul>
+<li><b>2.1 Normas y C&oacute;digos de Referencia</b> &mdash; norma aplicada (ANSI/TIA-222-H) y edici&oacute;n.</li>
+<li><b>2.2 Especificaciones de Materiales</b> <span class="badge done">Con datos reales</span> &mdash; tabla de calidades de acero usadas en el proyecto: Calidad, Fy (kg/cm&sup2;), Fu (kg/cm&sup2;). Solo incluye las calidades que est&eacute;n asignadas a al menos un miembro del modelo.</li>
+<li><b>2.3 Par&aacute;metros de Viento</b> <span class="badge done">Con datos reales</span> &mdash; resumen completo del panel de viento (c&oacute;digo, categor&iacute;a de riesgo, exposici&oacute;n, velocidad de dise&ntilde;o &mdash;regional y &uacute;ltima&mdash;, ASNM, categor&iacute;a topogr&aacute;fica, Kd, Ke, Gh). Incluye la tabla de presi&oacute;n qz por secci&oacute;n y el <b>procedimiento de c&aacute;lculo paso a paso</b> con sustituci&oacute;n num&eacute;rica de cada f&oacute;rmula.</li>
+<li><b>2.4 Par&aacute;metros S&iacute;smicos</b> &mdash; <span class="badge soon">Pendiente</span></li>
+<li><b>2.5 Par&aacute;metros de Hielo / Temperatura</b> &mdash; <span class="badge soon">Pendiente</span></li>
+</ul>
+<h3 id="reporte-ch4">Cap&iacute;tulo 4 &mdash; Lista de Materiales</h3>
+<p><b>4.1 Lista de Materiales por Perfil (Solo Estructura)</b> <span class="badge done">Con datos reales</span></p>
+<p>Tabla que resume todos los perfiles de acero estructural asignados en la torre, agrupados por designaci&oacute;n y calidad. Excluye cables de retenida y accesorios. Columnas:</p>
+<table><thead><tr><th>Columna</th><th>Descripci&oacute;n</th></tr></thead><tbody>
+<tr><td>Perfil</td><td>Designaci&oacute;n del perfil (p. ej. L4&times;4&times;3/8, HSS4&times;0.25, ROD-20)</td></tr>
+<tr><td>Tipo</td><td>Familia del cat&aacute;logo: Angle (LI/LD), Tube (OC), Solid (OS), Channel (C)</td></tr>
+<tr><td>Material</td><td>Calidad de acero asignada (p. ej. A36, A572 Gr50)</td></tr>
+<tr><td>Cant.</td><td>N&uacute;mero de barras con ese perfil y calidad</td></tr>
+<tr><td>Long. Total (m)</td><td>Longitud acumulada de todas las barras de ese perfil</td></tr>
+<tr><td>Peso Total (kg)</td><td>Peso total = peso por metro del cat&aacute;logo &times; longitud total</td></tr>
+</tbody></table>
+<p>La &uacute;ltima fila muestra el <b>peso total de acero estructural</b> del proyecto. Si alg&uacute;n perfil no tiene peso definido en el cat&aacute;logo, su columna de peso muestra &quot;&mdash;&quot;.</p>
+<h3 id="reporte-ch5">Cap&iacute;tulo 5 &mdash; C&oacute;digos de Identificaci&oacute;n de Elementos</h3>
+<p>Tabla que lista todos los miembros del modelo con su ID de barra (numeraci&oacute;n STAAD), tipo de miembro (Montante, Diagonal, Horizontal, Hip Bracing, Plan Bracing), perfil asignado y calidad de acero. Permite correlacionar el modelo TSA con el modelo STAAD.Pro para la asignaci&oacute;n de cargas y revisiones por c&oacute;digo.</p>
+<h3 id="reporte-ch6">Cap&iacute;tulo 6 &mdash; An&aacute;lisis de Carga de Viento (EPA)</h3>
+<p><span class="badge done">Con datos reales</span> &mdash; Cap&iacute;tulo completo con procedimiento expl&iacute;cito y tablas para cada &aacute;ngulo analizado.</p>
+<h4 class="sub">6.1 C&aacute;lculo de EPA &mdash; Viento &Uacute;ltimo</h4>
+<p>Contiene:</p><ul>
+<li><b>Procedimiento de C&aacute;lculo</b> &mdash; explicaci&oacute;n paso a paso de c&oacute;mo se obtienen qz y FST, con todas las f&oacute;rmulas simb&oacute;licas (qz, EPA, FST) y la sustituci&oacute;n num&eacute;rica para los factores constantes del proyecto (V, Kd, Ke, Ks, Gh). Incluye tabla con el significado de cada variable (Af, Ar, Ag, &epsilon;, Cf, Df, Dr, Rr).</li>
+<li><b>Tabla de Presiones de Dise&ntilde;o qz</b> &mdash; columnas: Sec. / z (m) / Kz / Kzt / qz (N/m&sup2;) / qz (kg/m&sup2;).</li>
+<li>Para cada &aacute;ngulo de viento analizado (p. ej. 0&deg;, 45&deg;, 90&deg;...), una <b>tabla de Fuerza de Viento FST</b> con columnas: Sec. / Af (m&sup2;) / Ar (m&sup2;) / Ag (m&sup2;) / &epsilon; / Cf / Df / Dr / Rr / FST (kgf), m&aacute;s una fila de TOTAL al final de la tabla.</li>
+</ul>
+<h4 class="sub">6.2 C&aacute;lculo de EPA &mdash; Viento Operacional (Servicio)</h4>
+<p>Misma estructura que 6.1, pero calculada con la <b>velocidad operacional</b> capturada en el panel de viento. Siempre inicia en una <b>p&aacute;gina nueva</b> dentro del documento Word. Si no se captur&oacute; velocidad operacional, muestra una nota indicando que est&aacute; pendiente.</p>
+<h4 class="sub">6.3 Cargas de Viento en Accesorios</h4>
+<p><span class="badge soon">Pendiente</span> &mdash; Se alimentar&aacute; del panel de Antenas y Equipos (EPA por &aacute;ngulo de cada antena).</p>
+<h4 class="sub">6.4 Cortante Basal y Momento de Vuelco</h4>
+<p><span class="badge soon">Pendiente</span> &mdash; Requiere suma de fuerzas nodales por direcci&oacute;n y c&aacute;lculo del momento resultante en la base.</p>
+<h3 id="reporte-ch8">Cap&iacute;tulo 8 &mdash; Configuraci&oacute;n de la Torre</h3>
+<p><span class="badge done">Con datos reales</span></p>
+<h4 class="sub">8.1 Diagrama de Elevaci&oacute;n y Perfiles</h4>
+<p>Esquema a escala de la torre (generado como imagen SVG a alta resoluci&oacute;n) con las secciones numeradas de arriba (1) hacia abajo, y una tabla lateral con los perfiles asignados a cada tipo de miembro por secci&oacute;n. Si la torre es alta y no cabe en una p&aacute;gina, el diagrama se <b>divide autom&aacute;ticamente en varias p&aacute;ginas consecutivas</b>, manteniendo la misma escala en todas las p&aacute;ginas y centrando cada imagen en la hoja.</p>
+<h4 class="sub">8.2 Propiedades de Secci&oacute;n</h4>
+<p>Tabla completa de propiedades por secci&oacute;n con columnas <b>adaptativas</b> &mdash; solo aparecen las columnas que tienen al menos un perfil asignado en alg&uacute;n tramo, para no mostrar columnas vac&iacute;as. Para torres en celosia (autosoportadas/arriostradas):</p>
+<table><thead><tr><th>Columna</th><th>Qu&eacute; muestra</th></tr></thead><tbody>
+<tr><td>Sec.</td><td>N&uacute;mero de secci&oacute;n (1 = tope, &uacute;ltima = base)</td></tr>
+<tr><td>h (m)</td><td>Altura del tramo</td></tr>
+<tr><td>Piernas</td><td>Perfil de los montantes (M)</td></tr>
+<tr><td>Diagonales</td><td>Perfil de las diagonales principales (D)</td></tr>
+<tr><td>Horizontales</td><td>Perfil de los horizontales (H)</td></tr>
+<tr><td>Diag. Sec.</td><td>Perfil de diagonales secundarias (Ds &mdash; en patrones K)</td></tr>
+<tr><td>Horiz. Sec.</td><td>Perfil de horizontales secundarios (Hs)</td></tr>
+<tr><td>Diag. Int.</td><td>Perfil de diagonales de Hip Bracing (interior del panel)</td></tr>
+<tr><td>Horiz. Int.</td><td>Perfil de horizontales de Hip Bracing</td></tr>
+<tr><td>Plan-Bracing</td><td>Perfil del arriostramiento horizontal en planta (Pb)</td></tr>
+<tr><td>Diafragma</td><td>Perfil del diafragma (Pb2 &mdash; solo en plan bracing tipo A-A)</td></tr>
+<tr><td>Peso (kg)</td><td>Peso total estimado de los miembros de esa secci&oacute;n</td></tr>
+</tbody></table>
+<p>Para <b>Monopolo</b> muestra: Tipo (Redondo/Poligonal), N&deg; de lados, Espesor (mm), Calidad de acero y Peso por tramo.</p>
+<p>Debajo de la tabla aparece una tabla de <b>Calidades de Acero</b> con Calidad / Fy / Fu para todas las calidades usadas en el proyecto.</p>
+<hr>
+<h2 id="exportar">Exportar a STAAD.Pro</h2>
+<p>Desde el bot&oacute;n <b>Exportar</b> de la barra superior, "STAAD.Pro (.std)" genera un archivo de texto listo para abrir en STAAD.Pro, con:</p>
+<ul>
+<li><code>JOINT COORDINATES</code> y <code>MEMBER INCIDENCES</code> &mdash; nodos y barras renumerados por categor&iacute;a y elevaci&oacute;n, con el mismo criterio que las tablas Nodos/Barras del visor.</li>
+<li><code>MEMBER PROPERTY</code> &mdash; perfil de cat&aacute;logo (AISC/IMCA) por miembro, o <code>PRISMATIC</code> con &aacute;rea e inercia calculadas para tramos de Monopolo.</li>
+<li><code>CONSTANTS</code> &mdash; m&oacute;dulo el&aacute;stico (E) y densidad del acero, tomados de la base de datos de Calidades.</li>
+<li><code>SUPPORTS</code> &mdash; <code>PINNED</code> o <code>FIXED</code> por nodo, igual que la tabla Apoyos (incluye cambios manuales).</li>
+<li><code>START GROUP DEFINITION</code> &mdash; agrupa los miembros de cada secci&oacute;n por categor&iacute;a (_SEC1_M montantes, _SEC1_D diagonales, _SEC2_M, etc.) para que el .std sea legible.</li>
+<li>Para <b>Monopolo</b>, se exporta solo el <b>eje central</b> (un nodo por l&iacute;mite de tramo, una barra por tramo). El pol&iacute;gono real es solo visualizaci&oacute;n y no va al .std.</li>
+</ul>
+<div class="callout info"><b>En desarrollo</b> Las cargas de viento (<code>MEMBER LOAD</code> / <code>JOINT LOAD</code>) a&uacute;n no est&aacute;n en el export STAAD. El <code>GROUP DEFINITION</code> ya cubre montantes, diagonales, horizontales, plan bracing, hip bracing y retenidas.</div>
+<h2 id="exportar-dxf">Exportar a DXF (AutoCAD)</h2>
+<p>Desde el bot&oacute;n <b>Exportar</b> de la barra superior, "DXF (.dxf)" genera un dibujo de l&iacute;neas (<code>LINE</code>) con la geometr&iacute;a 3D <b>completa</b> de la torre. A diferencia del export STAAD, en Monopolo aqu&iacute; s&iacute; se exporta el pol&iacute;gono/anillos reales, no solo el eje. Usa la convenci&oacute;n de ejes de AutoCAD (WCS): X y Y horizontales, Z vertical hacia arriba &mdash; exactamente la misma que usa TSA internamente.</p>
+<h2 id="unidades">Unidades</h2>
+<p>La barra superior tiene un selector <b>MKS / IMP</b>. Actualmente controla la unidad de fuerza en el export STAAD (kg vs. kip). La conversi&oacute;n de unidades de longitud (m &harr; ft) en la interfaz est&aacute; planeada pero <b>a&uacute;n no implementada</b> &mdash; la geometr&iacute;a siempre se captura y almacena en metros.</p>
+<h2 id="configuracion">Configuraci&oacute;n</h2>
+<p>Desde el &iacute;cono &#9881; de la barra lateral:</p>
+<ul><li><b>Color de fondo del canvas</b> &mdash; personalizable.</li>
+<li><b>Reset a ajustes iniciales</b> &mdash; regresa todo a los valores de f&aacute;brica del programa.</li></ul>
+<h2 id="atajos">Atajos de teclado</h2>
+<table><thead><tr><th>Atajo</th><th>Acci&oacute;n</th></tr></thead><tbody>
+<tr><td><kbd>Ctrl</kbd> + <kbd>G</kbd></td><td>Guardar proyecto</td></tr>
+<tr><td><kbd>Ctrl</kbd> + <kbd>N</kbd></td><td>Nuevo proyecto</td></tr>
+<tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Deshacer</td></tr>
+<tr><td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td><td>Rehacer</td></tr>
+<tr><td><kbd>F</kbd></td><td>Ajustar vista a la torre (Zoom Extents)</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Cerrar panel de selecci&oacute;n de miembro</td></tr>
+<tr><td><kbd>Shift</kbd> + <kbd>N</kbd></td><td>Mostrar/ocultar n&uacute;meros de Nodos</td></tr>
+<tr><td><kbd>Shift</kbd> + <kbd>B</kbd></td><td>Mostrar/ocultar Barras (numeraci&oacute;n STAAD)</td></tr>
+<tr><td><kbd>Shift</kbd> + <kbd>X</kbd></td><td>Mostrar/ocultar etiquetas de Perfiles</td></tr>
+<tr><td><kbd>Shift</kbd> + <kbd>S</kbd></td><td>Mostrar/ocultar Apoyos</td></tr>
+<tr><td>Flechas &uarr; &darr; &larr; &rarr;</td><td>Rotar la c&aacute;mara (con el visor enfocado, sin escribir en un campo)</td></tr>
+</tbody></table>
+<p style="font-size:11.5px;color:var(--txt-sec)">La personalizaci&oacute;n de atajos a&uacute;n no est&aacute; disponible.</p>
+<hr>
+<h2 id="feedback">Dar feedback</h2>
+<p>El bot&oacute;n <b>Feedback</b> de la barra superior abre una encuesta corta (tipo de torre probada, facilidad de uso, qu&eacute; te gust&oacute;, qu&eacute; te confundi&oacute;, qu&eacute; agregar&iacute;as). Al dar clic en "Enviar", la respuesta se manda autom&aacute;ticamente &mdash; no necesitas abrir tu cliente de correo ni escribir nada aparte. Hay un check opcional para dejar tu correo si quieres recibir avisos de actualizaciones importantes.</p>
+<h2 id="aviso">Aviso profesional</h2>
+<div class="callout warn"><b>&#9888; Responsabilidad del dise&ntilde;o</b> TSA es una herramienta de modelado geom&eacute;trico y preparaci&oacute;n de datos. No realiza por s&iacute; sola el an&aacute;lisis estructural, las revisiones por c&oacute;digo, ni emite ning&uacute;n juicio de ingenier&iacute;a. Todo proyecto generado con TSA debe ser revisado, calculado y validado por un ingeniero estructurista responsable antes de utilizarse en construcci&oacute;n real.</div>
+<h2 id="pendientes">Funciones en desarrollo</h2>
+<p>Estas &aacute;reas ya tienen un punto de entrada en la interfaz pero su funcionalidad a&uacute;n est&aacute; en proceso:</p>
+<table><thead><tr><th>Funci&oacute;n</th><th>Estado</th></tr></thead><tbody>
+<tr><td>Visualizaci&oacute;n 3D de antenas en el visor (panel, parab&oacute;lica, RRU)</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Cap. 3 &mdash; Cargas (peso antenas, escaleras, plataformas)</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Cap. 6.3 &mdash; Cargas de Viento en Accesorios (EPA de antenas)</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Cap. 6.4 &mdash; Cortante Basal y Momento de Vuelco</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Cap. 7 &mdash; Combinaciones de Carga</td><td><span class="badge soon">Pendiente</span></td></tr>
+<tr><td>Cap. 2.4 &mdash; Par&aacute;metros S&iacute;smicos</td><td><span class="badge soon">Pendiente</span></td></tr>
+<tr><td>Cap. 2.5 &mdash; Par&aacute;metros de Hielo / Temperatura</td><td><span class="badge soon">Pendiente</span></td></tr>
+<tr><td>Exportar STAAD: cargas de viento (MEMBER LOAD / JOINT LOAD)</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Conversi&oacute;n real de unidades MKS &harr; IMP (longitudes en ft)</td><td><span class="badge soon">Planeado</span></td></tr>
+<tr><td>Pesta&ntilde;as FEM / C&oacute;digos en la barra superior</td><td><span class="badge soon">Placeholder</span></td></tr>
+<tr><td>&Iacute;cono de barra lateral: Optimizaci&oacute;n</td><td><span class="badge soon">Placeholder</span></td></tr>
+<tr><td>C&oacute;digo de viento CFE 2020</td><td><span class="badge soon">En proceso</span></td></tr>
+</tbody></table>
+</main>
+</div>
+<div class="lightbox-overlay" id="lightbox-overlay" onclick="closeLightbox()">
+  <div class="lightbox-box"><img id="lightbox-img" src="" alt=""><div class="lightbox-caption" id="lightbox-caption"></div></div>
+</div>
+<script>
+  document.querySelectorAll(".diagram-card img").forEach(img => {
+    img.addEventListener("click", e => {
+      e.stopPropagation();
+      const label = img.closest(".diagram-card").querySelector(".dc-label");
+      document.getElementById("lightbox-img").src = img.src;
+      document.getElementById("lightbox-img").alt = img.alt;
+      document.getElementById("lightbox-caption").innerHTML = label ? label.innerHTML : img.alt;
+      document.getElementById("lightbox-overlay").classList.add("open");
+    });
+  });
+  function closeLightbox() { document.getElementById("lightbox-overlay").classList.remove("open"); }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
+</script>
+</body>
+</html>
