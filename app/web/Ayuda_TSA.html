@@ -53,6 +53,15 @@
   .lightbox-box{display:flex;flex-direction:column;align-items:center;max-width:90vw;max-height:90vh;}
   .lightbox-box img{max-width:90vw;max-height:82vh;border-radius:6px;box-shadow:0 0 40px rgba(0,0,0,.5);}
   .lightbox-caption{margin-top:12px;color:var(--txt);font-size:14px;text-align:center;}
+  .diagram-row{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 24px;}
+  .diagram-card{background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px 10px;width:200px;flex-shrink:0;}
+  .diagram-card img{width:100%;height:110px;object-fit:contain;border-radius:4px;cursor:zoom-in;}
+  .diagram-row-lg{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:700px;margin:14px 0 24px;}
+  .diagram-row-lg.cols-3{grid-template-columns:repeat(3,1fr);max-width:760px;}
+  .diagram-row-lg .diagram-card{width:auto;padding:14px 16px 12px;}
+  .diagram-row-lg .diagram-card img{height:220px;}
+  .diagram-row-lg .dc-label{font-size:13px;margin-top:6px;}
+  .diagram-card .dc-label{font-size:11px;color:var(--txt-sec);margin-top:4px;}
 </style>
 </head>
 <body>
@@ -144,6 +153,20 @@
   <li>Haz clic en <b>Generar Torre</b> (o "Generar Monopolo").</li>
   <li>El panel derecho aparece con las secciones PROYECTO y GEOMETR&Iacute;A, editables en cualquier momento sin regenerar desde cero.</li>
 </ol>
+<div class="diagram-row-lg cols-3">
+  <div class="diagram-card">
+    <img src="img/ayuda_torres_tipo.jpg" alt="Panel Nueva Torre — selección de tipo de estructura">
+    <div class="dc-label">Nueva Torre — Tipo de estructura</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/ayuda_arriostrada_params.jpg" alt="Parámetros de geometría para torre arriostrada">
+    <div class="dc-label">Par&aacute;metros — Arriostrada</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/ayuda_monopolo_params.jpg" alt="Parámetros de geometría para monopolo">
+    <div class="dc-label">Par&aacute;metros — Monopolo</div>
+  </div>
+</div>
 
 <h2 id="ejemplos">Ejemplos precargados</h2>
 <p>El men&uacute; <b>Inicio &rarr; EJEMPLOS</b> trae 4 proyectos completos listos para explorar:</p>
@@ -152,8 +175,30 @@
   <span class="pill">Autosoportada 3P</span><span class="pill">Arriostrada</span>
 </div>
 <p style="font-size:11.5px;color:var(--txt-sec)">Incluidos directamente en la app &mdash; funcionan sin conexi&oacute;n a internet, en la app de escritorio y en el sitio publicado de GitHub Pages.</p>
+<div class="diagram-card" style="max-width:300px;">
+  <img src="img/ayuda_ejemplos_menu.jpg" alt="Menú Inicio → EJEMPLOS con los 4 proyectos precargados">
+  <div class="dc-label">Inicio &rarr; EJEMPLOS</div>
+</div>
 
 <h2 id="tipos">Tipos de estructura</h2>
+<div class="diagram-row-lg">
+  <div class="diagram-card">
+    <img src="img/tipo_3p.png" alt="Torre autosoportada de 3 piernas">
+    <div class="dc-label">Autosoportada 3P</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/tipo_4p.png" alt="Torre autosoportada de 4 piernas">
+    <div class="dc-label">Autosoportada 4P</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/tipo_arriostrada.png" alt="Torre arriostrada con retenidas">
+    <div class="dc-label">Arriostrada</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/tipo_monopolo.png" alt="Monopolo tubular">
+    <div class="dc-label">Monopolo</div>
+  </div>
+</div>
 <table>
   <thead><tr><th>Tipo</th><th>Descripci&oacute;n</th><th>Apoyos en la base</th></tr></thead>
   <tbody>
@@ -166,6 +211,10 @@
 
 <h2 id="secciones">Secciones y tramos</h2>
 <p>Toda torre se divide en <b>secciones</b> (o <b>tramos</b>, en Monopolo) apiladas verticalmente. En el panel derecho, dentro de "DETALLE POR SECCI&Oacute;N", cada tarjeta resume una secci&oacute;n. Los botones del encabezado son solo &iacute;cono: <b>&#128065;</b> a&iacute;sla esa secci&oacute;n en el visor 3D, <b>&#9998;</b> abre el modal completo de edici&oacute;n.</p>
+<div class="diagram-card" style="max-width:420px;">
+  <img src="img/ayuda_secciones_detalle.jpg" alt="Modal de detalle por sección/tramo">
+  <div class="dc-label">Modal de detalle por secci&oacute;n</div>
+</div>
 <p>Desde el modal de cada secci&oacute;n puedes editar (seg&uacute;n el tipo de estructura):</p>
 <ul>
   <li><b>Altura del tramo</b> y <b>Bah&iacute;as</b> &mdash; repeticiones verticales dentro del mismo tramo que generan nodos intermedios.</li>
@@ -178,6 +227,10 @@
   <li><b>Plan Bracing y Diafragma</b>: arriostramiento horizontal en planta (K, X, A-A con diafragma central). Se activa en el TOP del tramo o en el TOP de cada bah&iacute;a, con perfil independiente (Pb/Pb2).</li>
 </ul>
 <p>Cada campo de perfil es de solo lectura: haz clic sobre &eacute;l para abrir el <a href="#picker" style="color:var(--cyan)">buscador de perfiles</a> y asignar designaci&oacute;n + calidad de acero en un solo paso.</p>
+<div class="diagram-card" style="max-width:420px;">
+  <img src="img/ayuda_secciones_perfil_picker.jpg" alt="Campo de perfil con calidad de acero asignada">
+  <div class="dc-label">Perfil + calidad de acero en la misma caja</div>
+</div>
 <div class="callout info">
   <b>Insertar y eliminar tramos</b>
   El panel principal de la torre incluye botones para <b>insertar</b> un tramo nuevo (copia la configuraci&oacute;n del tramo anterior para agilizar el trabajo) y <b>eliminar</b> el tramo seleccionado. Toda la torre se regenera en tiempo real al confirmar, sin necesidad de regenerar todo el proyecto.
@@ -187,6 +240,11 @@
 <p>El bot&oacute;n &#128065; de cada tarjeta oculta el resto de la torre en el visor 3D y deja visible &uacute;nicamente esa secci&oacute;n (todos sus montantes, diagonales y horizontales, incluyendo todas las bah&iacute;as), con zoom autom&aacute;tico. Vuelve a pulsarlo para regresar a la vista normal. Es solo una ayuda visual: las tablas, el export y los c&aacute;lculos siempre usan la torre completa.</p>
 
 <h3 id="bracing">Patrones de arriostramiento</h3>
+<p>En CONFIGURACI&Oacute;N eliges el patr&oacute;n de diagonales mediante &iacute;conos visuales. Algunos patrones (Staggered) permiten <b>invertir la orientaci&oacute;n</b> de la diagonal; los patrones K incluyen un perfil secundario (Ds/Hs).</p>
+<div class="diagram-card" style="max-width:340px;">
+  <img src="img/ayuda_patrones_bracing.jpg" alt="Íconos de patrones de arriostramiento en CONFIGURACIÓN">
+  <div class="dc-label">Selector de patr&oacute;n en CONFIGURACI&Oacute;N</div>
+</div>
 <table>
   <thead><tr><th>Patr&oacute;n</th><th>Descripci&oacute;n</th><th>Perfil Hip/Secundario</th></tr></thead>
   <tbody>
@@ -204,6 +262,20 @@
 
 <h2 id="monopolo">Monopolo</h2>
 <p>Un monopolo se define por tramos <b>inclinados</b> (ahusados, di&aacute;metro decrece linealmente desde la base hacia la cima) o tramos <b>rectos</b> (di&aacute;metro constante). Seg&uacute;n el tipo elegido en el flyout:</p>
+<div class="diagram-row-lg cols-3">
+  <div class="diagram-card">
+    <img src="img/mono_troncoconico.jpg" alt="Monopolo Tronco-Cónico">
+    <div class="dc-label">Tronco-C&oacute;nico<br>(todo ahusado)</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/mono_escalonado.jpg" alt="Monopolo Escalonado">
+    <div class="dc-label">Escalonado<br>(di&aacute;metro fijo por tramo)</div>
+  </div>
+  <div class="diagram-card">
+    <img src="img/mono_combinado.jpg" alt="Monopolo Combinado">
+    <div class="dc-label">Combinado<br>(ahusado + recto)</div>
+  </div>
+</div>
 <table>
   <thead><tr><th>Tipo</th><th>Tramos inclinados</th><th>Tramos rectos</th><th>Descripci&oacute;n</th></tr></thead>
   <tbody>
@@ -233,6 +305,10 @@
   <li><b>Torre con pivote</b> &mdash; agrega una articulaci&oacute;n en la base del primer tramo.</li>
 </ul>
 <p>Cada nivel genera 3 cables en 120&deg; (torres 3P) o 4 cables en 90&deg; (torres 4P). Si el tri&aacute;ngulo estabilizador est&aacute; activo, agrega los brazos y el anillo de conexi&oacute;n. El perfil del cable (di&aacute;metro, calidad HS/EHS) se elige desde <a href="#retenidas-db" style="color:var(--cyan)">Bases de Datos &rarr; Retenidas</a>.</p>
+<div class="diagram-card" style="max-width:420px;">
+  <img src="img/ayuda_arriostrada_retenidas.jpg" alt="Configuración de niveles de retenidas en torre arriostrada">
+  <div class="dc-label">Niveles de retenidas — Torre arriostrada</div>
+</div>
 <hr>
 
 <h2 id="bases-datos">Bases de datos</h2>
@@ -276,6 +352,10 @@
 </tbody></table>
 <h3 id="inspeccion">Inspecci&oacute;n de miembros</h3>
 <p>Haz clic sobre cualquier pierna, diagonal, horizontal o cable en el visor 3D para resaltarlo y abrir un panel lateral con: secci&oacute;n y categor&iacute;a del miembro, <b>perfil asignado</b> y <b>calidad de acero</b>, longitud real, n&uacute;meros de nodo Inicio y Fin, e ID interno. Si tienes abierta la tabla Barras o Retenidas, el clic tambi&eacute;n resalta la fila correspondiente en esa tabla (selecci&oacute;n cruzada visor &#8596; tabla).</p>
+<div class="diagram-card" style="max-width:420px;">
+  <img src="img/ayuda_inspeccion_miembro.png" alt="Panel de inspección de miembro seleccionado">
+  <div class="dc-label">Panel de inspecci&oacute;n de miembro</div>
+</div>
 <hr>
 <h2 id="tablas">Tablas: Nodos / Barras / Retenidas</h2>
 <p>El men&uacute; <b>Tablas</b> de la barra del visor abre paneles flotantes y arrastrables &mdash; no bloquean el visor 3D, puedes seguir viendo los cambios en tiempo real.</p>
