@@ -3707,7 +3707,7 @@ renderer.domElement.addEventListener('pointerup',   e => {
 
 
 function towerBounds() {
-  const box = new THREE.Box3().setFromObject(towerGroup);
+  const box = new THREE.Box3().setFromObject(towerGroup, true);  // precise=true: recorre vértices reales, no bounding sphere cacheada
   if (box.isEmpty()) return null;
   return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()) };
 }
@@ -3719,7 +3719,7 @@ const _INITIAL_VIEW_DIR = new THREE.Vector3(-50, -50, 10).normalize();
 // dir opcional — dirección (desde el centro hacia la cámara) a encuadrar; por default
 // la vista isométrica de fábrica. Usada solo por la vista "3D" (ver setView) — Planta/
 // Alzados usan fitOrthoView() con la cámara ortográfica (orthoCamera), no esta.
-function fitView(dir = _INITIAL_VIEW_DIR) {
+function fitView(dir = _INITIAL_VIEW_DIR, padding = 1.08) {
   const b = towerBounds();
   if (!b) return;
   // Radio de la esfera que envuelve TODA la caja (torre + vientos/anclajes) y distancia
@@ -3735,10 +3735,11 @@ function fitView(dir = _INITIAL_VIEW_DIR) {
   // necesaria para el FOV horizontal y se usa la mayor de las dos (la que de verdad limita).
   const halfFovH = Math.atan(Math.tan(halfFovV) * camera.aspect);
   const distH = sphereRadius / Math.sin(halfFovH);
-  const dist = Math.max(distV, distH) * 1.08;
+  const dist = Math.max(distV, distH) * padding;
   controls.target.copy(b.center);
   camera.position.copy(b.center).addScaledVector(dir, dist);
   controls.update();
+  controls.saveState();   // fija el estado como base para que el damping no revierta la posición
   // La niebla (FogExp2) estaba calibrada para la distancia de cámara de fábrica (~71.4) —
   // a mayor distancia (torres muy altas o vientos muy abiertos) el mismo density desvanecía
   // todo el color. Se reescala para que density*distancia se mantenga constante.
@@ -3779,7 +3780,7 @@ function _applyOrthoFrustum() {
 // diferencia de fitView(), NO se usa la diagonal 3D completa — esas 2 vistas solo
 // muestran 2 de los 3 ejes, usar la diagonal 3D completa (incluida la altura en Planta)
 // deja la torre diminuta en el canvas (reporte del usuario, 2026-06-28: "y maximizada").
-function fitOrthoView(dir, up, dimW, dimH) {
+function fitOrthoView(dir, up, dimW, dimH, padding = 1.08) {
   const b = towerBounds();
   if (!b) return;
   orthoCamera.up.copy(up);
@@ -3789,7 +3790,7 @@ function fitOrthoView(dir, up, dimW, dimH) {
   orthoCamera.far = farDist * 2 + 100;
   controls.target.copy(b.center);
   const aspect = (wrap.clientWidth || 1) / (wrap.clientHeight || 1);
-  _orthoHalfHeight = Math.max(dimH / 2, (dimW / 2) / aspect) * 1.08;
+  _orthoHalfHeight = Math.max(dimH / 2, (dimW / 2) / aspect) * padding;
   _applyOrthoFrustum();
   orthoCamera.updateProjectionMatrix();
   controls.update();
@@ -3803,14 +3804,14 @@ function fitOrthoView(dir, up, dimW, dimH) {
   scene.fog.density = 0;
 }
 let _currentViewKey = '3d';
-function setView(viewKey) {
+function setView(viewKey, padding = 1.08) {
   _currentViewKey = viewKey;
   document.querySelectorAll('.view-opts .vo').forEach(el => el.classList.toggle('active', el.dataset.view === viewKey));
   if (viewKey === '3d') {
     activeCamera = camera;
     controls.object = camera;
     controls.enableRotate = true;
-    fitView(_INITIAL_VIEW_DIR);
+    fitView(_INITIAL_VIEW_DIR, padding);
     if (windForceLabelsOn) _redrawWindForceArrows();   // relabel: por nodo en 3D
     return;
   }
@@ -3826,7 +3827,7 @@ function setView(viewKey) {
   activeCamera = orthoCamera;
   controls.object = orthoCamera;
   controls.enableRotate = false;
-  fitOrthoView(dir, _VIEW_UPS[viewKey], dimW, dimH);
+  fitOrthoView(dir, _VIEW_UPS[viewKey], dimW, dimH, padding);
   if (windForceLabelsOn) _redrawWindForceArrows();   // relabel: por sección en 2D
 }
 // Reencuadrar respetando la vista activa (3D/Planta/Alzados) — usado por todo lo que
@@ -3836,7 +3837,7 @@ function setView(viewKey) {
 // Alzado (cámara ortográfica) ese reencuadre no se veía Y la niebla volvía encendida —
 // "se vuelven a ver opacas las secciones" al aislar un tramo, reporte del usuario
 // (2026-06-28). setView() ya hace lo correcto para cualquier modo, incluido '3d'.
-function refitView() { setView(_currentViewKey); }
+function refitView(padding = 1.08) { setView(_currentViewKey, padding); }
 
 // Aislar/restaurar un tramo desde su tarjeta en DETALLE POR SECCIÓN. refresh() vuelve a
 // dibujar solo ese tramo (ver filtro en renderTower), y fitView() reusa towerBounds()
@@ -3845,8 +3846,9 @@ function refitView() { setView(_currentViewKey); }
 function toggleAislarTramo(i) {
   aislarTramoSec = (aislarTramoSec === i) ? null : i;
   refresh();
-  refitView();
   buildSectionRows(secData.length);
+  const pad = aislarTramoSec !== null ? 0.70 : 1.08;
+  requestAnimationFrame(() => requestAnimationFrame(() => refitView(pad)));
 }
 function toggleAutoOrbit() {
   controls.autoRotate = !controls.autoRotate;
@@ -3862,7 +3864,11 @@ function _buildNodeLabels() {
   _clearNodeLabels();
   if (!_towerData) return;
   const { newId } = _staadNodeRenumber(_towerData.nodes, _towerData.members);
+  const _usedNI = aislarTramoSec !== null
+    ? new Set(_towerData.members.filter(m => m.sec === aislarTramoSec).flatMap(m => [m.ni, m.nj]))
+    : null;
   _towerData.nodes.forEach((n, i) => {
+    if (_usedNI !== null && !_usedNI.has(i)) return;
     const wrap = document.createElement('div');
     wrap.className = 'node-marker';
     const num = document.createElement('div');
@@ -3901,6 +3907,7 @@ function _buildProfileLabels() {
   _clearProfileLabels();
   if (!_towerData) return;
   _towerData.members.forEach(m => {
+    if (aislarTramoSec !== null && m.sec !== aislarTramoSec) return;
     const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
     const div = document.createElement('div');
     div.className = 'profile-id-label';
@@ -3933,6 +3940,7 @@ function _buildStaadLabels() {
   const { nodes, members } = _towerData;
   const { newId } = _staadMemberRenumber(nodes, members);
   members.forEach((m, i) => {
+    if (aislarTramoSec !== null && m.sec !== aislarTramoSec) return;
     const ni = nodes[m.ni], nj = nodes[m.nj];
     const div = document.createElement('div');
     div.className = 'staad-id-label';
@@ -4058,8 +4066,10 @@ function _redrawWindForceArrows() {
   const maxF = Math.max(...(_windForceResults.map(r => r.F_kgf)), 1e-6);
   const maxLenPx = 55, minLenPx = 9;
   // ── Flechas: una por nodo de pierna ──────────────────────────────
+  // r.sec es 1-based; aislarTramoSec es 0-based → comparar con +1
+  const _secFilter = r => aislarTramoSec === null || r.sec === aislarTramoSec + 1;
   _windForceResults.forEach(r => {
-    if (!windForcesOn || !(r.F_kgf > 0)) return;
+    if (!windForcesOn || !(r.F_kgf > 0) || !_secFilter(r)) return;
     const n = _towerData.nodes[r.nodeIdx];
     const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
     const len = lenPx * wupp;
@@ -4076,7 +4086,7 @@ function _redrawWindForceArrows() {
     if (_currentViewKey === '3d') {
       // Un label por nodo
       _windForceResults.forEach(r => {
-        if (!(r.F_kgf > 0)) return;
+        if (!(r.F_kgf > 0) || !_secFilter(r)) return;
         const n = _towerData.nodes[r.nodeIdx];
         const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
         const len = lenPx * wupp;
@@ -4095,7 +4105,7 @@ function _redrawWindForceArrows() {
       // Un label por sección en el centroide
       const bySec = {};
       _windForceResults.forEach(r => {
-        if (!(r.F_kgf > 0)) return;
+        if (!(r.F_kgf > 0) || !_secFilter(r)) return;
         const n = _towerData.nodes[r.nodeIdx];
         if (!bySec[r.sec]) bySec[r.sec] = { total: 0, cx: 0, cy: 0, cz: 0, count: 0, dir: r.dir };
         bySec[r.sec].total += r.F_kgf;
@@ -4468,7 +4478,13 @@ function renderTower(data) {
   // Nodos de intersección (puntos auxiliares de los patrones de celosía)
   const sn = data.structNodes ?? data.nodes.length;
   const ptInt = [];
-  data.nodes.forEach((n, i) => { if (i >= sn) ptInt.push(n.x, n.y, n.z); });
+  // Al aislar un tramo, mostrar solo los nodos referenciados por sus miembros
+  const _usedNI = aislarTramoSec !== null
+    ? new Set(membersToDraw.flatMap(m => [m.ni, m.nj]))
+    : null;
+  data.nodes.forEach((n, i) => {
+    if (i >= sn && (_usedNI === null || _usedNI.has(i))) ptInt.push(n.x, n.y, n.z);
+  });
   if (ptInt.length) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(ptInt, 3));
@@ -7275,7 +7291,11 @@ function generateTowerFromSetup() {
 
   _applyDefaultLabels();
   renderTower(generateTower(getConfig()));  // sin overrides — torre recién generada
-  refitView();
+  // Diferir refitView al siguiente frame: resizeRenderer() (ResizeObserver) actualiza
+  // camera.aspect DESPUÉS del layout, y ese layout ocurre al abrirse el rpanel. Si
+  // llamamos refitView() sincrónico aquí, camera.aspect es el ancho anterior → cámara
+  // mal posicionada. padding 0.85 centra y rellena más el canvas.
+  requestAnimationFrame(() => refitView(0.85));
   document.getElementById('status').textContent =
     `Torre generada · ${document.getElementById('s-asset').value || '—'}`;
   resetHistory();
@@ -7461,7 +7481,36 @@ function renderAntenas3D() {
   });
   antenasGroup.visible = antenasOn && !windForcesOn;
   const cfg = getConfig();
-  antenasData.forEach(a => {
+  // Rango de alturas de la sección aislada (para filtrar qué antenas mostrar)
+  let _secMinZ = -Infinity, _secMaxZ = Infinity;
+  if (aislarTramoSec !== null) {
+    let cumH = 0;
+    for (let j = 0; j < secData.length; j++) {
+      const h = +secData[j].h || 0;
+      if (j === aislarTramoSec) { _secMinZ = cumH; _secMaxZ = cumH + h; break; }
+      cumH += h;
+    }
+  }
+  // Offset perpendicular para antenas en el mismo azimut y altura: derecha primero, luego izquierda.
+  // Separación 60 cm entre aristas (step = ancho + 0.60 m).
+  const _perpOff = new Array(antenasData.length).fill(0);
+  {
+    const grps = {};
+    antenasData.forEach((a, i) => {
+      const k = `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
+      (grps[k] = grps[k] || []).push(i);
+    });
+    Object.values(grps).forEach(grp => {
+      const N = grp.length;
+      if (N < 2) return;
+      const step = (+antenasData[grp[0]].ancho || 0.25) + 0.60;
+      grp.forEach((idx, k) => { _perpOff[idx] = ((N - 1) / 2 - k) * step; });
+    });
+  }
+
+  antenasData.forEach((a, dataIdx) => {
+    // Si hay sección aislada, solo dibujar antenas cuyo centroide esté en ese rango
+    if (aislarTramoSec !== null && (+a.z < _secMinZ || +a.z > _secMaxZ)) return;
     const W  = +a.ancho   || 0.25;
     const H  = +a.alto    || 1.2;
     const E  = +a.espesor || 0.06;
@@ -7471,8 +7520,10 @@ function renderAntenas3D() {
     const halfW = ((1 - t) * (cfg.baseW || 4) + t * (cfg.topW || 2)) / 2;
     // 60 cm desde la cara exterior de las piernas + la mitad del espesor de la antena
     const radialOffset = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.60 + E / 2;
-    const px = Math.sin(az) * radialOffset;
-    const py = Math.cos(az) * radialOffset;
+    // Offset perpendicular al azimut (dirección derecha: cos(az), -sin(az))
+    const perp = _perpOff[dataIdx];
+    const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
+    const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
     const pz = +a.z || 0;   // h = centroide de la antena
     // ExtrudeGeometry: sección en plano XY (con esquinas redondeadas), extruida a lo largo de Z (arriba)
     const shape = _antenaShape(W, E);
@@ -7515,6 +7566,7 @@ function switchToTorre() {
     // Ya hay torre — mostrar info panel, cerrar flyout
     closeTorreFlyout();
     document.getElementById('rpanel').classList.add('visible');
+    document.getElementById('rpanel-info').classList.add('visible');
   } else {
     // Sin torre — abrir flyout, ocultar rpanel
     document.getElementById('rpanel').classList.remove('visible');
@@ -11570,7 +11622,7 @@ function loadProjectData(cfg, filename) {
       buildSectionRows(cfg.secData.length || (cfg.nInc + cfg.nStr));
       refresh();
     }
-    refitView();
+    requestAnimationFrame(() => refitView(0.85));
     document.getElementById('status').textContent = `Proyecto cargado: ${filename}`;
     resetHistory();
   } catch {
