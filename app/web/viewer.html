@@ -3736,6 +3736,7 @@ window.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') { _rotateCameraBy(ARROW_ROTATE_STEP, 0); e.preventDefault(); }
   else if (e.key === 'ArrowUp')    { _rotateCameraBy(0, -ARROW_ROTATE_STEP); e.preventDefault(); }
   else if (e.key === 'ArrowDown')  { _rotateCameraBy(0, ARROW_ROTATE_STEP); e.preventDefault(); }
+  else if (e.key === 'p' || e.key === 'P') { togglePanMode(); e.preventDefault(); }
 });
 
 controls.saveState();
@@ -5576,6 +5577,7 @@ function _onTopoCatChange() {
 // torre queda activa/visible a la derecha mientras se ajusta el viento (pedido explícito
 // del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
 function openVientoFlyout() {
+  if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   closeTorreFlyout();
   closeAntenasFlyout();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
@@ -7620,6 +7622,7 @@ function closeTorreFlyout() {
 const _ANT_TIPOS = ['Panel', 'Parabólica sin radomo', 'Parabólica con radomo', 'Parabólica cilíndrica', 'Parabólica grid', 'RRU', 'Otros'];
 
 function openAntenasFlyout() {
+  if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   closeTorreFlyout();
   closeVientoFlyout();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
@@ -8097,61 +8100,164 @@ function renderAntenas3D() {
       // ── Antena parabólica / microwave dish ───────────────────────────────
       const D = W;
       const r = D / 2;
-      const depth = Math.max(0.06, D * 0.18);      // profundidad del cuenco
-      const fLen  = (r * r) / (4 * depth);         // longitud focal
-      const isGrid = a.tipo === 'Parabólica grid';
-      const axX = Math.sin(az), axY = Math.cos(az);
+      const depth = Math.max(0.06, D * 0.18);   // profundidad del reflector
+      const fLen  = (r * r) / (4 * depth);      // distancia focal
 
-      // Vértice del cuenco a ~30 cm de la cara de la torre
       const radialOff = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.30;
-      const px = axX * radialOff + perp * Math.cos(az);
-      const py = axY * radialOff - perp * Math.sin(az);
+      const px = Math.sin(az) * radialOff + perp * Math.cos(az);
+      const py = Math.cos(az) * radialOff - perp * Math.sin(az);
       const pz = +a.z || 0;
 
-      // Cuenco parabólico — LatheGeometry gira el perfil 360° alrededor del eje Y.
-      // Con rotation.z = -az, el eje Y apunta en la dirección del azimut, por lo que
-      // el cuenco se abre hacia el frente (dirección del enlace).
-      const profilePts = [];
-      for (let i = 0; i <= 16; i++) {
-        const xi = (i / 16) * r;
-        profilePts.push(new THREE.Vector2(xi, (xi * xi) / (4 * fLen)));
-      }
-      const colDish = isGrid ? 0x607090 : 0xF0F2F4;
-      const geoReflector = new THREE.LatheGeometry(profilePts, 36);
-      const matReflector = new THREE.MeshBasicMaterial({ color: colDish, side: THREE.DoubleSide, wireframe: isGrid });
-      const reflector = new THREE.Mesh(geoReflector, matReflector);
-      reflector.rotation.z = -az;
-      reflector.position.set(px, py, pz);
-      antenasGroup.add(reflector);
+      // Group con rotation.z=-az: el eje Y del grupo apunta hacia el azimut.
+      // Todos los objetos se colocan en coordenadas locales donde Y = eje de la antena.
+      const dg = new THREE.Group();
+      dg.rotation.z = -az;
+      dg.position.set(px, py, pz);
+      antenasGroup.add(dg);
 
-      // Aro estructural en el borde del cuenco (posicionado en el plano de la apertura)
+      // Tubo entre dos puntos en espacio local del grupo
+      const mkTube = (p1, p2, tr, col) => {
+        const dir = new THREE.Vector3().subVectors(p2, p1);
+        const L = dir.length();
+        if (!(L > 1e-6)) return;
+        const m = new THREE.Mesh(
+          new THREE.CylinderGeometry(tr, tr, L, 5),
+          new THREE.MeshBasicMaterial({ color: col }));
+        m.position.copy(new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5));
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+        dg.add(m);
+      };
+
+      // Perfil parabólico (radio, profundidad) para LatheGeometry
+      const bowlPts = (n = 18) => {
+        const pts = [];
+        for (let i = 0; i <= n; i++) {
+          const xi = (i / n) * r;
+          pts.push(new THREE.Vector2(xi, (xi * xi) / (4 * fLen)));
+        }
+        return pts;
+      };
+
       const rimW = Math.max(0.010, r * 0.030);
-      const geoRim = new THREE.RingGeometry(r - rimW * 0.5, r + rimW * 1.5, 48);
-      const matRim = new THREE.MeshBasicMaterial({ color: 0xA0A8B0, side: THREE.DoubleSide });
-      const rim = new THREE.Mesh(geoRim, matRim);
-      rim.rotation.x = -Math.PI / 2;
-      rim.rotation.z = -az;
-      rim.position.set(px + axX * depth, py + axY * depth, pz);
-      antenasGroup.add(rim);
 
-      // Alimentador (feed horn) en el punto focal
-      const hornR = Math.max(0.018, r * 0.06);
-      const geoHorn = new THREE.CylinderGeometry(hornR * 0.6, hornR, hornR * 2.5, 8);
-      const matHorn = new THREE.MeshBasicMaterial({ color: 0x384048 });
-      const horn = new THREE.Mesh(geoHorn, matHorn);
-      horn.rotation.z = -az;
-      horn.position.set(px + axX * fLen, py + axY * fLen, pz);
-      antenasGroup.add(horn);
+      if (a.tipo === 'Parabólica sin radomo') {
+        // ── Cuenco abierto + 3 patas + feed horn ──────────────────────────
+        dg.add(new THREE.Mesh(new THREE.LatheGeometry(bowlPts(), 36),
+          new THREE.MeshBasicMaterial({ color: 0xEEEEF0, side: THREE.DoubleSide })));
+        // Aro del borde
+        const mRim = new THREE.Mesh(new THREE.RingGeometry(r - rimW, r + rimW * 2, 48),
+          new THREE.MeshBasicMaterial({ color: 0x909090, side: THREE.DoubleSide }));
+        mRim.rotation.x = Math.PI / 2;  mRim.position.y = depth;
+        dg.add(mRim);
+        // 3 patas del alimentador
+        const sR = Math.max(0.005, r * 0.014);
+        const focal = new THREE.Vector3(0, fLen, 0);
+        for (let i = 0; i < 3; i++) {
+          const phi = (i / 3) * Math.PI * 2;
+          const sr = r * 0.78;
+          mkTube(new THREE.Vector3(sr * Math.cos(phi), (sr * sr) / (4 * fLen), sr * Math.sin(phi)), focal, sR, 0x889090);
+        }
+        // Feed horn
+        const hR = Math.max(0.016, r * 0.055);
+        const horn = new THREE.Mesh(new THREE.CylinderGeometry(hR * 0.45, hR, hR * 2.5, 8),
+          new THREE.MeshBasicMaterial({ color: 0x303840 }));
+        horn.position.y = fLen;
+        dg.add(horn);
 
-      // Radomo: disco semitransparente blanco en la apertura (solo con radomo)
-      if (a.tipo === 'Parabólica con radomo') {
-        const geoDome = new THREE.CircleGeometry(r * 1.01, 48);
-        const matDome = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, opacity: 0.65, transparent: true });
-        const dome = new THREE.Mesh(geoDome, matDome);
-        dome.rotation.x = -Math.PI / 2;
-        dome.rotation.z = -az;
-        dome.position.set(px + axX * depth, py + axY * depth, pz);
-        antenasGroup.add(dome);
+      } else if (a.tipo === 'Parabólica con radomo') {
+        // ── Cuenco + domo convexo frontal + flange lateral (forma de lente) ─
+        // Reflector trasero (visible solo desde atrás)
+        dg.add(new THREE.Mesh(new THREE.LatheGeometry(bowlPts(), 36),
+          new THREE.MeshBasicMaterial({ color: 0xE0E2E8, side: THREE.BackSide })));
+        // Flange cilíndrico: va de y=0 (tapa) a y=fH (arista frontal del aro)
+        const flangeRim = Math.max(0.012, r * 0.05);
+        const fH = depth + flangeRim;
+        const fT = Math.max(0.014, r * 0.045);
+        const mFlange = new THREE.Mesh(
+          new THREE.CylinderGeometry(r + fT, r + fT, fH, 36, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0xC0C2C8, side: THREE.DoubleSide }));
+        mFlange.position.y = fH / 2;
+        dg.add(mFlange);
+        // Tapa trasera
+        const mBack = new THREE.Mesh(new THREE.CircleGeometry(r + fT, 36),
+          new THREE.MeshBasicMaterial({ color: 0xB8BAC0, side: THREE.DoubleSide }));
+        mBack.rotation.x = Math.PI / 2;
+        dg.add(mBack);
+        // Domo convexo ("chipote"): borde arranca en y=fH (arista del flange), pico en y=fH+chipoteH
+        const chipoteH = r * 0.66;
+        // Arco circular: esfera que pasa por (r, fH) y tiene pico en (0, fH+chipoteH)
+        const Rc = (r * r + chipoteH * chipoteH) / (2 * chipoteH);
+        const yc = fH + chipoteH - Rc;
+        const dPts = [];
+        for (let i = 0; i <= 24; i++) {
+          const xi = (i / 24) * r;
+          dPts.push(new THREE.Vector2(xi, yc + Math.sqrt(Math.max(0, Rc * Rc - xi * xi))));
+        }
+        dg.add(new THREE.Mesh(new THREE.LatheGeometry(dPts, 36),
+          new THREE.MeshBasicMaterial({ color: 0xF2F4F6, side: THREE.DoubleSide })));
+
+      } else if (a.tipo === 'Parabólica cilíndrica') {
+        // ── Cuenco + shroud cilíndrico que sobresale hacia adelante ──────────
+        dg.add(new THREE.Mesh(new THREE.LatheGeometry(bowlPts(), 36),
+          new THREE.MeshBasicMaterial({ color: 0xD0D4D8, side: THREE.DoubleSide })));
+        const sLen = depth + r * 0.60;   // el shroud sobresale de la apertura
+        const sT   = Math.max(0.014, r * 0.045);
+        const mShroud = new THREE.Mesh(
+          new THREE.CylinderGeometry(r + sT, r + sT, sLen, 36, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0xB0B4B8, side: THREE.DoubleSide }));
+        mShroud.position.y = sLen / 2;
+        dg.add(mShroud);
+        // Tapa trasera
+        const mBack2 = new THREE.Mesh(new THREE.CircleGeometry(r + sT, 36),
+          new THREE.MeshBasicMaterial({ color: 0xB0B4B8, side: THREE.DoubleSide }));
+        mBack2.rotation.x = Math.PI / 2;
+        dg.add(mBack2);
+        // Feed horn visible desde la apertura delantera
+        const hR2 = Math.max(0.016, r * 0.055);
+        const horn2 = new THREE.Mesh(new THREE.CylinderGeometry(hR2 * 0.45, hR2, hR2 * 2.5, 8),
+          new THREE.MeshBasicMaterial({ color: 0x303840 }));
+        horn2.position.y = fLen;
+        dg.add(horn2);
+
+      } else {
+        // ── Parabólica grid: barras radiales + anillos + brazo + feed horn ──
+        const bR  = Math.max(0.004, r * 0.013);
+        const bCol = 0xD4D8DC;
+        // Aro exterior
+        const mRimG = new THREE.Mesh(new THREE.TorusGeometry(r, bR * 2.5, 6, 48),
+          new THREE.MeshBasicMaterial({ color: bCol }));
+        mRimG.rotation.x = Math.PI / 2;  mRimG.position.y = depth;
+        dg.add(mRimG);
+        // 16 barras radiales siguiendo la parábola (3 segmentos cada una)
+        for (let i = 0; i < 16; i++) {
+          const phi = (i / 16) * Math.PI * 2;
+          let prev = new THREE.Vector3(0, 0, 0);
+          for (let s = 1; s <= 3; s++) {
+            const xi = (s / 3) * r;
+            const cur = new THREE.Vector3(xi * Math.cos(phi), (xi * xi) / (4 * fLen), xi * Math.sin(phi));
+            mkTube(prev, cur, bR, bCol);
+            prev = cur;
+          }
+        }
+        // 3 anillos concéntricos a lo largo de la parábola
+        for (let ri = 1; ri <= 3; ri++) {
+          const rr  = (ri / 4) * r;
+          const mRi = new THREE.Mesh(new THREE.TorusGeometry(rr, bR * 2, 5, 32),
+            new THREE.MeshBasicMaterial({ color: bCol }));
+          mRi.rotation.x = Math.PI / 2;
+          mRi.position.y = (rr * rr) / (4 * fLen);
+          dg.add(mRi);
+        }
+        // Brazo único del alimentador
+        const aR = Math.max(0.006, r * 0.018), axi = r * 0.80;
+        mkTube(new THREE.Vector3(axi, (axi * axi) / (4 * fLen), 0),
+               new THREE.Vector3(0, fLen, 0), aR, 0xB8BCC0);
+        // Feed horn
+        const hR3 = Math.max(0.014, r * 0.048);
+        const horn3 = new THREE.Mesh(new THREE.CylinderGeometry(hR3 * 0.4, hR3, hR3 * 2, 6),
+          new THREE.MeshBasicMaterial({ color: 0x404848 }));
+        horn3.position.y = fLen;
+        dg.add(horn3);
       }
     } else {
       // ── Panel / RRU / Otros (forma extruida rectangular) ─────────────────
@@ -8186,6 +8292,7 @@ function applyAntenas() {
 }
 
 function switchToTorre() {
+  if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
   closeVientoFlyout();
