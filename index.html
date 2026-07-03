@@ -507,6 +507,7 @@ body {
    mientras esa vista está activa (ver switchTab); el panel de info normal sigue en
    272px. */
 .rpanel.wide { width: 560px; }
+.rpanel.ant-wide { width: 400px; }
 
 /* ── Info panel (único view del rpanel ahora) ────────────────── */
 #rpanel-info { display: none; flex-direction: column; flex: 1; min-height: 0; }
@@ -1740,6 +1741,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-altInc"><span class="tf-lbl">ALTURA INCLINADA (m)</span>
           <input class="tf-input" type="number" id="s-altInc" value="24" min="0" step="0.5" oninput="buildSetupPreview()"></div>
+        <div class="tf-row" id="s-row-altBaseConst" style="display:none;"><span class="tf-lbl">ALTURA BASE CONSTANTE (m)</span>
+          <input class="tf-input" type="number" id="s-altBaseConst" value="0" min="0" step="0.5" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-nstr" style="display:none;"><span class="tf-lbl" id="s-nstr-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
         <input type="hidden" id="s-nInc" value="0">
@@ -1751,6 +1754,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-monoTramosRec" value="2" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoAperturas" style="display:none;"><span class="tf-lbl">DIÁMETRO DE CADA TRAMO RECTO (m)</span>
           <div id="s-monoAperturas-list" style="display:flex;flex-direction:column;gap:4px;"></div></div>
+        <div class="tf-row" id="s-row-guyShape"><span class="tf-lbl">FORMA DEL MÁSTIL</span>
+          <select class="tf-input" id="s-guyShape" onchange="buildSetupPreview()">
+            <option value="triangular" style="background:#1a1a1a;color:#fff;">Triangular (3 piernas)</option>
+            <option value="square" style="background:#1a1a1a;color:#fff;">Cuadrada (4 piernas)</option>
+          </select>
+        </div>
         <div class="tf-row" id="s-row-guyApertura"><span class="tf-lbl">APERTURA (m) — constante</span>
           <input class="tf-input" type="number" id="s-shaftW" value="1" min="0.3" max="10" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-guyAnchorR"><span class="tf-lbl">RADIO DE RETENIDAS INICIAL (m)</span>
@@ -2061,12 +2070,23 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <span class="flbl">Altura inclinada (m):</span>
             <input class="ctrl-input" type="number" id="alturaInclinada" value="24" min="0" step="0.5" oninput="onAltIncChange()">
           </div>
+          <div class="frow" id="row-altBaseConst-main" style="display:none;">
+            <span class="flbl">Altura base constante (m):</span>
+            <input class="ctrl-input" type="number" id="altBaseConst" value="0" min="0" step="0.5" oninput="onAltIncChange()">
+          </div>
           <!-- nInc / nStr ocultos — se calculan dinámicamente desde alturaInclinada -->
           <input type="hidden" id="nInc" value="0">
           <input type="hidden" id="nStr" value="0">
 
           <div id="guyed-params">
             <div class="sep"></div>
+            <div class="frow">
+              <span class="flbl">Forma:</span>
+              <select id="guyShape" style="background:var(--bg-sec);color:var(--txt-pri);border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:12px;" onchange="refresh()">
+                <option value="triangular" style="background:#1a1a1a;color:#fff;">Triangular (3P)</option>
+                <option value="square" style="background:#1a1a1a;color:#fff;">Cuadrada (4P)</option>
+              </select>
+            </div>
             <div class="frow">
               <span class="flbl">Torre con pivote:</span>
               <input type="checkbox" id="guyPivot" onchange="setPivotSection(this.checked)">
@@ -2826,9 +2846,13 @@ function genMixed(cfg, ANG, radiusFn) {
   const secH = sec => +secData[sec]?.h || 6;
   const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
     : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
+  const altBC = cfg.altBaseConst || 0;
+  const taperRange = zInc - altBC;
 
   const levelAt = z => {
-    const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
+    let t;
+    if (z <= altBC) t = 0;
+    else t = taperRange > 0 ? Math.min((z - altBC) / taperRange, 1) : 1;
     const R = radiusFn(t);
     return ANG.map(a => addNode(nodes, R*Math.cos(a), R*Math.sin(a), z));
   };
@@ -2867,23 +2891,24 @@ function genSquare(cfg) {
 }
 
 function genGuyed(cfg) {
-  // Mismo ajuste que genTriangular: ángulo original [90,210,330] + 180° (sin el +15° que se
-  // había agregado antes) — ver comentario en genTriangular.
-  const ANG = [270,30,150].map(d => d*Math.PI/180);
+  // Forma del mástil: triangular (3 piernas, 120° de separación) o cuadrada (4 piernas, 90°).
+  // Los ángulos siguen la misma convención que genTriangular/genSquare (+180° = flip x/y).
+  const isSquareGuyed = cfg.guyShape === 'square';
+  const ANG = isSquareGuyed
+    ? [225,315,45,135].map(d => d*Math.PI/180)
+    : [270,30,150].map(d => d*Math.PI/180);
+  const nLegs = isSquareGuyed ? 4 : 3;
+  // R0 = circunradio del polígono con lado shaftW:
+  // triangular: shaftW/√3 ; cuadrada: shaftW·√2/2
+  const R0 = isSquareGuyed ? cfg.shaftW * Math.SQRT2 / 2 : cfg.shaftW / Math.sqrt(3);
+
   const {nodes, members, lnodes} = initBuffers();
-  const R0 = cfg.shaftW/Math.sqrt(3);
   const nTot = cfg.nsec;
   if (nTot === 0) return {nodes, members};
   const secH = sec => +secData[sec]?.h || 6;
 
-  // Torre con pivote: la Sección 1 ES la pirámide — las 3 piernas se unen en un punto en
-  // la base (z=0) y se abren hasta la Apertura normal (R0) al final de esa sección (su
-  // propia altura, secData[0].h, editable como cualquier otra sección). El radio crece de
-  // forma CONSTANTE (lineal) en toda la sección, sin distorsión de pendiente.
-  // La sección se divide en (bahías+1) partes iguales; la primera división (la más cercana
-  // al ápice) no lleva bracing — las "bahías" que el usuario configura son las divisiones
-  // 2..bahías+1. No se duplica ningún elemento: cada división sigue teniendo exactamente
-  // un tramo de pierna por pata, con o sin bracing según corresponda.
+  // Torre con pivote: la Sección 1 ES la pirámide — las piernas se unen en un punto en
+  // la base (z=0) y se abren hasta la Apertura normal (R0) al final de esa sección.
   const pivotSecH = cfg.guyPivot ? secH(0) : 0;
   const radiusAt = z => (cfg.guyPivot && pivotSecH > 0 && z < pivotSecH) ? R0 * (z / pivotSecH) : R0;
   const levelAt = z => ANG.map(a => {
@@ -2911,21 +2936,22 @@ function genGuyed(cfg) {
   }
 
   const patterns = secData.map(s => s?.diag || 'X');
-  addMembersWithSecs(nodes, members, lnodes, 3, secForLevel, patterns, noBraceSpans);
+  addMembersWithSecs(nodes, members, lnodes, nLegs, secForLevel, patterns, noBraceSpans);
 
-  // El Azimut del usuario es una "máscara" sobre el ángulo interno: 0°→270°, 120°→30°,
-  // 240°→150° (offset fijo de +270°, igual que ANG=[270,30,150] de las piernas). Los anclajes
-  // se agrupan de 3 en 3 en "anillos" (nodos A{anillo}{a,b,c}) solo para nomenclatura/acceso
-  // rápido — cada nivel de retenida puede marcar CUALQUIER conjunto de nodos (incluso 4+, por
-  // topografía/zona arrendada). Cada nodo marcado conecta automáticamente a la pierna más
-  // cercana angularmente (puede haber más de un nodo por pierna).
+  // Ángulos internos de las piernas en grados — usados para asignar anclajes al leg más cercano.
+  // El offset +270° convierte azimut de usuario (0°=Norte) al ángulo interno del sistema ANG.
+  // Triangular: piernas a [270,30,150]° → usuario [0,120,240]°
+  // Cuadrada:   piernas a [225,315,45,135]° → usuario [315,45,135,225]°
+  const legAnglesDeg = isSquareGuyed ? [225,315,45,135] : [270,30,150];
+  const defaultAnchors = isSquareGuyed
+    ? [315,45,135,225].map(az => ({elev:0, radio:15, azimut:az}))
+    : [0,120,240].map(az => ({elev:0, radio:15, azimut:az}));
   const anchorDefsAll = (cfg.guyAnchorData && cfg.guyAnchorData.length ? cfg.guyAnchorData
-    : [0,120,240].map(az => ({elev:0, radio:15, azimut:az})));
+    : defaultAnchors);
   const ancIdsAll = anchorDefsAll.map(a => {
     const rad = (a.azimut + 270) * Math.PI/180;
     return addNode(nodes, a.radio*Math.cos(rad), a.radio*Math.sin(rad), a.elev);
   });
-  const legAnglesDeg = [270, 30, 150];   // mismo orden que ANG, en grados
   const nearestLeg = azimutUser => {
     const target = (azimutUser + 270 + 360) % 360;
     let best = 0, bestDiff = Infinity;
@@ -2952,9 +2978,10 @@ function genGuyed(cfg) {
     }
     const cd = cfg.guyCableData?.[g-1];
     const nodeIdxs = cd?.nodes;
-    const useNodes = (Array.isArray(nodeIdxs) && nodeIdxs.length) ? nodeIdxs : [0,1,2].filter(i => i < ancIdsAll.length);
+    const useNodes = (Array.isArray(nodeIdxs) && nodeIdxs.length) ? nodeIdxs
+      : Array.from({length: nLegs}, (_, i) => i).filter(i => i < ancIdsAll.length);
 
-    if (cd?.triangulo) {
+    if (cd?.triangulo && !isSquareGuyed) {
       // Triángulo estabilizador: 3 vértices entre piernas adyacentes (bisectriz), a
       // brazoLen del eje. Los brazos son miembros reales pierna→vértice (2 por pierna).
       // Cada anclaje que antes iba directo a su pierna ahora manda 2 cables: al vértice
@@ -4137,6 +4164,13 @@ function _buildWindForceArrows() {
 function toggleWindForces() {
   windForcesOn = !windForcesOn;
   document.getElementById('tab-cargasviento').classList.toggle('active', windForcesOn);
+  // Exclusión mutua con Antenas: al activar viento, apagar antenas
+  if (windForcesOn && antenasOn) {
+    antenasOn = false;
+    document.getElementById('tab-antenas').classList.remove('active');
+    document.getElementById('rpanel-antenas').classList.remove('visible');
+    if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
+  }
   antenasGroup.visible = antenasOn && !windForcesOn;
   if (windForcesOn && !_windForceResults) _buildWindForceArrows();
   else if (!windForcesOn && !windForceLabelsOn) { _windForceResults = null; _clearWindForceArrows(); }
@@ -5729,8 +5763,21 @@ function _zIncForCfg(cfg) {
   return z;
 }
 function _faceWidthAt(cfg, z) {
+  if (cfg.type === 'guyed') {
+    // Tramo pivote: el ancho va de 0 (base) a shaftW (tope de esa sección), linealmente.
+    // Al evaluar en el punto medio z = pivotH/2 → devuelve shaftW/2, por lo que
+    // grossArea = (shaftW/2) * pivotH = shaftW * pivotH / 2 (área triangular).
+    if (cfg.guyPivot) {
+      const pivotH = +cfg.secData?.[0]?.h || 0;
+      if (pivotH > 0 && z < pivotH) return (cfg.shaftW || 0) * z / pivotH;
+    }
+    return cfg.shaftW || 0;
+  }
   const zInc = _zIncForCfg(cfg);
-  const t = zInc > 0 ? Math.min(z/zInc, 1) : 1;
+  const altBC = cfg.altBaseConst || 0;
+  if (z <= altBC) return cfg.baseW;
+  const taperRange = zInc - altBC;
+  const t = taperRange > 0 ? Math.min((z - altBC) / taperRange, 1) : 1;
   return cfg.baseW + (cfg.topW - cfg.baseW) * t;
 }
 // Ancho proyectado (m) de un perfil — leg1 (ángulos li/ld) o diametro (oc/os), convertido
@@ -5872,7 +5919,7 @@ function _cfFromEpsilon(epsilon, isRound, isTriangular) {
 // θ en grados desde la normal a la cara. epsilon solo se usa para cuadrada en 45°.
 function _tiaDfDr(towerType, angleDeg, epsilon) {
   const th = Math.abs(angleDeg) % 180;
-  if (towerType === 'triangular') {
+  if (towerType === 'triangular' || towerType === 'guyed') {
     // Normal=0°→Df=1.0, 60°→0.80, ±90°→0.85; Dr=1.0 siempre
     let Df;
     if (th <= 60)       Df = 1.0  + (0.80 - 1.0 ) * (th / 60);
@@ -5907,10 +5954,10 @@ function _tiaRr(epsilon, C) {
 // Nota: Rr requiere C = [Kz·Kzt·Ke]^0.5·V·D por cada miembro redondo; con Ar=0 no aplica.
 // Solo aplica a celosía (triangular/cuadrada).
 function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOverride) {
-  if (cfg.type !== 'triangular' && cfg.type !== 'square') return null;
+  if (cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed') return null;
   const sol = calcSectionSolidity(cfg, sec, faceWidth);
   if (!sol) return null;
-  const isTriangular = cfg.type === 'triangular';
+  const isTriangular = cfg.type === 'triangular' || cfg.type === 'guyed';
   const theta = angleDeg ?? 0;
   const { Df, Dr } = _tiaDfDr(cfg.type, theta, sol.epsilon);
   const CfPlana   = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : null;
@@ -5964,7 +6011,7 @@ function _legColumnsUnionFind(nodes, members) {
   return find;
 }
 function computeNodalWindForces(cfg, windData, angleDeg) {
-  if (cfg.type !== 'triangular' && cfg.type !== 'square') return [];
+  if (cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed') return [];
   if (!_towerData || !_towerData.nodes.length) return [];
   const { nodes, members } = _towerData;
   const find = _legColumnsUnionFind(nodes, members);
@@ -6005,6 +6052,33 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
     }
     zBase += h; zBaseTower += h;
   }
+
+  // TIA-222-H §2.6.11.3 — fuerzas de viento en retenidas (guy cables)
+  // FG = Cd · d · LG · Gh · qz · sin²(θg), aplicadas en el nodo final (m.nj)
+  if (cfg.type === 'guyed') {
+    const Cd = 1.2, Gh = 0.85;
+    members.forEach(m => {
+      if (m.type !== 'guy') return;
+      const guyLevel = m.guyLevel;
+      if (guyLevel == null) return;
+      const cd = cfg.guyCableData?.[guyLevel - 1];
+      if (!cd?.diamData) return;
+      const d = _parseInchDim(cd.diamData.name) * 0.0254;  // pulgadas → metros
+      if (!(d > 0)) return;
+      const na = nodes[m.ni], nb = nodes[m.nj];
+      if (!na || !nb) return;
+      const dx = nb.x - na.x, dy = nb.y - na.y, dz = nb.z - na.z;
+      const LG = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (!(LG > 0)) return;
+      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);  // componente Z del viento = 0
+      const sin2_tg = Math.max(0, 1 - cos_tg * cos_tg);
+      const zMid = (na.z + nb.z) / 2;
+      const qz = calcWindPressure(cfg, windData, zMid);
+      const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
+      if (FG_kgf > 0) results.push({ sec: guyLevel, nodeIdx: m.nj, z: nb.z, F_kgf: FG_kgf, dir, isGuy: true });
+    });
+  }
+
   return results;
 }
 
@@ -6031,6 +6105,7 @@ function switchTab(tabEl, view) {
   // Cargas de Viento necesita más ancho (tabla de 5 columnas) que el panel de info
   // normal — pedido explícito del usuario (2026-06-28).
   document.getElementById('rpanel').classList.toggle('wide', view === 'viento');
+  document.getElementById('rpanel').classList.remove('ant-wide');
   document.getElementById('rpanel-antenas').classList.remove('visible');
   if (view === 'viento') {
     document.getElementById('rpanel-info').classList.remove('visible');
@@ -6048,7 +6123,7 @@ function _renderWindAngleTable(cfg, rows) {
   const container = document.getElementById('wind-force-table-container');
   if (!container) return;
   const angleDeg = _selectedWindAngle;
-  const noLattice = cfg.type !== 'triangular' && cfg.type !== 'square';
+  const noLattice = cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed';
   let total = 0;
   const rowsHtml = rows.map(r => {
     const f = calcSectionWindForce(cfg, windData, r.sec - 1, r.z, r.faceWidth, angleDeg);
@@ -6246,6 +6321,87 @@ function setupKeyboardShortcuts() {
 // { desc, tipo, z, azimuth, ancho, alto, espesor, peso, epa0, epa60, epa90 }
 let antenasData = [];
 let antenasOn   = true;
+let antenasGroupCollapsed   = {};  // panel collapse state, keyed by group content key
+let _flyoutGroupCollapsed   = {};  // flyout collapse state
+
+// ── TIA-222-H Appendix C — Wind Force Coefficients for Microwave Antennas ──
+// [theta_deg, CA, CS, CM] — tablas C-1 a C-4
+const _TIA_DISH_TABLES = {
+  'sin-radomo': [
+    [0,1.5508,0.0000,0.0000],[10,1.5391,-0.0469,-0.0254],[20,1.5469,-0.0508,-0.0379],
+    [30,1.5547,-0.0313,-0.0422],[40,1.5938,0.0078,-0.0535],[50,1.6641,0.0898,-0.0691],
+    [60,1.6484,0.2422,-0.0871],[70,1.3672,0.4570,-0.0078],[80,0.7617,0.3789,0.1000],
+    [90,-0.0117,0.3438,0.1313],[100,-0.4023,0.3828,0.1320],[110,-0.4609,0.4141,0.1340],
+    [120,-0.4570,0.4570,0.1430],[130,-0.4688,0.4688,0.1461],[140,-0.5742,0.4453,0.1320],
+    [150,-0.7734,0.3906,0.1086],[160,-0.8672,0.2930,0.0836],[170,-0.9453,0.1445,0.0508],
+    [180,-1.0547,0.0000,0.0000],[190,-0.9453,-0.1445,-0.0508],[200,-0.8672,-0.2930,-0.0836],
+    [210,-0.7734,-0.3906,-0.1086],[220,-0.5742,-0.4453,-0.1320],[230,-0.4688,-0.4688,-0.1461],
+    [240,-0.4570,-0.4570,-0.1430],[250,-0.4609,-0.4141,-0.1340],[260,-0.4023,-0.3828,-0.1320],
+    [270,-0.0117,-0.3438,-0.1313],[280,0.7617,-0.3789,-0.1000],[290,1.3672,-0.4570,0.0078],
+    [300,1.6484,-0.2422,0.0871],[310,1.6641,-0.0898,0.0691],[320,1.5938,-0.0078,0.0535],
+    [330,1.5547,0.0313,0.0422],[340,1.5469,0.0508,0.0379],[350,1.5391,0.0469,0.0254],
+  ],
+  'con-radomo': [
+    [0,0.8633,0.0000,0.0000],[10,0.8594,0.1484,-0.0797],[20,0.8203,0.2969,-0.1113],
+    [30,0.7617,0.4102,-0.1082],[40,0.6641,0.4883,-0.0801],[50,0.5469,0.5313,-0.0445],
+    [60,0.4180,0.5000,-0.0008],[70,0.3125,0.4609,0.0508],[80,0.2266,0.4375,0.1047],
+    [90,0.1328,0.4063,0.1523],[100,0.0313,0.3906,0.1695],[110,-0.0664,0.3711,0.1648],
+    [120,-0.1641,0.3477,0.1578],[130,-0.2930,0.3203,0.1395],[140,-0.4102,0.3047,0.0906],
+    [150,-0.5195,0.2734,0.0516],[160,-0.6016,0.2266,0.0246],[170,-0.6563,0.1484,0.0086],
+    [180,-0.6914,0.0000,0.0000],[190,-0.6563,-0.1484,-0.0086],[200,-0.6016,-0.2266,-0.0246],
+    [210,-0.5195,-0.2734,-0.0516],[220,-0.4102,-0.3047,-0.0906],[230,-0.2930,-0.3203,-0.1395],
+    [240,-0.1641,-0.3477,-0.1578],[250,-0.0664,-0.3711,-0.1648],[260,0.0313,-0.3906,-0.1695],
+    [270,0.1328,-0.4063,-0.1523],[280,0.2266,-0.4375,-0.1047],[290,0.3125,-0.4609,-0.0508],
+    [300,0.4180,-0.5000,0.0008],[310,0.5469,-0.5313,0.0445],[320,0.6641,-0.4883,0.0801],
+    [330,0.7617,-0.4102,0.1082],[340,0.8203,-0.2969,0.1113],[350,0.8594,-0.1484,0.0797],
+  ],
+  'cilindrico': [
+    [0,1.2617,0.0000,0.0000],[10,1.2617,0.0977,-0.0281],[20,1.2500,0.1758,-0.0453],
+    [30,1.2109,0.2344,-0.0520],[40,1.1563,0.2813,-0.0488],[50,1.0859,0.3047,-0.0324],
+    [60,0.9453,0.3672,-0.0086],[70,0.6719,0.4766,0.0227],[80,0.2734,0.5820,0.0695],
+    [90,-0.1094,0.6250,0.0980],[100,-0.3438,0.6016,0.1125],[110,-0.5391,0.5313,0.1141],
+    [120,-0.7109,0.4375,0.1039],[130,-0.8594,0.3125,0.0926],[140,-0.9336,0.2305,0.0777],
+    [150,-0.9570,0.1758,0.0617],[160,-0.9727,0.1484,0.0438],[170,-0.9961,0.0977,0.0230],
+    [180,-1.0156,0.0000,0.0000],[190,-0.9961,-0.0977,-0.0230],[200,-0.9727,-0.1484,-0.0438],
+    [210,-0.9570,-0.1758,-0.0617],[220,-0.9336,-0.2305,-0.0777],[230,-0.8594,-0.3125,-0.0926],
+    [240,-0.7109,-0.4375,-0.1039],[250,-0.5391,-0.5313,-0.1141],[260,-0.3438,-0.6016,-0.1125],
+    [270,-0.1094,-0.6250,-0.0980],[280,0.2734,-0.5820,-0.0695],[290,0.6719,-0.4766,-0.0227],
+    [300,0.9453,-0.3672,0.0086],[310,1.0859,-0.3047,0.0324],[320,1.1563,-0.2813,0.0488],
+    [330,1.2109,-0.2344,0.0520],[340,1.2500,-0.1758,0.0453],[350,1.2617,-0.0977,0.0281],
+  ],
+  'grid': [
+    [0,0.5352,0.0000,0.0000],[10,0.5234,0.1016,0.0168],[20,0.5078,0.1797,0.0289],
+    [30,0.4609,0.2305,0.0383],[40,0.4063,0.2617,0.0449],[50,0.3438,0.2734,0.0496],
+    [60,0.2344,0.2813,0.0527],[70,0.1289,0.2734,0.0555],[80,0.0391,0.2500,0.0492],
+    [90,-0.0508,0.2422,0.0434],[100,-0.1172,0.2734,0.0469],[110,-0.1875,0.2852,0.0504],
+    [120,-0.2656,0.2773,0.0512],[130,-0.3359,0.2617,0.0496],[140,-0.4063,0.2344,0.0445],
+    [150,-0.4766,0.2031,0.0371],[160,-0.5469,0.1563,0.0273],[170,-0.5859,0.0859,0.0148],
+    [180,-0.5938,0.0000,0.0000],[190,-0.5859,-0.0859,-0.0148],[200,-0.5469,-0.1563,-0.0273],
+    [210,-0.4766,-0.2031,-0.0371],[220,-0.4063,-0.2344,-0.0445],[230,-0.3359,-0.2617,-0.0496],
+    [240,-0.2656,-0.2773,-0.0512],[250,-0.1875,-0.2852,-0.0504],[260,-0.1172,-0.2734,-0.0469],
+    [270,-0.0508,-0.2422,-0.0434],[280,0.0391,-0.2500,-0.0492],[290,0.1289,-0.2734,-0.0555],
+    [300,0.2344,-0.2813,-0.0527],[310,0.3438,-0.2734,-0.0496],[320,0.4063,-0.2617,-0.0449],
+    [330,0.4609,-0.2305,-0.0383],[340,0.5078,-0.1797,-0.0289],[350,0.5234,-0.1016,-0.0168],
+  ],
+};
+const _DISH_TIPO_MAP = {
+  'Parabólica sin radomo': 'sin-radomo',
+  'Parabólica con radomo': 'con-radomo',
+  'Parabólica cilíndrica': 'cilindrico',
+  'Parabólica grid':       'grid',
+};
+function _isDishType(tipo) { return tipo in _DISH_TIPO_MAP; }
+function _dishCoeff(tipo, thetaDeg) {
+  const tbl = _TIA_DISH_TABLES[_DISH_TIPO_MAP[tipo]];
+  if (!tbl) return { CA: 0, CS: 0, CM: 0 };
+  const t = ((thetaDeg % 360) + 360) % 360;
+  const i0 = Math.floor(t / 10) % 36, i1 = (i0 + 1) % 36, f = (t / 10) - Math.floor(t / 10);
+  return {
+    CA: tbl[i0][1] + (tbl[i1][1] - tbl[i0][1]) * f,
+    CS: tbl[i0][2] + (tbl[i1][2] - tbl[i0][2]) * f,
+    CM: tbl[i0][3] + (tbl[i1][3] - tbl[i0][3]) * f,
+  };
+}
 
 // ── Estado del proyecto ────────────────────────────────────────
 let projectGenerated = false;
@@ -6381,15 +6537,21 @@ const CONEXION_FACTORS = { 'Antorchada': 1, 'Californiada': 1, 'Grapas Crosby': 
 function getConfig() {
   const tipo = document.getElementById('ttype').value;
   let nInc, nStr, alturaInclinada;
-  if (tipo === 'monopole' || tipo === 'guyed') {
+  if (tipo === 'guyed') {
+    nInc = 0;
+    nStr = secData.length || 1;
+    document.getElementById('nStr').value = nStr;   // mantener sincronizado
+    alturaInclinada = 0;
+  } else if (tipo === 'monopole') {
     nInc = Math.max(0, +document.getElementById('nInc').value || 0);
     nStr = Math.max(0, +document.getElementById('nStr').value || 0);
     alturaInclinada = 0;
   } else {
     alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
+    const altBC = +document.getElementById('altBaseConst')?.value || 0;
     nInc = 0; let cumH = 0;
     for (let i = 0; i < secData.length; i++) {
-      if (cumH < alturaInclinada - 0.001) nInc++;
+      if (cumH >= altBC - 0.001 && cumH < alturaInclinada - 0.001) nInc++;
       cumH += +secData[i]?.h || 0;
     }
     nStr = Math.max(0, secData.length - nInc);
@@ -6402,9 +6564,11 @@ function getConfig() {
     topW:      +document.getElementById('topW').value   || 2,
     height:    +document.getElementById('height').value || 30,
     alturaInclinada,
+    altBaseConst: +document.getElementById('altBaseConst')?.value || 0,
     nInc, nStr,
     nsec:      nInc + nStr || 1,
     shaftW:    +document.getElementById('shaftW').value || 1,
+    guyShape:  document.getElementById('guyShape')?.value || 'triangular',
     guyLevels: guyHeights.length || 3,
     guyHeights:     guyHeights.slice(),
     guyCableData:   guyCableData.slice(),
@@ -6522,6 +6686,7 @@ function onTypeChange() {
   setDisp('topW',         !isGuyed);
   setDisp('row-apertura-top', isGuyed);
   setDisp('row-altInc-main', !isGuyed && v !== 'monopole');
+  setDisp('row-altBaseConst-main', !isGuyed && v !== 'monopole');
   setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
   if (isGuyed) ensureGuyHeights();
@@ -6620,7 +6785,9 @@ function _buildPreviewCfg(tipo) {
     ? (+document.getElementById('s-altInc')?.value || 0) : 0;
   return {
     type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1, alturaInclinada,
+    altBaseConst: +document.getElementById('s-altBaseConst')?.value || 0,
     shaftW: +document.getElementById('s-shaftW')?.value || 1,
+    guyShape: document.getElementById('s-guyShape')?.value || 'triangular',
     guyLevels: guyHeights.length || 3,
     guyHeights: guyHeights.slice(),
     guyCableData: [], guyAnchorData: [],
@@ -6677,7 +6844,9 @@ function onSetupTipoChange() {
   hide('s-row-base',  v !== 'guyed');
   hide('s-row-top',   v !== 'guyed' && v !== 'monopole' ? true : v === 'monopole');
   hide('s-row-altInc', v !== 'monopole' && v !== 'guyed');
+  hide('s-row-altBaseConst', v !== 'monopole' && v !== 'guyed');
   hide('s-row-nstr',   v === 'guyed');
+  hide('s-row-guyShape',    v === 'guyed');
   hide('s-row-guyApertura', v === 'guyed');
   hide('s-row-guyAnchorR',  v === 'guyed');
   hide('s-row-guyLevels',   v === 'guyed');
@@ -7208,6 +7377,9 @@ function generateTowerFromSetup() {
   { const sAI = document.getElementById('s-altInc');
     const ai  = document.getElementById('alturaInclinada');
     if (sAI && ai) ai.value = sAI.value; }
+  { const sABC = document.getElementById('s-altBaseConst');
+    const abc  = document.getElementById('altBaseConst');
+    if (sABC && abc) abc.value = sABC.value; }
   syncVal('nInc',   's-nInc');
   syncVal('nStr',   's-nStr');
   syncVal('shaftW',    's-shaftW');
@@ -7230,7 +7402,11 @@ function generateTowerFromSetup() {
   // por defecto en vez del valor fijo de 15m.
   if (tipo === 'guyed') {
     const r0 = +document.getElementById('s-guyAnchorR')?.value || 15;
-    guyAnchorData = [0, 120, 240].map(az => ({elev: 0, radio: r0, azimut: az}));
+    const guyShapeEl = document.getElementById('guyShape');
+    const guyShapeVal = document.getElementById('s-guyShape')?.value || 'triangular';
+    if (guyShapeEl) guyShapeEl.value = guyShapeVal;
+    const defaultAzs = guyShapeVal === 'square' ? [315,45,135,225] : [0,120,240];
+    guyAnchorData = defaultAzs.map(az => ({elev: 0, radio: r0, azimut: az}));
     guyCableData = [];   // se reconstruye en openRetenidasModal() apuntando al anillo 1
   }
 
@@ -7307,7 +7483,7 @@ function closeTorreFlyout() {
 }
 
 // ── Flyout Antenas ─────────────────────────────────────────────
-const _ANT_TIPOS = ['Panel', 'Parabólica', 'RRU', 'Otros'];
+const _ANT_TIPOS = ['Panel', 'Parabólica sin radomo', 'Parabólica con radomo', 'Parabólica cilíndrica', 'Parabólica grid', 'RRU', 'Otros'];
 
 function openAntenasFlyout() {
   closeTorreFlyout();
@@ -7329,28 +7505,92 @@ function _renderAntenasTable() {
   const tbody = document.getElementById('antenas-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
+
+  // Agrupar por campos compartidos (desc, tipo, z, ancho, alto, esp, peso)
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso].join('\x00');
+  const groupMap = new Map();
   antenasData.forEach((a, i) => {
-    const dimInp = (field, val, step) =>
-      `<input class="ant-inp ant-num" type="number" value="${val??''}" step="${step}" min="0"` +
-      ` oninput="antenasData[${i}].${field}=+this.value;_calcEPA(antenasData[${i}]);_refreshEPACells(${i})">`;
-    const epaInp = (field, val) =>
-      `<input class="ant-inp ant-num" id="ant-${field}-${i}" type="number" value="${val??''}" step="0.001" min="0"` +
-      ` oninput="antenasData[${i}].${field}=+this.value">`;
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      `<td><input class="ant-inp" value="${_esc(a.desc||'')}" oninput="antenasData[${i}].desc=this.value" placeholder="Descripción"></td>` +
-      `<td><select class="ant-sel" onchange="antenasData[${i}].tipo=this.value">${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}</select></td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.z??''}" oninput="antenasData[${i}].z=+this.value" min="0"></td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.azimuth??0}" oninput="antenasData[${i}].azimuth=+this.value" min="0" max="359"></td>` +
-      `<td>${dimInp('ancho',   a.ancho,   0.01)}</td>` +
-      `<td>${dimInp('alto',    a.alto,    0.01)}</td>` +
-      `<td>${dimInp('espesor', a.espesor, 0.001)}</td>` +
-      `<td><input class="ant-inp ant-num" type="number" value="${a.peso??''}" oninput="antenasData[${i}].peso=+this.value" min="0"></td>` +
-      `<td>${epaInp('epa0',  a.epa0)}</td>` +
-      `<td>${epaInp('epa60', a.epa60)}</td>` +
-      `<td>${epaInp('epa90', a.epa90)}</td>` +
-      `<td><button class="ant-del" onclick="deleteAntenaRow(${i})" title="Eliminar">✕</button></td>`;
-    tbody.appendChild(tr);
+    const k = gKey(a);
+    if (!groupMap.has(k)) groupMap.set(k, { k, indices: [], a });
+    groupMap.get(k).indices.push(i);
+  });
+  const groups = [...groupMap.values()];
+  window._flyoutGrpKeys = groups.map(g => g.k);
+
+  groups.forEach(({ k, indices, a }, gi) => {
+    const isGroup = indices.length > 1;
+    const isDish  = _isDishType(a.tipo);
+    const collapsed = isGroup && _flyoutGroupCollapsed[k] !== false;
+    const fi = indices[0];
+
+    // Helpers: actualiza todos los índices del grupo
+    const updAll = (field, str=false) =>
+      indices.map(i => `antenasData[${i}].${field}=${str?'':'+'  }this.value`).join(';');
+    const calcAll = () => indices.map(i => `_calcEPA(antenasData[${i}])`).join(';');
+    const refresh = () => `_refreshEPACells(${fi})`;
+    const syncDish = isDish ? ';' + indices.map(i => `antenasData[${i}].alto=antenasData[${i}].ancho`).join(';') : '';
+
+    const dimInpG = (field, val, step) =>
+      `<input class="ant-inp ant-num" type="number" value="${val??''}" step="${step}" min="0"
+        oninput="${updAll(field)}${field==='ancho'?syncDish:''};${calcAll()};${refresh()}">`;
+
+    const epaInpG = (field) =>
+      `<input class="ant-inp ant-num" id="ant-${field}-${fi}" type="number"
+        value="${a[field]??''}" step="0.001" min="0"
+        oninput="${indices.map(i=>`antenasData[${i}].${field}=+this.value`).join(';')}">`;
+
+    const tipoSel =
+      `<select class="ant-sel" onchange="${updAll('tipo',true)};${calcAll()};_renderAntenasTable()">
+        ${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}
+      </select>`;
+
+    // Celda de azimuth según estado
+    let azCell;
+    if (!isGroup) {
+      azCell = `<input class="ant-inp ant-num" type="number" value="${a.azimuth??0}" min="0" max="359"
+        oninput="antenasData[${fi}].azimuth=+this.value">`;
+    } else if (collapsed) {
+      const azTxt = indices.map(i => (antenasData[i].azimuth??0)+'°').join(' · ');
+      azCell = `<span style="color:var(--accent);font-size:9px">${azTxt}</span>
+        <button class="ant-del" style="font-size:9px;padding:0 3px;margin-left:2px"
+          onclick="_toggleFlyoutGrp(${gi})" title="Expandir">&#9660;</button>`;
+    } else {
+      azCell = `<button class="btn" style="font-size:9px;padding:1px 4px;white-space:nowrap"
+        onclick="_toggleFlyoutGrp(${gi})">&#9650; ${indices.length} az.</button>`;
+    }
+
+    const headTr = document.createElement('tr');
+    if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
+    headTr.innerHTML =
+      `<td><input class="ant-inp" value="${_esc(a.desc||'')}" placeholder="Descripción"
+          oninput="${updAll('desc',true)}"></td>` +
+      `<td>${tipoSel}</td>` +
+      `<td>${dimInpG('z', a.z, 0.5)}</td>` +
+      `<td>${azCell}</td>` +
+      `<td>${dimInpG('ancho', a.ancho, isDish?0.05:0.01)}</td>` +
+      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimInpG('alto', a.alto, 0.01)}</td>` +
+      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">—</span>`:dimInpG('espesor', a.espesor, 0.001)}</td>` +
+      `<td>${dimInpG('peso', a.peso, 0.5)}</td>` +
+      `<td>${epaInpG('epa0')}</td>` +
+      `<td>${epaInpG('epa60')}</td>` +
+      `<td>${epaInpG('epa90')}</td>` +
+      `<td>${!isGroup?`<button class="ant-del" onclick="deleteAntenaRow(${fi})">✕</button>`:''}</td>`;
+    tbody.appendChild(headTr);
+
+    // Sub-filas de azimuths expandidos
+    if (isGroup && !collapsed) {
+      indices.forEach((idx, ki) => {
+        const subTr = document.createElement('tr');
+        subTr.style.background = 'rgba(0,30,60,0.6)';
+        subTr.innerHTML =
+          `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Az ${ki+1}</td>` +
+          `<td><input class="ant-inp ant-num" type="number" value="${antenasData[idx].azimuth??0}"
+              min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
+          `<td colspan="7"></td>` +
+          `<td><button class="ant-del" onclick="deleteAntenaRow(${idx})">✕</button></td>`;
+        tbody.appendChild(subTr);
+      });
+    }
   });
 }
 
@@ -7397,6 +7637,18 @@ function _addAntenasMulti() {
 }
 
 function _calcEPA(a) {
+  if (_isDishType(a.tipo)) {
+    const D = +a.ancho || 0;
+    a.alto = D;  // dish is circular: alto = ancho = diámetro
+    const A = Math.PI * D * D / 4;
+    const c0  = _dishCoeff(a.tipo, 0);
+    const c60 = _dishCoeff(a.tipo, 60);
+    const c90 = _dishCoeff(a.tipo, 90);
+    a.epa0  = +(Math.abs(c0.CA)  * A).toFixed(4);
+    a.epa60 = +(Math.sqrt(c60.CA * c60.CA + c60.CS * c60.CS) * A).toFixed(4);
+    a.epa90 = +(Math.sqrt(c90.CA * c90.CA + c90.CS * c90.CS) * A).toFixed(4);
+    return;
+  }
   const W = +a.ancho || 0, H = +a.alto || 0, E = +a.espesor || 0;
   if (W === 0 && H === 0) return;
   a.epa0  = +(W * H).toFixed(4);
@@ -7420,17 +7672,58 @@ function toggleAntenasTab() {
   antenasOn = !antenasOn;
   document.getElementById('tab-antenas').classList.toggle('active', antenasOn);
   antenasGroup.visible = antenasOn;
+  // Exclusión mutua con Cargas de Viento: al activar antenas, apagar viento
+  if (antenasOn && (windForcesOn || windForceLabelsOn)) {
+    windForcesOn = false;
+    windForceLabelsOn = false;
+    document.getElementById('tab-cargasviento').classList.remove('active');
+    document.getElementById('vbtn-windforcelabels')?.classList.remove('active');
+    _windForceResults = null; _clearWindForceArrows();
+  }
   document.getElementById('rpanel-viento').classList.remove('visible');
   document.getElementById('rpanel').classList.remove('wide');
   if (antenasOn) {
     if (projectGenerated) document.getElementById('rpanel').classList.add('visible');
+    document.getElementById('rpanel').classList.add('ant-wide');
     document.getElementById('rpanel-info').classList.remove('visible');
     document.getElementById('rpanel-antenas').classList.add('visible');
     buildAntenasPanel();
   } else {
+    document.getElementById('rpanel').classList.remove('ant-wide');
     document.getElementById('rpanel-antenas').classList.remove('visible');
     if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
   }
+}
+
+function _toggleAntGrp(gidx) {
+  const k = (window._antGrpKeys || [])[gidx];
+  if (k != null) { antenasGroupCollapsed[k] = !antenasGroupCollapsed[k]; buildAntenasPanel(); }
+}
+function _toggleFlyoutGrp(gidx) {
+  const k = (window._flyoutGrpKeys || [])[gidx];
+  if (k != null) { _flyoutGroupCollapsed[k] = !_flyoutGroupCollapsed[k]; _renderAntenasTable(); }
+}
+// ── Edición inline del panel de antenas ───────────────────────────────────
+// Actualiza campo compartido de un grupo y refresca EPA en las celdas del panel
+function _antPanelUpdate(gi, field, val) {
+  const indices = (window._antGrpIndices || [])[gi] || [];
+  const numVal = (field === 'desc' || field === 'tipo') ? val : +val;
+  indices.forEach(i => { antenasData[i][field] = numVal; _calcEPA(antenasData[i]); });
+  renderAntenas3D();
+  const a = antenasData[indices[0]];
+  if (!a) return;
+  const fmtP = v => v != null ? (+v).toFixed(4) : '—';
+  const e0 = document.getElementById(`ant-p-e0-${gi}`);
+  const e6 = document.getElementById(`ant-p-e6-${gi}`);
+  const e9 = document.getElementById(`ant-p-e9-${gi}`);
+  if (e0) e0.textContent = fmtP(a.epa0);
+  if (e6) e6.textContent = fmtP(a.epa60);
+  if (e9) e9.textContent = fmtP(a.epa90);
+}
+// Azimuth individual — solo actualiza esa antena y redibuja
+function _antPanelUpdateAz(idx, val) {
+  antenasData[idx].azimuth = +val || 0;
+  renderAntenas3D();
 }
 
 function buildAntenasPanel() {
@@ -7443,19 +7736,92 @@ function buildAntenasPanel() {
     </div>`;
     return;
   }
-  const fmt = v => v != null ? (+v).toFixed(3) : '—';
-  const cards = antenasData.map((a, i) => `
-    <div class="ant-panel-card">
-      <div class="apc-title">${i + 1}. ${_esc(a.desc || '(sin descripción)')}
-        <span style="float:right;font-size:10px;color:var(--txt-sec)">${a.tipo || 'Panel'}</span>
-      </div>
-      <div class="apc-row"><span>Altura</span><span class="apc-val">${fmt(a.z)} m</span></div>
-      <div class="apc-row"><span>Azimuth</span><span class="apc-val">${a.azimuth ?? 0}°</span></div>
-      <div class="apc-row"><span>Ancho × Alto × Esp</span><span class="apc-val">${fmt(a.ancho)} × ${fmt(a.alto)} × ${fmt(a.espesor)} m</span></div>
-      <div class="apc-row"><span>Peso</span><span class="apc-val">${fmt(a.peso)} kg</span></div>
-      <div class="apc-row"><span>EPA 0° / 60° / 90°</span><span class="apc-val">${fmt(a.epa0)} / ${fmt(a.epa60)} / ${fmt(a.epa90)} m²</span></div>
-    </div>`).join('');
-  body.innerHTML = cards + `<button class="btn" style="width:100%;margin-top:4px" onclick="openAntenasFlyout()">✎ Editar antenas</button>`;
+  const fmtP = v => v != null ? (+v).toFixed(4) : '—';
+
+  // Agrupar antenas iguales (mismas propiedades excepto azimuth)
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso].join('\x00');
+  const groupMap = new Map();
+  antenasData.forEach((a, i) => {
+    const k = gKey(a);
+    if (!groupMap.has(k)) groupMap.set(k, { k, indices: [], a });
+    groupMap.get(k).indices.push(i);
+  });
+  const groups = [...groupMap.values()];
+  window._antGrpKeys    = groups.map(g => g.k);
+  window._antGrpIndices = groups.map(g => g.indices);
+
+  const finp = (gi, field, val, step, w='55px', isDish=false) =>
+    `<input type="number" class="ant-inp ant-num" style="width:${w}" value="${val??0}" min="0" step="${step}"
+      oninput="_antPanelUpdate(${gi},'${field}',this.value)">`;
+
+  const cards = groups.map(({ k, indices, a }, gi) => {
+    const isGroup   = indices.length > 1;
+    const isDish    = _isDishType(a.tipo);
+    const collapsed = isGroup && antenasGroupCollapsed[k] !== false;
+
+    const titleRow = `<div class="apc-title">${_esc(a.desc||'(sin descripción)')}
+      <span style="float:right;font-size:10px;color:var(--txt-sec)">${a.tipo||'Panel'}</span></div>`;
+
+    const altRow = `<div class="apc-row"><span>Altura</span>
+      <div style="display:flex;gap:3px;align-items:center">${finp(gi,'z',a.z,0.5,'55px')}
+      <span style="color:var(--txt-sec);font-size:10px">m</span></div></div>`;
+
+    const dimRow = isDish
+      ? `<div class="apc-row"><span>Diámetro</span>
+          <div style="display:flex;gap:3px;align-items:center">${finp(gi,'ancho',a.ancho,0.05,'55px')}
+          <span style="color:var(--txt-sec);font-size:10px">m</span></div></div>`
+      : `<div class="apc-row"><span>A × H × Esp</span>
+          <div style="display:flex;gap:2px;align-items:center">
+          ${finp(gi,'ancho',a.ancho,0.01,'42px')}×${finp(gi,'alto',a.alto,0.01,'42px')}×${finp(gi,'espesor',a.espesor,0.001,'38px')}
+          <span style="color:var(--txt-sec);font-size:10px">m</span></div></div>`;
+
+    const pesoRow = `<div class="apc-row"><span>Peso</span>
+      <div style="display:flex;gap:3px;align-items:center">${finp(gi,'peso',a.peso,0.5,'55px')}
+      <span style="color:var(--txt-sec);font-size:10px">kg</span></div></div>`;
+
+    const epaRow = `<div class="apc-row" style="font-size:10px"><span>EPA 0°/60°/90°</span>
+      <span class="apc-val" style="font-size:10px">
+        <span id="ant-p-e0-${gi}">${fmtP(a.epa0)}</span> /
+        <span id="ant-p-e6-${gi}">${fmtP(a.epa60)}</span> /
+        <span id="ant-p-e9-${gi}">${fmtP(a.epa90)}</span> m²</span></div>`;
+
+    const azInp = i =>
+      `<input type="number" class="ant-inp ant-num"
+        style="width:45px;border:none;background:transparent;color:var(--accent);font-weight:600"
+        value="${antenasData[i].azimuth??0}" min="0" max="359" step="1"
+        oninput="_antPanelUpdateAz(${i},this.value)">°`;
+
+    if (!isGroup) {
+      return `<div class="ant-panel-card">
+        ${titleRow}${altRow}
+        <div class="apc-row"><span>Azimuth</span>${azInp(indices[0])}</div>
+        ${dimRow}${pesoRow}${epaRow}
+      </div>`;
+    }
+    if (collapsed) {
+      const azList = indices.map(i => (antenasData[i].azimuth??0)+'°').join(' · ');
+      return `<div class="ant-panel-card">
+        ${titleRow}${altRow}
+        <div class="apc-row" style="flex-wrap:wrap;gap:2px"><span>Azimuths</span>
+          <span class="apc-val" style="color:var(--accent);font-size:11px">${azList}</span></div>
+        ${dimRow}${pesoRow}${epaRow}
+        <button class="btn" style="width:100%;margin-top:5px;font-size:11px" onclick="_toggleAntGrp(${gi})">
+          &#9660; ${indices.length} antenas — expandir</button>
+      </div>`;
+    }
+    const azRows = indices.map(i =>
+      `<div class="apc-row" style="padding-left:6px;border-left:2px solid var(--accent)">
+        <span>Az ${i+1}</span>${azInp(i)}</div>`
+    ).join('');
+    return `<div class="ant-panel-card">
+      ${titleRow}${altRow}${azRows}
+      ${dimRow}${pesoRow}${epaRow}
+      <button class="btn" style="width:100%;margin-top:5px;font-size:11px" onclick="_toggleAntGrp(${gi})">
+        &#9650; Colapsar</button>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = cards + `<button class="btn" style="width:100%;margin-top:4px" onclick="openAntenasFlyout()">&#9998; Editar antenas</button>`;
 }
 
 function _antenaShape(W, E) {
@@ -7518,30 +7884,77 @@ function renderAntenas3D() {
     // Semiapertura de la torre en la altura de la antena (interpolación lineal)
     const t     = Math.min(1, Math.max(0, (+a.z || 0) / (cfg.height || 1)));
     const halfW = ((1 - t) * (cfg.baseW || 4) + t * (cfg.topW || 2)) / 2;
-    // 60 cm desde la cara exterior de las piernas + la mitad del espesor de la antena
-    const radialOffset = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.60 + E / 2;
-    // Offset perpendicular al azimut (dirección derecha: cos(az), -sin(az))
     const perp = _perpOff[dataIdx];
-    const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
-    const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
-    const pz = +a.z || 0;   // h = centroide de la antena
-    // ExtrudeGeometry: sección en plano XY (con esquinas redondeadas), extruida a lo largo de Z (arriba)
-    const shape = _antenaShape(W, E);
-    const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
-    geo.translate(0, 0, -H / 2);     // centrar verticalmente en origin
-    const mat   = new THREE.MeshBasicMaterial({ color: 0xC8C0B4, side: THREE.DoubleSide });
-    const mesh  = new THREE.Mesh(geo, mat);
-    mesh.position.set(px, py, pz);
-    mesh.rotation.z = -az;
-    antenasGroup.add(mesh);
-    // Aristas en amarillo
-    const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geo, 15),
-      new THREE.LineBasicMaterial({ color: 0x8A8078 })
-    );
-    edges.position.copy(mesh.position);
-    edges.rotation.copy(mesh.rotation);
-    antenasGroup.add(edges);
+
+    if (_isDishType(a.tipo)) {
+      // ── Antena parabólica / dish ─────────────────────────────────────────
+      const D = W;       // diámetro = ancho
+      const r = D / 2;
+      const depth = Math.max(0.08, D * 0.18);  // profundidad estimada del reflector
+      // Offset radial: desde la cara de la torre + espacio libre + profundidad/2
+      const radialOff = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.45 + depth / 2;
+      const px = Math.sin(az) * radialOff + perp * Math.cos(az);
+      const py = Math.cos(az) * radialOff - perp * Math.sin(az);
+      const pz = +a.z || 0;
+
+      const isGrid = a.tipo === 'Parabólica grid';
+      // Disco principal (reflector)
+      const geoDisc = new THREE.CircleGeometry(r, 48);
+      const colDisc = isGrid ? 0x607090 : 0xD0D0D8;
+      const matDisc = new THREE.MeshBasicMaterial({ color: colDisc, side: THREE.DoubleSide, wireframe: isGrid });
+      const disc = new THREE.Mesh(geoDisc, matDisc);
+      // Rotar el disco para que mire en la dirección del azimuth
+      disc.rotation.x = -Math.PI / 2;
+      disc.rotation.z = -az;
+      disc.position.set(px, py, pz);
+      antenasGroup.add(disc);
+
+      // Borde circular del disco
+      const ringGeo = new THREE.RingGeometry(r * 0.97, r, 48);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x8090A0, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.rotation.z = -az;
+      ring.position.set(px, py, pz);
+      antenasGroup.add(ring);
+
+      // Para dishes con radomo: cubrir con un disco frontal semitransparente
+      if (a.tipo === 'Parabólica con radomo') {
+        const geoDome = new THREE.CircleGeometry(r * 1.02, 48);
+        const matDome = new THREE.MeshBasicMaterial({ color: 0xF0F0F4, side: THREE.DoubleSide, opacity: 0.6, transparent: true });
+        const dome = new THREE.Mesh(geoDome, matDome);
+        dome.rotation.x = -Math.PI / 2;
+        dome.rotation.z = -az;
+        // Mover ligeramente hacia la cara frontal
+        dome.position.set(
+          px + Math.sin(az) * depth,
+          py + Math.cos(az) * depth,
+          pz
+        );
+        antenasGroup.add(dome);
+      }
+    } else {
+      // ── Panel / RRU / Otros (forma extruida rectangular) ─────────────────
+      const radialOffset = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.60 + E / 2;
+      const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
+      const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
+      const pz = +a.z || 0;
+      const shape = _antenaShape(W, E);
+      const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
+      geo.translate(0, 0, -H / 2);
+      const mat   = new THREE.MeshBasicMaterial({ color: 0xC8C0B4, side: THREE.DoubleSide });
+      const mesh  = new THREE.Mesh(geo, mat);
+      mesh.position.set(px, py, pz);
+      mesh.rotation.z = -az;
+      antenasGroup.add(mesh);
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geo, 15),
+        new THREE.LineBasicMaterial({ color: 0x8A8078 })
+      );
+      edges.position.copy(mesh.position);
+      edges.rotation.copy(mesh.rotation);
+      antenasGroup.add(edges);
+    }
   });
 }
 
@@ -11578,6 +11991,8 @@ function loadProjectData(cfg, filename) {
       }
     }
     set('shaftW',        cfg.shaftW);
+    set('altBaseConst',  cfg.altBaseConst || 0);
+    set('guyShape',      cfg.guyShape || 'triangular');
     guyHeights = Array.isArray(cfg.guyHeights) ? cfg.guyHeights.slice() : [];
     guyCableData  = Array.isArray(cfg.guyCableData)  ? cfg.guyCableData.slice()  : [];
     guyAnchorData = Array.isArray(cfg.guyAnchorData) ? cfg.guyAnchorData.slice() : [];
@@ -11736,9 +12151,12 @@ function buildSectionRows(n) {
     return g ? `${val} <span style="color:var(--txt-sec);font-size:9px;">· ${g.name} Fy ${g.fy}</span>` : val;
   };
   const altH = cfg.alturaInclinada || 0;
+  const altBase = cfg.altBaseConst || 0;
   let _cumH = 0;
   secData.forEach((s, i) => {
-    const isInc   = altH > 0 ? _cumH < altH - 0.001 : i < nInc;
+    const isInc = altH > 0
+      ? (_cumH >= altBase - 0.001 && _cumH < altH - 0.001)
+      : i < nInc;
     _cumH += +s.h || 0;
     const tipo    = isInc ? 'INC' : 'REC';
     const tipoLbl = isInc ? 'Inclinado' : 'Recto';
