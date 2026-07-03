@@ -539,6 +539,11 @@ body {
 .ant-panel-card .apc-title { font-weight: 600; color: var(--txt); margin-bottom: 5px; font-size: 12.5px; }
 .ant-panel-card .apc-row { display: flex; justify-content: space-between; color: var(--txt-sec); margin-top: 2px; }
 .ant-panel-card .apc-val { color: var(--cyan); font-family: 'Courier New', monospace; font-size: 11.5px; }
+.ant-panel-card input[type="number"]::-webkit-outer-spin-button,
+.ant-panel-card input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ant-panel-card input[type="number"] { -moz-appearance: textfield; text-align: left; }
+#ant-add-count::-webkit-outer-spin-button,
+#ant-add-count::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* ── Torre flyout (desplegable junto al botón Torre) ─────────── */
 .torre-flyout {
@@ -1465,6 +1470,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="export-menu-item" onclick="openTablaBarras()">Barras</button>
       <button class="export-menu-item" id="tabla-menu-retenidas" onclick="openTablaRetenidas()" style="display:none;">Retenidas</button>
       <button class="export-menu-item" onclick="openTablaApoyos()">Apoyos</button>
+      <button class="export-menu-item" onclick="openComentarios()">Comentarios</button>
       <button class="export-menu-item" onclick="openTablaRevisiones()">Hoja de Revisiones</button>
     </div>
   </div>
@@ -1639,9 +1645,16 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         </div>
         <div class="ant-add-bar">
           <span style="color:var(--txt-sec);font-size:11px;">Agregar</span>
-          <input id="ant-add-count" type="number" value="1" min="1" max="99" class="ant-inp ant-num"
-            style="width:44px" oninput="_updateAntAddAngles()">
-          <span style="color:var(--txt-sec);font-size:11px;">antena(s) &nbsp;Az(°):</span>
+          <div style="display:flex;align-items:center;gap:0;border:1px solid #1E3050;border-radius:4px;overflow:hidden">
+            <button style="background:#0b1828;border:none;color:var(--accent);padding:2px 7px;cursor:pointer;font-size:13px;line-height:1"
+              onclick="const e=document.getElementById('ant-add-count');e.value=Math.max(1,+e.value-1);_updateAntAddAngles()">−</button>
+            <input id="ant-add-count" type="number" value="1" min="1" max="99" step="1"
+              style="width:32px;background:#060f1c;border:none;color:var(--accent);font-size:11px;text-align:center;padding:3px 0;-moz-appearance:textfield"
+              oninput="_updateAntAddAngles()">
+            <button style="background:#0b1828;border:none;color:var(--accent);padding:2px 7px;cursor:pointer;font-size:13px;line-height:1"
+              onclick="const e=document.getElementById('ant-add-count');e.value=Math.min(99,+e.value+1);_updateAntAddAngles()">+</button>
+          </div>
+          <span style="color:var(--txt-sec);font-size:11px;">antena(s) &nbsp;Azimut(°):</span>
           <div id="ant-add-angles" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1"></div>
           <button class="btn-accent" style="padding:4px 10px;font-size:11px" onclick="_addAntenasMulti()">+ Agregar</button>
         </div>
@@ -1731,6 +1744,12 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <option value="16">16 Caras</option>
             <option value="18">18 Caras</option>
           </select></div>
+        <div class="tf-row" id="s-row-m4" style="display:none;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;width:100%;">
+            <input type="checkbox" id="s-m4" onchange="buildSetupPreview()">
+            <span class="tf-lbl" style="margin:0">M4</span>
+          </label>
+        </div>
         <div class="tf-row"><span class="tf-lbl">ALTURA DEL DADO (m)</span>
           <input class="tf-input" type="number" id="s-dado" value="0" min="0" max="99" oninput="buildSetupPreview()"></div>
         <div class="tf-row"><span class="tf-lbl">ALTURA (m)</span>
@@ -1741,8 +1760,6 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
         <div class="tf-row" id="s-row-altInc"><span class="tf-lbl">ALTURA INCLINADA (m)</span>
           <input class="tf-input" type="number" id="s-altInc" value="24" min="0" step="0.5" oninput="buildSetupPreview()"></div>
-        <div class="tf-row" id="s-row-altBaseConst" style="display:none;"><span class="tf-lbl">ALTURA BASE CONSTANTE (m)</span>
-          <input class="tf-input" type="number" id="s-altBaseConst" value="0" min="0" step="0.5" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-nstr" style="display:none;"><span class="tf-lbl" id="s-nstr-lbl">NÚMERO DE TRAMOS</span>
           <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
         <input type="hidden" id="s-nInc" value="0">
@@ -2060,6 +2077,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             </select>
           </div>
 
+          <div class="frow" id="row-m4-main" style="display:none;">
+            <span class="flbl">M4:</span>
+            <input type="checkbox" id="m4" onchange="refresh()">
+          </div>
+
           <div class="frow">
             <span class="flbl">Altura del Dado (m):</span>
             <input class="ctrl-input" type="number" id="dado" value="0" min="0" max="99"
@@ -2069,10 +2091,6 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <div class="frow" id="row-altInc-main">
             <span class="flbl">Altura inclinada (m):</span>
             <input class="ctrl-input" type="number" id="alturaInclinada" value="24" min="0" step="0.5" oninput="onAltIncChange()">
-          </div>
-          <div class="frow" id="row-altBaseConst-main" style="display:none;">
-            <span class="flbl">Altura base constante (m):</span>
-            <input class="ctrl-input" type="number" id="altBaseConst" value="0" min="0" step="0.5" oninput="onAltIncChange()">
           </div>
           <!-- nInc / nStr ocultos — se calculan dinámicamente desde alturaInclinada -->
           <input type="hidden" id="nInc" value="0">
@@ -2649,6 +2667,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   <div class="sec-modal-body" id="tabla-revisiones-body" style="padding:0 14px 14px;"></div>
 </div>
 
+<div class="tabla-panel" id="tabla-comentarios-overlay" style="width:720px;">
+  <div class="sec-modal-hdr tabla-panel-hdr">
+    <span>COMENTARIOS DEL ANÁLISIS</span>
+    <button onclick="closeComentarios()">✕</button>
+  </div>
+  <div class="sec-modal-body" id="tabla-comentarios-body" style="padding:0 14px 14px;"></div>
+</div>
+
 <!-- ── Modal de ubicación (Leaflet + OpenStreetMap) ─────────────── -->
 <div class="sec-modal-overlay" id="loc-modal-overlay" onclick="closeLocationModal(event)">
   <div class="sec-modal" style="width:640px;" onclick="event.stopPropagation()">
@@ -2846,13 +2872,8 @@ function genMixed(cfg, ANG, radiusFn) {
   const secH = sec => +secData[sec]?.h || 6;
   const zInc = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
     : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
-  const altBC = cfg.altBaseConst || 0;
-  const taperRange = zInc - altBC;
-
   const levelAt = z => {
-    let t;
-    if (z <= altBC) t = 0;
-    else t = taperRange > 0 ? Math.min((z - altBC) / taperRange, 1) : 1;
+    const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
     const R = radiusFn(t);
     return ANG.map(a => addNode(nodes, R*Math.cos(a), R*Math.sin(a), z));
   };
@@ -4094,7 +4115,7 @@ function _redrawWindForceArrows() {
   const maxLenPx = 55, minLenPx = 9;
   // ── Flechas: una por nodo de pierna ──────────────────────────────
   // r.sec es 1-based; aislarTramoSec es 0-based → comparar con +1
-  const _secFilter = r => aislarTramoSec === null || r.sec === aislarTramoSec + 1;
+  const _secFilter = r => r.isAntenna || aislarTramoSec === null || r.sec === aislarTramoSec + 1;
   _windForceResults.forEach(r => {
     if (!windForcesOn || !(r.F_kgf > 0) || !_secFilter(r)) return;
     const n = _towerData.nodes[r.nodeIdx];
@@ -4103,7 +4124,8 @@ function _redrawWindForceArrows() {
     const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
     const tip = new THREE.Vector3(n.x, n.y, n.z);
     const origin = tip.clone().sub(dir3.clone().multiplyScalar(len));
-    const arrow = new THREE.ArrowHelper(dir3, origin, len, C_WINDFORCE(r.sec), len * 0.3, len * 0.16);
+    const col = r.isAntenna ? 0xFF8800 : C_WINDFORCE(r.sec);
+    const arrow = new THREE.ArrowHelper(dir3, origin, len, col, len * 0.3, len * 0.16);
     windForcesGroup.add(arrow);
   });
   // ── Labels ───────────────────────────────────────────────────────
@@ -4122,18 +4144,35 @@ function _redrawWindForceArrows() {
         const origin = tip.clone().sub(dir3.clone().multiplyScalar(len));
         const div = document.createElement('div');
         div.className = 'wind-force-label';
-        div.style.color = C_WINDFORCE_HEX(r.sec);
-        div.textContent = r.F_kgf.toFixed(1) + ' kgf';
+        div.style.color = r.isAntenna ? '#FF8800' : C_WINDFORCE_HEX(r.sec);
+        div.textContent = r.isAntenna
+          ? `${r.desc} ${r.F_kgf.toFixed(1)} kgf`
+          : `${r.F_kgf.toFixed(1)} kgf`;
         const obj = new THREE.CSS2DObject(div);
         obj.position.copy(origin).sub(dir3.clone().multiplyScalar(len * 0.15));
         windForcesGroup.add(obj);
       });
     } else {
-      // Un label por sección en el centroide
+      // Un label por sección en el centroide (vistas 2D)
+      // Antenas: siempre un label individual (no se agrupan por sección)
       const bySec = {};
       _windForceResults.forEach(r => {
         if (!(r.F_kgf > 0) || !_secFilter(r)) return;
         const n = _towerData.nodes[r.nodeIdx];
+        if (r.isAntenna) {
+          // Etiqueta individual por antena en vistas 2D
+          const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
+          const len = lenPx * wupp;
+          const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
+          const div = document.createElement('div');
+          div.className = 'wind-force-label';
+          div.style.color = '#FF8800';
+          div.textContent = `${r.desc} ${r.F_kgf.toFixed(1)} kgf`;
+          const obj = new THREE.CSS2DObject(div);
+          obj.position.set(n.x, n.y, n.z).sub(dir3.clone().multiplyScalar(len * 1.3));
+          windForcesGroup.add(obj);
+          return;
+        }
         if (!bySec[r.sec]) bySec[r.sec] = { total: 0, cx: 0, cy: 0, cz: 0, count: 0, dir: r.dir };
         bySec[r.sec].total += r.F_kgf;
         bySec[r.sec].cx += n.x; bySec[r.sec].cy += n.y; bySec[r.sec].cz += n.z;
@@ -4159,6 +4198,25 @@ function _redrawWindForceArrows() {
 function _buildWindForceArrows() {
   if (!_towerData || !projectGenerated) { _windForceResults = null; _clearWindForceArrows(); return; }
   _windForceResults = computeNodalWindForces(getConfig(), windData, _selectedWindAngle);
+  // Agregar fuerzas de antenas al mismo array de resultados
+  if (Array.isArray(antenasData) && antenasData.length) {
+    const cfg = getConfig();
+    const legSet = new Set();
+    _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
+    const wRad = _selectedWindAngle * Math.PI / 180;
+    const dirXY = { x: Math.sin(wRad), y: Math.cos(wRad) };
+    _calcAntennaForces(cfg, windData).forEach(af => {
+      const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
+      if (!fd || fd.FA_kgf < 0.001) return;
+      const nIdx = _nearestLegNodeIdx(af.z, _towerData.nodes, legSet);
+      if (nIdx == null) return;
+      _windForceResults.push({
+        nodeIdx: nIdx, z: _towerData.nodes[nIdx].z,
+        F_kgf: fd.FA_kgf, dir: dirXY,
+        sec: null, isAntenna: true, antIdx: af.antIdx, desc: af.desc,
+      });
+    });
+  }
   _redrawWindForceArrows();
 }
 function toggleWindForces() {
@@ -4549,6 +4607,24 @@ function renderTower(data) {
   if (document.getElementById('tabla-retenidas-overlay')?.classList.contains('open')) renderTablaRetenidas();
   if (document.getElementById('tabla-apoyos-overlay')?.classList.contains('open')) renderTablaApoyos();
   renderAntenas3D();
+  _updateSectionWeights();
+}
+
+function _updateSectionWeights() {
+  const bySec   = _reportSectionWeights();
+  const fmtKg   = kg => kg.toFixed(1) + ' kg';
+  const total   = Object.values(bySec).reduce((s, v) => s + v, 0);
+  const fvalEl  = document.querySelector('.fval');
+  if (fvalEl) fvalEl.textContent = total > 0 ? fmtKg(total) : '—';
+  document.querySelectorAll('#sec-container .sec-card').forEach((card, idx) => {
+    card.querySelectorAll('.sec-row-detail').forEach(row => {
+      const lbl = row.querySelector('.sec-row-code');
+      if (lbl?.textContent === 'Peso:') {
+        const val = row.querySelector('.sec-row-val');
+        if (val) val.textContent = bySec[idx] != null ? fmtKg(bySec[idx]) : '—';
+      }
+    });
+  });
 }
 
 // ── Dual grid ─────────────────────────────────────────────────────────
@@ -5774,10 +5850,7 @@ function _faceWidthAt(cfg, z) {
     return cfg.shaftW || 0;
   }
   const zInc = _zIncForCfg(cfg);
-  const altBC = cfg.altBaseConst || 0;
-  if (z <= altBC) return cfg.baseW;
-  const taperRange = zInc - altBC;
-  const t = taperRange > 0 ? Math.min((z - altBC) / taperRange, 1) : 1;
+  const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
   return cfg.baseW + (cfg.topW - cfg.baseW) * t;
 }
 // Ancho proyectado (m) de un perfil — leg1 (ángulos li/ld) o diametro (oc/os), convertido
@@ -6144,6 +6217,61 @@ function _renderWindAngleTable(cfg, rows) {
       </tbody>
     </table>`;
 }
+function _renderAntennaForceTable(cfg) {
+  const container = document.getElementById('antenna-force-table-container');
+  if (!container) return;
+  const ants = Array.isArray(antenasData) ? antenasData : [];
+  if (!ants.length || !projectGenerated || !_towerData) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin antenas o equipos registrados.</div>';
+    return;
+  }
+  const legSet = new Set();
+  _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
+  const results = _calcAntennaForces(cfg, windData);
+  const dir = _selectedWindAngle;
+  const rowsHtml = results.map(r => {
+    const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0];
+    // Ca: coeficiente de arrastre por ángulo relativo
+    let caVal;
+    if (_isDishType(r.tipo)) {
+      caVal = Math.abs(_dishCoeff(r.tipo, fd.theta_rel).CA).toFixed(3);
+    } else {
+      const a = antenasData[r.antIdx];
+      const W = +a.ancho || 0, H2 = +a.alto || 0, E2 = +a.espesor || 0;
+      const tRad = fd.theta_rel * Math.PI / 180;
+      const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
+      const ca_N = _caFlat(W > 0 ? H2 / W : 25);
+      const ca_T = _caFlat(E2 > 0 ? H2 / E2 : 25);
+      caVal = (ca_N * cos2 + ca_T * sin2).toFixed(3);
+    }
+    return `<tr>
+      <td>${r.antIdx + 1}</td>
+      <td style="text-align:left;max-width:100px;overflow:hidden;white-space:nowrap;">${r.desc}</td>
+      <td>${r.z.toFixed(1)}</td>
+      <td>${r.azimuth}</td>
+      <td>${Math.round(fd.theta_rel)}</td>
+      <td>${caVal}</td>
+      <td>1.00</td>
+      <td>${fd.EPA.toFixed(3)}</td>
+      <td>${(r.qz/9.80665).toFixed(1)}</td>
+      <td>${r.Gh.toFixed(3)}</td>
+      <td><b>${fd.FA_kgf.toFixed(1)}</b></td>
+    </tr>`;
+  }).join('');
+  const total = results.reduce((s, r) => { const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0]; return s + fd.FA_kgf; }, 0);
+  container.innerHTML = `
+    <table class="ret-table wind-table-center" style="font-size:10.5px;">
+      <thead><tr><th>#</th><th>Desc.</th><th>z (m)</th><th>Az°</th><th>θr°</th><th>Ca</th><th>Ka</th><th>EPA m²</th><th>qz kg/m²</th><th>Gh</th><th>FA kgf</th></tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr style="font-weight:700;border-top:2px solid var(--border);">
+          <td colspan="10" style="text-align:right;">TOTAL</td>
+          <td>${total.toFixed(1)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
 function _onWindAngleSelect(val) {
   _selectedWindAngle = +val;
   const cfg = getConfig();
@@ -6157,6 +6285,7 @@ function _onWindAngleSelect(val) {
     zBase += h; zBaseTower += h;
   }
   _renderWindAngleTable(cfg, rows);
+  _renderAntennaForceTable(cfg);
   // Actualizar flechas 3D con el nuevo ángulo
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
@@ -6260,11 +6389,18 @@ function buildCargasVientoPanel() {
       FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.
       Df/Dr según Tabla 2-7. Rr provisional = 1.0.
     </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN ANTENAS</div>
+    <div id="antenna-force-table-container"></div>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+      FA = qz·Gh·EPA(θ) — §2.6.11.2. θr = ángulo viento − azimut antena. Nodo = más cercano a z centroide.
+    </div>
   `;
   // Inicializar ángulo seleccionado al primero de la lista si aún no está en las opciones
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   if (!dirs.includes(_selectedWindAngle)) _selectedWindAngle = dirs[0];
   _renderWindAngleTable(cfg, rows);
+  _renderAntennaForceTable(cfg);
 }
 
 function saveSettingsModal() {
@@ -6548,10 +6684,9 @@ function getConfig() {
     alturaInclinada = 0;
   } else {
     alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
-    const altBC = +document.getElementById('altBaseConst')?.value || 0;
     nInc = 0; let cumH = 0;
     for (let i = 0; i < secData.length; i++) {
-      if (cumH >= altBC - 0.001 && cumH < alturaInclinada - 0.001) nInc++;
+      if (cumH < alturaInclinada - 0.001) nInc++;
       cumH += +secData[i]?.h || 0;
     }
     nStr = Math.max(0, secData.length - nInc);
@@ -6564,7 +6699,6 @@ function getConfig() {
     topW:      +document.getElementById('topW').value   || 2,
     height:    +document.getElementById('height').value || 30,
     alturaInclinada,
-    altBaseConst: +document.getElementById('altBaseConst')?.value || 0,
     nInc, nStr,
     nsec:      nInc + nStr || 1,
     shaftW:    +document.getElementById('shaftW').value || 1,
@@ -6587,9 +6721,11 @@ function getConfig() {
     memberOverrides: JSON.parse(JSON.stringify(memberOverrides)),
     supportOverrides: JSON.parse(JSON.stringify(supportOverrides)),
     revisionData:   JSON.parse(JSON.stringify(revisionData)),
+    comentariosData: JSON.parse(JSON.stringify(comentariosData)),
     windData:       JSON.parse(JSON.stringify(windData)),
     dadoHeight:     dadoHeight,
     antenasData:    JSON.parse(JSON.stringify(antenasData)),
+    m4:             document.getElementById('m4')?.checked || false,
   };
 }
 
@@ -6686,7 +6822,7 @@ function onTypeChange() {
   setDisp('topW',         !isGuyed);
   setDisp('row-apertura-top', isGuyed);
   setDisp('row-altInc-main', !isGuyed && v !== 'monopole');
-  setDisp('row-altBaseConst-main', !isGuyed && v !== 'monopole');
+  setDisp('row-m4-main', v === 'square');
   setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
   if (isGuyed) ensureGuyHeights();
@@ -6785,7 +6921,6 @@ function _buildPreviewCfg(tipo) {
     ? (+document.getElementById('s-altInc')?.value || 0) : 0;
   return {
     type: tipo, height, baseW, topW, nInc, nStr, nsec: nInc+nStr || 1, alturaInclinada,
-    altBaseConst: +document.getElementById('s-altBaseConst')?.value || 0,
     shaftW: +document.getElementById('s-shaftW')?.value || 1,
     guyShape: document.getElementById('s-guyShape')?.value || 'triangular',
     guyLevels: guyHeights.length || 3,
@@ -6844,7 +6979,7 @@ function onSetupTipoChange() {
   hide('s-row-base',  v !== 'guyed');
   hide('s-row-top',   v !== 'guyed' && v !== 'monopole' ? true : v === 'monopole');
   hide('s-row-altInc', v !== 'monopole' && v !== 'guyed');
-  hide('s-row-altBaseConst', v !== 'monopole' && v !== 'guyed');
+  hide('s-row-m4',    v === 'square');
   hide('s-row-nstr',   v === 'guyed');
   hide('s-row-guyShape',    v === 'guyed');
   hide('s-row-guyApertura', v === 'guyed');
@@ -7377,14 +7512,12 @@ function generateTowerFromSetup() {
   { const sAI = document.getElementById('s-altInc');
     const ai  = document.getElementById('alturaInclinada');
     if (sAI && ai) ai.value = sAI.value; }
-  { const sABC = document.getElementById('s-altBaseConst');
-    const abc  = document.getElementById('altBaseConst');
-    if (sABC && abc) abc.value = sABC.value; }
   syncVal('nInc',   's-nInc');
   syncVal('nStr',   's-nStr');
   syncVal('shaftW',    's-shaftW');
   const guyPivotEl = document.getElementById('guyPivot');
   if (guyPivotEl) guyPivotEl.checked = document.getElementById('s-guyPivot')?.checked || false;
+  const m4El = document.getElementById('m4'); if (m4El) m4El.checked = document.getElementById('s-m4')?.checked || false;
   document.getElementById('assetNumber').value    = document.getElementById('s-assetnum').value;
   document.getElementById('assetName').value      = document.getElementById('s-asset').value;
   document.getElementById('cliente').value        = document.getElementById('s-cliente').value;
@@ -7462,6 +7595,7 @@ function generateTowerFromSetup() {
   projectGenerated = true;
   _unsavedChanges = true;
   closeTorreFlyout();
+  document.getElementById('rpanel').classList.remove('wide', 'ant-wide');
   document.getElementById('rpanel').classList.add('visible');
   document.getElementById('rpanel-info').classList.add('visible');
 
@@ -7583,7 +7717,7 @@ function _renderAntenasTable() {
         const subTr = document.createElement('tr');
         subTr.style.background = 'rgba(0,30,60,0.6)';
         subTr.innerHTML =
-          `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Az ${ki+1}</td>` +
+          `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Azimut ${ki+1}</td>` +
           `<td><input class="ant-inp ant-num" type="number" value="${antenasData[idx].azimuth??0}"
               min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
           `<td colspan="7"></td>` +
@@ -7613,8 +7747,10 @@ function _updateAntAddAngles() {
   // Leer ángulos actuales para no perderlos al cambiar N
   const prev = [...box.querySelectorAll('.ant-az-inp')].map(el => +el.value);
   box.innerHTML = '';
+  const tipo = document.getElementById('ttype')?.value || '';
+  const sqDef = [45, 135, 225, 315];
   for (let i = 0; i < n; i++) {
-    const defAz = prev[i] != null ? prev[i] : Math.round((360 / n) * i);
+    const defAz = (i < prev.length) ? prev[i] : (tipo === 'square' ? (sqDef[i] ?? Math.round(45 + (360/n)*i)) : Math.round((360/n)*i));
     const inp = document.createElement('input');
     inp.type = 'number'; inp.min = 0; inp.max = 359; inp.step = 1;
     inp.value = defAz;
@@ -7636,24 +7772,95 @@ function _addAntenasMulti() {
   _renderAntenasTable();
 }
 
+// Ca para componentes planos (Tabla 2-9, interpolación lineal por relación de aspecto)
+function _caFlat(ar) {
+  const a = Math.max(0, ar);
+  if (a <= 2.5) return 1.2;
+  if (a <= 7)   return 1.2 + (a - 2.5) / 4.5 * 0.2;
+  if (a < 25)   return 1.4 + (a - 7) / 18 * 0.6;
+  return 2.0;
+}
+
 function _calcEPA(a) {
   if (_isDishType(a.tipo)) {
+    // Anexo C — microwave dish: EPA(θ) = (CA(θ)·cosθ + CS(θ)·sinθ) · A
     const D = +a.ancho || 0;
-    a.alto = D;  // dish is circular: alto = ancho = diámetro
-    const A = Math.PI * D * D / 4;
+    a.alto = D;
+    const A   = Math.PI * D * D / 4;
     const c0  = _dishCoeff(a.tipo, 0);
     const c60 = _dishCoeff(a.tipo, 60);
     const c90 = _dishCoeff(a.tipo, 90);
-    a.epa0  = +(Math.abs(c0.CA)  * A).toFixed(4);
-    a.epa60 = +(Math.sqrt(c60.CA * c60.CA + c60.CS * c60.CS) * A).toFixed(4);
-    a.epa90 = +(Math.sqrt(c90.CA * c90.CA + c90.CS * c90.CS) * A).toFixed(4);
+    const cos60 = 0.5, sin60 = Math.sqrt(3) / 2;
+    a.epa0  = +(Math.abs(c0.CA) * A).toFixed(4);
+    a.epa60 = +(Math.abs(c60.CA * cos60 + c60.CS * sin60) * A).toFixed(4);
+    a.epa90 = +(Math.abs(c90.CS) * A).toFixed(4);
     return;
   }
+  // §2.6.11.2 — Panel / RRU: Ka=1.0, Ca de Tabla 2-9, cos²/sin² por ángulo
   const W = +a.ancho || 0, H = +a.alto || 0, E = +a.espesor || 0;
   if (W === 0 && H === 0) return;
-  a.epa0  = +(W * H).toFixed(4);
-  a.epa60 = +(W * H * 0.5 + E * H * Math.sin(Math.PI / 3)).toFixed(4);
-  a.epa90 = +(E * H).toFixed(4);
+  const ca_N  = _caFlat(W > 0 ? H / W : 25);  // relación de aspecto cara normal
+  const ca_T  = _caFlat(E > 0 ? H / E : 25);  // relación de aspecto cara transversal
+  const EPA_N = ca_N * H * W;
+  const EPA_T = ca_T * H * E;
+  // cos²(60°)=0.25  sin²(60°)=0.75
+  a.epa0  = +EPA_N.toFixed(4);
+  a.epa60 = +(EPA_N * 0.25 + EPA_T * 0.75).toFixed(4);
+  a.epa90 = +EPA_T.toFixed(4);
+}
+
+// Calcula fuerzas de viento en antenas según TIA-222-H §2.6.11.2 (paneles) y Anexo C (microondas).
+// Devuelve un array con una entrada por antena; cada entrada incluye fuerzas por dirección de viento
+// ya descompuestas en el sistema global de STAAD (FX = TSA X, FZ = -TSA Y).
+function _calcAntennaForces(cfg, windData) {
+  const ants = Array.isArray(antenasData) ? antenasData : [];
+  const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+  return ants.map((a, antIdx) => {
+    const z    = +a.z || 0;
+    const qz   = calcWindPressure(cfg, windData, z);   // N/m²
+    const Gh   = _tiaGh(z, cfg.type);
+    const azDeg = +a.azimuth || 0;
+
+    const forcesByDir = dirs.map(angleDeg => {
+      // θ_rel: ángulo relativo viento–antena normalizado a [0,180] (EPA simétrica)
+      let theta_rel = ((angleDeg - azDeg) % 360 + 360) % 360;
+      if (theta_rel > 180) theta_rel = 360 - theta_rel;
+      const tRad = theta_rel * Math.PI / 180;
+
+      let EPA;
+      if (_isDishType(a.tipo)) {
+        const D = +a.ancho || 0;
+        const A = Math.PI * D * D / 4;
+        const c = _dishCoeff(a.tipo, theta_rel);
+        EPA = Math.abs(c.CA * Math.cos(tRad) + c.CS * Math.sin(tRad)) * A;
+      } else {
+        // §2.6.11.2: (EPA)_A = Ka·[(EPA)_N·cos²θ + (EPA)_T·sin²θ], Ka=1.0
+        const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
+        EPA = (+(a.epa0) || 0) * cos2 + (+(a.epa90) || 0) * sin2;
+      }
+
+      const FA_N   = qz * Gh * EPA;                     // N
+      const FA_kgf = FA_N / 9.80665;                    // kgf
+
+      // Descomposición en ejes globales STAAD (FX = TSA X, FZ = -TSA Y)
+      const wRad   = angleDeg * Math.PI / 180;
+      const fx_staad =  FA_kgf * Math.sin(wRad);
+      const fz_staad = -FA_kgf * Math.cos(wRad);
+
+      return { angleDeg, theta_rel, EPA, FA_N, FA_kgf, fx_staad, fz_staad };
+    });
+
+    return { antIdx, desc: a.desc || '—', tipo: a.tipo || 'Panel', z, azimuth: azDeg, qz, Gh, forcesByDir };
+  });
+}
+
+// Encuentra el nodo de pierna (leg) más cercano en Z=antZ dentro de un array de nodos.
+// legSet: Set de índices de nodos pierna; si null, usa todos los nodos.
+function _nearestLegNodeIdx(antZ, nodes, legSet) {
+  let bestIdx = null, bestDist = Infinity;
+  const check = i => { const d = Math.abs(nodes[i].z - antZ); if (d < bestDist) { bestDist = d; bestIdx = i; } };
+  if (legSet) legSet.forEach(check); else nodes.forEach((_, i) => check(i));
+  return bestIdx;
 }
 
 function addAntenaRow() {
@@ -7689,7 +7896,7 @@ function toggleAntenasTab() {
     document.getElementById('rpanel-antenas').classList.add('visible');
     buildAntenasPanel();
   } else {
-    document.getElementById('rpanel').classList.remove('ant-wide');
+    document.getElementById('rpanel').classList.remove('wide', 'ant-wide');
     document.getElementById('rpanel-antenas').classList.remove('visible');
     if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
   }
@@ -7750,8 +7957,8 @@ function buildAntenasPanel() {
   window._antGrpKeys    = groups.map(g => g.k);
   window._antGrpIndices = groups.map(g => g.indices);
 
-  const finp = (gi, field, val, step, w='55px', isDish=false) =>
-    `<input type="number" class="ant-inp ant-num" style="width:${w}" value="${val??0}" min="0" step="${step}"
+  const finp = (gi, field, val, step, w='55px') =>
+    `<input type="number" class="ant-inp ant-num" style="width:${w};border:none;background:transparent;color:var(--accent);font-weight:600" value="${val??0}" min="0" step="${step}"
       oninput="_antPanelUpdate(${gi},'${field}',this.value)">`;
 
   const cards = groups.map(({ k, indices, a }, gi) => {
@@ -7770,9 +7977,9 @@ function buildAntenasPanel() {
       ? `<div class="apc-row"><span>Diámetro</span>
           <div style="display:flex;gap:3px;align-items:center">${finp(gi,'ancho',a.ancho,0.05,'55px')}
           <span style="color:var(--txt-sec);font-size:10px">m</span></div></div>`
-      : `<div class="apc-row"><span>A × H × Esp</span>
+      : `<div class="apc-row"><span>Alto × Ancho × Espesor</span>
           <div style="display:flex;gap:2px;align-items:center">
-          ${finp(gi,'ancho',a.ancho,0.01,'42px')}×${finp(gi,'alto',a.alto,0.01,'42px')}×${finp(gi,'espesor',a.espesor,0.001,'38px')}
+          ${finp(gi,'alto',a.alto,0.01,'42px')}×${finp(gi,'ancho',a.ancho,0.01,'42px')}×${finp(gi,'espesor',a.espesor,0.001,'44px')}
           <span style="color:var(--txt-sec);font-size:10px">m</span></div></div>`;
 
     const pesoRow = `<div class="apc-row"><span>Peso</span>
@@ -7794,7 +8001,7 @@ function buildAntenasPanel() {
     if (!isGroup) {
       return `<div class="ant-panel-card">
         ${titleRow}${altRow}
-        <div class="apc-row"><span>Azimuth</span>${azInp(indices[0])}</div>
+        <div class="apc-row"><span>Azimut</span>${azInp(indices[0])}</div>
         ${dimRow}${pesoRow}${epaRow}
       </div>`;
     }
@@ -7802,7 +8009,7 @@ function buildAntenasPanel() {
       const azList = indices.map(i => (antenasData[i].azimuth??0)+'°').join(' · ');
       return `<div class="ant-panel-card">
         ${titleRow}${altRow}
-        <div class="apc-row" style="flex-wrap:wrap;gap:2px"><span>Azimuths</span>
+        <div class="apc-row" style="flex-wrap:wrap;gap:2px"><span>Azimuts</span>
           <span class="apc-val" style="color:var(--accent);font-size:11px">${azList}</span></div>
         ${dimRow}${pesoRow}${epaRow}
         <button class="btn" style="width:100%;margin-top:5px;font-size:11px" onclick="_toggleAntGrp(${gi})">
@@ -7810,8 +8017,8 @@ function buildAntenasPanel() {
       </div>`;
     }
     const azRows = indices.map(i =>
-      `<div class="apc-row" style="padding-left:6px;border-left:2px solid var(--accent)">
-        <span>Az ${i+1}</span>${azInp(i)}</div>`
+      `<div class="apc-row" style="padding-left:6px;border-left:2px solid var(--accent);justify-content:flex-start;gap:10px">
+        <span style="min-width:64px">Azimut ${i+1}</span>${azInp(i)}</div>`
     ).join('');
     return `<div class="ant-panel-card">
       ${titleRow}${altRow}${azRows}
@@ -7887,50 +8094,63 @@ function renderAntenas3D() {
     const perp = _perpOff[dataIdx];
 
     if (_isDishType(a.tipo)) {
-      // ── Antena parabólica / dish ─────────────────────────────────────────
-      const D = W;       // diámetro = ancho
+      // ── Antena parabólica / microwave dish ───────────────────────────────
+      const D = W;
       const r = D / 2;
-      const depth = Math.max(0.08, D * 0.18);  // profundidad estimada del reflector
-      // Offset radial: desde la cara de la torre + espacio libre + profundidad/2
-      const radialOff = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.45 + depth / 2;
-      const px = Math.sin(az) * radialOff + perp * Math.cos(az);
-      const py = Math.cos(az) * radialOff - perp * Math.sin(az);
+      const depth = Math.max(0.06, D * 0.18);      // profundidad del cuenco
+      const fLen  = (r * r) / (4 * depth);         // longitud focal
+      const isGrid = a.tipo === 'Parabólica grid';
+      const axX = Math.sin(az), axY = Math.cos(az);
+
+      // Vértice del cuenco a ~30 cm de la cara de la torre
+      const radialOff = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.30;
+      const px = axX * radialOff + perp * Math.cos(az);
+      const py = axY * radialOff - perp * Math.sin(az);
       const pz = +a.z || 0;
 
-      const isGrid = a.tipo === 'Parabólica grid';
-      // Disco principal (reflector)
-      const geoDisc = new THREE.CircleGeometry(r, 48);
-      const colDisc = isGrid ? 0x607090 : 0xD0D0D8;
-      const matDisc = new THREE.MeshBasicMaterial({ color: colDisc, side: THREE.DoubleSide, wireframe: isGrid });
-      const disc = new THREE.Mesh(geoDisc, matDisc);
-      // Rotar el disco para que mire en la dirección del azimuth
-      disc.rotation.x = -Math.PI / 2;
-      disc.rotation.z = -az;
-      disc.position.set(px, py, pz);
-      antenasGroup.add(disc);
+      // Cuenco parabólico — LatheGeometry gira el perfil 360° alrededor del eje Y.
+      // Con rotation.z = -az, el eje Y apunta en la dirección del azimut, por lo que
+      // el cuenco se abre hacia el frente (dirección del enlace).
+      const profilePts = [];
+      for (let i = 0; i <= 16; i++) {
+        const xi = (i / 16) * r;
+        profilePts.push(new THREE.Vector2(xi, (xi * xi) / (4 * fLen)));
+      }
+      const colDish = isGrid ? 0x607090 : 0xF0F2F4;
+      const geoReflector = new THREE.LatheGeometry(profilePts, 36);
+      const matReflector = new THREE.MeshBasicMaterial({ color: colDish, side: THREE.DoubleSide, wireframe: isGrid });
+      const reflector = new THREE.Mesh(geoReflector, matReflector);
+      reflector.rotation.z = -az;
+      reflector.position.set(px, py, pz);
+      antenasGroup.add(reflector);
 
-      // Borde circular del disco
-      const ringGeo = new THREE.RingGeometry(r * 0.97, r, 48);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x8090A0, side: THREE.DoubleSide });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.rotation.z = -az;
-      ring.position.set(px, py, pz);
-      antenasGroup.add(ring);
+      // Aro estructural en el borde del cuenco (posicionado en el plano de la apertura)
+      const rimW = Math.max(0.010, r * 0.030);
+      const geoRim = new THREE.RingGeometry(r - rimW * 0.5, r + rimW * 1.5, 48);
+      const matRim = new THREE.MeshBasicMaterial({ color: 0xA0A8B0, side: THREE.DoubleSide });
+      const rim = new THREE.Mesh(geoRim, matRim);
+      rim.rotation.x = -Math.PI / 2;
+      rim.rotation.z = -az;
+      rim.position.set(px + axX * depth, py + axY * depth, pz);
+      antenasGroup.add(rim);
 
-      // Para dishes con radomo: cubrir con un disco frontal semitransparente
+      // Alimentador (feed horn) en el punto focal
+      const hornR = Math.max(0.018, r * 0.06);
+      const geoHorn = new THREE.CylinderGeometry(hornR * 0.6, hornR, hornR * 2.5, 8);
+      const matHorn = new THREE.MeshBasicMaterial({ color: 0x384048 });
+      const horn = new THREE.Mesh(geoHorn, matHorn);
+      horn.rotation.z = -az;
+      horn.position.set(px + axX * fLen, py + axY * fLen, pz);
+      antenasGroup.add(horn);
+
+      // Radomo: disco semitransparente blanco en la apertura (solo con radomo)
       if (a.tipo === 'Parabólica con radomo') {
-        const geoDome = new THREE.CircleGeometry(r * 1.02, 48);
-        const matDome = new THREE.MeshBasicMaterial({ color: 0xF0F0F4, side: THREE.DoubleSide, opacity: 0.6, transparent: true });
+        const geoDome = new THREE.CircleGeometry(r * 1.01, 48);
+        const matDome = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide, opacity: 0.65, transparent: true });
         const dome = new THREE.Mesh(geoDome, matDome);
         dome.rotation.x = -Math.PI / 2;
         dome.rotation.z = -az;
-        // Mover ligeramente hacia la cara frontal
-        dome.position.set(
-          px + Math.sin(az) * depth,
-          py + Math.cos(az) * depth,
-          pz
-        );
+        dome.position.set(px + axX * depth, py + axY * depth, pz);
         antenasGroup.add(dome);
       }
     } else {
@@ -7942,7 +8162,8 @@ function renderAntenas3D() {
       const shape = _antenaShape(W, E);
       const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
       geo.translate(0, 0, -H / 2);
-      const mat   = new THREE.MeshBasicMaterial({ color: 0xC8C0B4, side: THREE.DoubleSide });
+      const panelCol = a.tipo === 'RRU' ? 0xCCCCCC : 0xC8C0B4;
+      const mat   = new THREE.MeshBasicMaterial({ color: panelCol, side: THREE.DoubleSide });
       const mesh  = new THREE.Mesh(geo, mat);
       mesh.position.set(px, py, pz);
       mesh.rotation.z = -az;
@@ -7978,6 +8199,7 @@ function switchToTorre() {
   if (projectGenerated) {
     // Ya hay torre — mostrar info panel, cerrar flyout
     closeTorreFlyout();
+    document.getElementById('rpanel').classList.remove('wide', 'ant-wide');
     document.getElementById('rpanel').classList.add('visible');
     document.getElementById('rpanel-info').classList.add('visible');
   } else {
@@ -8051,7 +8273,7 @@ document.querySelectorAll('.side-btn:not(#home-btn):not(#torre-btn):not(#viento-
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     // Ocultar panel si no es Torre
-    document.getElementById('rpanel').classList.remove('visible');
+    document.getElementById('rpanel').classList.remove('visible', 'wide', 'ant-wide');
     document.getElementById('rpanel-viento').classList.remove('visible');
   })
 );
@@ -8431,7 +8653,7 @@ function _reportSectionWeights() {
   const bySec = {};
   if (!_towerData) return bySec;
   _towerData.members.forEach(m => {
-    if (m.type === 'monothk' || m.sec == null) return;
+    if (m.type === 'monothk' || GUY_ACCESSORY_TYPES.has(m.type) || m.sec == null) return;
     const { profile, isCableCal } = getMemberProfile(m);
     if (!profile || profile === '—' || isCableCal) return;
     const pesoUnit = _profileWeightPerMeter(profile);
@@ -9838,6 +10060,7 @@ async function _ensureDocxLib() {
   _docxLibLoaded = true;
 }
 
+
 async function exportMemoriaDocx() {
   if (!projectGenerated) { showToast('⚠  Genere una torre primero.'); return; }
   try {
@@ -9956,7 +10179,7 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
     const CB = { top: NB, bottom: NB, left: GB, right: GB };
     const hRow = new D.TableRow({
       tableHeader: true, cantSplit: true,
-      children: headers.map((h, i) => mkCell(h, { bold: true, w: w[i], align: D.AlignmentType.LEFT, color: WHITE, fill: BLUE, bords: CB })),
+      children: headers.map((h, i) => mkCell(h, { bold: true, w: w[i], align: D.AlignmentType.CENTER, color: WHITE, fill: BLUE, bords: CB })),
     });
     const dRows = rows.map((r, ri) => new D.TableRow({
       cantSplit: true,
@@ -10062,13 +10285,13 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
     h1('1. Información General'),
     h2('1.1 Alcance'),
     para(`Este documento presenta el análisis de carga de viento de la ${secLabel} de ${cfg.height} m de altura, conforme a ${_VIENTO_CODIGO_LABELS[windData.codigo] || 'ANSI/TIA-222-H'}.`),
-    h2('1.2 Historial de Revisiones'),
-    ...(Array.isArray(cfg.revisionData) && cfg.revisionData.length
+    h2('1.2 Comentarios del Análisis'),
+    ...(Array.isArray(cfg.comentariosData) && cfg.comentariosData.length
       ? [dtable(
-          ['Rev.', 'Fecha', 'Descripción', 'Diseñó', 'Revisó'],
-          cfg.revisionData.map(r => [r.rev || '—', r.date || '—', r.desc || '—', r.by || '—', r.checked || '—']),
-          [500, 1200, 4660, 1500, 1500])]
-      : [pend('historial de revisiones no capturado')]),
+          ['Fecha', 'Comentario', 'Autor'],
+          cfg.comentariosData.map(c => [c.fecha || '—', c.comentario || '—', c.autor || '—']),
+          [1200, 6760, 1400])]
+      : [pend('sin comentarios del análisis')]),
   ];
 
   // ── Cap. 2 — Parámetros de Diseño ─────────────────────────────────────────
@@ -10128,9 +10351,86 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   ];
 
   // ── Cap. 3 — Cargas ────────────────────────────────────────────────────────
+  const _ants = Array.isArray(cfg.antenasData) ? cfg.antenasData : [];
+
+  // Tabla inventario con grupos por descripción y azimut
+  const _antTbl = _ants.length
+    ? dtable(
+        ['#', 'Descripción', 'Tipo', 'Elev. (m)', 'Az. (°)', 'Alto×Ancho×Esp (m)', 'Peso (kg)'],
+        _ants.map((a, i) => [
+          String(i + 1),
+          a.desc || '—',
+          a.tipo || 'Panel',
+          fmt1(a.z),
+          String(a.azimuth ?? 0),
+          `${(+a.alto||0).toFixed(2)}×${(+a.ancho||0).toFixed(2)}×${(+a.espesor||0).toFixed(3)}`,
+          fmt1(a.peso ?? 0),
+        ]),
+        [400, 2200, 1000, 900, 800, 2360, 1700]
+      )
+    : pend('sin antenas o equipos registrados');
+
+  // Resumen de carga muerta total
+  const _pesoTotalAnts = _ants.reduce((s, a) => s + (+a.peso || 0), 0);
+  const _pesoResumen = _pesoTotalAnts > 0
+    ? dtable(
+        ['Concepto', 'Peso (kg)'],
+        [['Antenas y equipos registrados', fmt1(_pesoTotalAnts)]],
+        [7360, 2000]
+      )
+    : null;
+
+  // 3.3 — Fuerzas de viento en antenas por dirección
+  const _wDirs3 = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+  const _ch3antForce = [];
+  if (_ants.length && _towerData) {
+    const _afLegSet = new Set();
+    _towerData.members.forEach(m => { if (m.type === 'leg') { _afLegSet.add(m.ni); _afLegSet.add(m.nj); } });
+    const _afResults = _calcAntennaForces(cfg, windData);
+    _ch3antForce.push(h2('3.3 Fuerzas de Viento en Antenas'));
+    _wDirs3.forEach(dir => {
+      _ch3antForce.push(para([run(`θ = ${dir}° (ángulo de incidencia sobre el eje de la torre)`, { bold: true, size: 20 })],
+        { spacing: { before: 100, after: 60 } }));
+      const _afRows = _afResults.map(af => {
+        const fd = af.forcesByDir.find(f => f.angleDeg === dir) || af.forcesByDir[0];
+        let caVal;
+        if (_isDishType(af.tipo)) {
+          caVal = Math.abs(_dishCoeff(af.tipo, fd.theta_rel).CA).toFixed(3);
+        } else {
+          const _a = antenasData[af.antIdx];
+          const _W = +_a.ancho||0, _H = +_a.alto||0, _E = +_a.espesor||0;
+          const _tR = fd.theta_rel * Math.PI / 180;
+          const _ca_N = _caFlat(_W > 0 ? _H/_W : 25), _ca_T = _caFlat(_E > 0 ? _H/_E : 25);
+          caVal = (_ca_N * Math.cos(_tR)**2 + _ca_T * Math.sin(_tR)**2).toFixed(3);
+        }
+        return [
+          String(af.antIdx + 1), af.desc,
+          fmt1(af.z), String(af.azimuth),
+          String(Math.round(fd.theta_rel)),
+          caVal, '1.00',
+          fd.EPA.toFixed(3),
+          (af.qz / 9.80665).toFixed(1),
+          af.Gh.toFixed(3),
+          fd.FA_kgf.toFixed(1),
+        ];
+      });
+      _ch3antForce.push(dtable(
+        ['#', 'Descripción', 'z (m)', 'Az (°)', 'θr (°)', 'Ca', 'Ka', 'EPA (m²)', 'qz (kg/m²)', 'Gh', 'FA (kgf)'],
+        _afRows,
+        [280, 1900, 650, 560, 560, 580, 480, 680, 820, 580, 800]
+      ));
+    });
+    _ch3antForce.push(para([run('FA = qz · Gh · EPA(θr), aplicada en el nodo más cercano al centroide de la antena. Norma: ANSI/TIA-222-H §2.6.11.2 (paneles) y Anexo C (microondas).', { italics: true, size: 18, color: '555555' })],
+      { spacing: { before: 60, after: 0 } }));
+  }
+
   const ch3 = [
     h1('3. Cargas'),
-    pend('módulo de antenas, escaleras y plataformas no implementado'),
+    h2('3.1 Listado de Antenas y Equipos'),
+    _antTbl,
+    h2('3.2 Resumen de Carga Muerta — Antenas'),
+    ...(_pesoResumen ? [_pesoResumen] : [pend('sin peso registrado en antenas')]),
+    ..._ch3antForce,
   ];
 
   // ── Cap. 4 — Lista de Materiales ───────────────────────────────────────────
@@ -10441,6 +10741,7 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   const pageProps = { size: { width: 12240, height: 15840 }, margin: { top: 1080, bottom: 1080, left: 1440, right: 1152, header: 480, footer: 480 } };
   return new D.Document({
     // Actualiza todos los campos (incluida la tabla de contenido) al abrir en Word
+    // Actualiza todos los campos (incluida la tabla de contenido) al abrir en Word
     settings: { updateFields: true },
     sections: [
       {
@@ -10633,6 +10934,7 @@ const REVISION_DATA_DEFAULT = [
   { version: 'V1.01', descripcion: 'Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.', autor: 'Juan Espinosa', fecha: '2026-06-28', locked: true },
 ];
 let revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
+let comentariosData = [];
 // Ícono real de la app (assets/icon.svg) embebido inline — así se ve igual en TSA.html
 // y en app\web\viewer.html sin depender de una ruta de archivo relativa distinta.
 const TSA_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="34" height="34">
@@ -10713,6 +11015,68 @@ function openTablaRevisiones() {
 function closeTablaRevisiones() {
   document.getElementById('tabla-revisiones-overlay').classList.remove('open');
 }
+function openComentarios() {
+  document.getElementById('tabla-menu').classList.remove('open');
+  renderComentarios();
+  const panel = document.getElementById('tabla-comentarios-overlay');
+  panel.classList.add('open');
+  requestAnimationFrame(() => {
+    const wrapRect = document.getElementById('viewer-wrap').getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const z = parseFloat(document.documentElement.style.zoom) || 1;
+    panel.style.right = 'auto';
+    panel.style.left = ((wrapRect.left + (wrapRect.width - panelRect.width) / 2) / z) + 'px';
+    panel.style.top  = ((wrapRect.top  + (wrapRect.height - panelRect.height) / 2) / z) + 'px';
+  });
+}
+function closeComentarios() {
+  document.getElementById('tabla-comentarios-overlay').classList.remove('open');
+}
+function renderComentarios() {
+  const body = document.getElementById('tabla-comentarios-body');
+  if (!body) return;
+  const esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = comentariosData.map((c, i) => `
+    <tr>
+      <td style="text-align:center;color:var(--txt-sec);font-size:10px;padding:4px 6px">${i + 1}</td>
+      <td style="padding:4px 6px"><input type="date" value="${esc(c.fecha || today)}"
+        style="border:none;background:transparent;color:var(--fg);font-size:11px;width:108px"
+        onchange="comentariosData[${i}].fecha=this.value;_unsavedChanges=true"></td>
+      <td style="padding:4px 6px"><textarea rows="2"
+        style="border:none;background:transparent;color:var(--fg);font-size:11px;width:100%;resize:vertical;box-sizing:border-box"
+        oninput="comentariosData[${i}].comentario=this.value;_unsavedChanges=true">${esc(c.comentario)}</textarea></td>
+      <td style="padding:4px 6px"><input type="text" value="${esc(c.autor)}" placeholder="Autor"
+        style="border:none;background:transparent;color:var(--fg);font-size:11px;width:90px"
+        oninput="comentariosData[${i}].autor=this.value;_unsavedChanges=true"></td>
+      <td style="text-align:center;padding:2px">
+        <button class="sec-edit-btn sec-delete-btn" onclick="deleteComentario(${i})" title="Eliminar">✕</button>
+      </td>
+    </tr>`).join('');
+  body.innerHTML = `
+    <table class="ret-table db-table" style="margin-top:8px;width:100%">
+      <thead><tr>
+        <th style="width:28px">#</th>
+        <th style="width:118px">Fecha</th>
+        <th>Comentario</th>
+        <th style="width:100px">Autor</th>
+        <th style="width:28px"></th>
+      </tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:var(--txt-sec);padding:12px">Sin comentarios</td></tr>'}</tbody>
+    </table>
+    <button class="btn" style="margin-top:10px;font-size:11px" onclick="addComentario()">+ Agregar comentario</button>`;
+}
+function addComentario() {
+  comentariosData.push({ fecha: new Date().toISOString().slice(0, 10), comentario: '', autor: '' });
+  _unsavedChanges = true;
+  renderComentarios();
+}
+function deleteComentario(i) {
+  comentariosData.splice(i, 1);
+  _unsavedChanges = true;
+  renderComentarios();
+}
+
 // Tabla 100% de solo lectura — ni agregar ni borrar ni editar desde la UI. El usuario
 // dicta cada actualización por chat y Claude la agrega directo en REVISION_DATA_DEFAULT/
 // revisionData (ver feedback_tsa_revisiones); no hay controles de edición aquí a propósito.
@@ -11730,6 +12094,12 @@ async function _doExportSTAAD() {
   }
 
   const _wlDirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+
+  // Pre-calcular fuerzas en antenas (una sola vez para todas las direcciones)
+  const _stAntLegSet = new Set();
+  members.forEach(m => { if (m.type === 'leg') { _stAntLegSet.add(m.ni); _stAntLegSet.add(m.nj); } });
+  const _stAntForces = _calcAntennaForces(cfg, windData);
+
   _wlDirs.forEach((angleDeg, di) => {
     const loadName = angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`;
     out += `*\n*${loadName}\n*\n`;
@@ -11749,6 +12119,24 @@ async function _doExportSTAAD() {
       if (Math.abs(fz) > 0.001) line += ` FZ ${fz.toFixed(2)}`;
       if (line !== `_SEC${i+1}_VIENTO`) out += `${line}\n`;
     });
+    // Fuerzas en antenas — una línea por antena, etiquetada como comentario
+    if (_stAntForces.length > 0) {
+      out += `*ANTENAS\n`;
+      _stAntForces.forEach(af => {
+        const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
+        if (!fd || fd.FA_kgf < 0.001) return;
+        const nIdx = _nearestLegNodeIdx(af.z, nodes, _stAntLegSet);
+        if (nIdx == null) return;
+        const stId = nodeNewId[nIdx];
+        if (!stId) return;
+        // Descomponer en FX (TSA X) y FZ (-TSA Y) — misma convención que cargas de torre
+        let line = `${stId}`;
+        if (Math.abs(fd.fx_staad) > 0.001) line += ` FX ${fd.fx_staad.toFixed(2)}`;
+        if (Math.abs(fd.fz_staad) > 0.001) line += ` FZ ${fd.fz_staad.toFixed(2)}`;
+        const label = `ANT${af.antIdx + 1} Z=${af.z.toFixed(1)}M AZ=${af.azimuth}`;
+        if (line !== `${stId}`) out += `${line} * ${label}\n`;
+      });
+    }
   });
 
   out += `FINISH\n`;
@@ -11905,9 +12293,9 @@ async function triggerSaveForClose() {
 // suben los .tsa) y simplemente mostrará un error si se intenta.
 const EXAMPLE_PROJECTS = {
   MONOPOLO: {"type": "monopole", "baseW": 1.2, "topW": 0.8, "height": 30, "nInc": 4, "nStr": 2, "nsec": 6, "shaftW": 1, "guyLevels": 3, "guyHeights": [], "guyCableData": [], "guyAnchorData": [], "guyPivot": false, "location": null, "assetName": "", "siteName": "", "pais": "", "ingResponsable": "", "fechaCreacion": "2026-06-20", "secData": [{"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.6, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.4, "monoFy": "A36"}]},
-  AUTOSOPORTADA_4P: {"type": "square", "baseW": 2, "topW": 2, "height": 30, "nInc": 0, "nStr": 5, "nsec": 5, "shaftW": 1, "guyLevels": 3, "guyHeights": [], "guyCableData": [], "guyAnchorData": [], "guyPivot": false, "location": null, "assetName": "434353", "siteName": "GE325", "pais": "Paraguay", "ingResponsable": "", "fechaCreacion": "2026-06-19", "secData": [{"diag": "Staggered", "bays": 5, "M": "-", "D": "-", "topH": true, "Htop": "-", "bayTopH": true, "Hbay": "-", "Ds": "-", "Hs": "-", "planTop": "none", "PbTop": "-", "PbTop2": "-", "planBay": "none", "PbBay": "-", "PbBay2": "-", "hip": "none", "HhipH": "-", "HhipD": "-", "HhipDia": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "Staggered", "bays": 4, "M": "-", "D": "-", "topH": true, "Htop": "-", "bayTopH": true, "Hbay": "-", "Ds": "-", "Hs": "-", "planTop": "none", "PbTop": "-", "PbTop2": "-", "planBay": "none", "PbBay": "-", "PbBay2": "-", "hip": "none", "HhipH": "-", "HhipD": "-", "HhipDia": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "Staggered", "bays": 4, "M": "-", "D": "-", "topH": true, "Htop": "-", "bayTopH": true, "Hbay": "-", "Ds": "-", "Hs": "-", "planTop": "none", "PbTop": "-", "PbTop2": "-", "planBay": "none", "PbBay": "-", "PbBay2": "-", "hip": "none", "HhipH": "-", "HhipD": "-", "HhipDia": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "Staggered", "bays": 4, "M": "-", "D": "-", "topH": true, "Htop": "-", "bayTopH": true, "Hbay": "-", "Ds": "-", "Hs": "-", "planTop": "none", "PbTop": "-", "PbTop2": "-", "planBay": "none", "PbBay": "-", "PbBay2": "-", "hip": "none", "HhipH": "-", "HhipD": "-", "HhipDia": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "Staggered", "bays": 4, "M": "-", "D": "-", "topH": true, "Htop": "-", "bayTopH": true, "Hbay": "-", "Ds": "-", "Hs": "-", "planTop": "none", "PbTop": "-", "PbTop2": "-", "planBay": "none", "PbBay": "-", "PbBay2": "-", "hip": "none", "HhipH": "-", "HhipD": "-", "HhipDia": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}]},
-  AUTOSOPORTADA_3P: {"type": "triangular", "baseW": 3.6, "topW": 1.2, "height": 30, "nInc": 3, "nStr": 2, "nsec": 5, "shaftW": 1, "guyLevels": 3, "guyHeights": [], "guyCableData": [], "guyAnchorData": [], "guyPivot": false, "location": {"lat": 19.710474150357822, "lng": -99.06832337379456}, "assetName": "", "siteName": "", "pais": "", "ingResponsable": "", "fechaCreacion": "2026-06-15", "secData": [{"diag": "K-25Pct", "bays": 2, "M": "L4X4X3/8", "MCal": "A572 Gr50", "D": "L3X3X1/4", "DCal": "A572 Gr45", "topH": true, "Htop": "L3X3X3/16", "HtopCal": "A572 Gr45", "bayTopH": true, "Hbay": "L3X3X3/16", "HbayCal": "A572 Gr45", "Ds": "L2X2X1/8", "DsCal": "A572 Gr45", "Hs": "L2X2X1/8", "HsCal": "A572 Gr45", "planTop": "B-B", "PbTop": "L2X2X1/8", "PbTopCal": "A572 Gr45", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "B-B", "PbBay": "L2X2X1/8", "PbBayCal": "A572 Gr45", "PbBay2": "-", "PbBay2Cal": "-", "hip": "1", "HhipH": "L2X2X1/8", "HhipHCal": "A572 Gr45", "HhipD": "L2X2X1/8", "HhipDCal": "A572 Gr45", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X-25Pct", "bays": 2, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": true, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "2", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X-50Pct", "bays": 3, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 4, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": true, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 4, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}]},
-  ARRIOSTRADA: {"type": "guyed", "baseW": 4, "topW": 2, "height": 120, "nInc": 0, "nStr": 21, "nsec": 21, "shaftW": 1.5, "guyLevels": 6, "guyHeights": [18, 36, 54, 72, 90, 108], "guyCableData": [{"diam": "3/16\" (1 x 7 EHS)", "diamData": {"name": "3/16", "forma": "1 x 7", "calidad": "EHS", "peso": 0.1086, "area": 0.1386, "rotura": 1.81, "modulo": 1400000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [0, 1, 2], "triangulo": false, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}, {"diam": "5/16\" (1 x 7 EHS)", "diamData": {"name": "5/16", "forma": "1 x 7", "calidad": "EHS", "peso": 0.3051, "area": 0.3849, "rotura": 5.08, "modulo": 1400000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [0, 1, 2], "triangulo": true, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}, {"diam": "1/2\" (1 x 7 HS)", "diamData": {"name": "1/2", "forma": "1 x 7", "calidad": "HS", "peso": 0.7694, "area": 0.9853, "rotura": 8.53, "modulo": 1400000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [0, 1, 2], "triangulo": false, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}, {"diam": "5/8\" (1 x 7 HS)", "diamData": {"name": "5/8", "forma": "1 x 7", "calidad": "HS", "peso": 1.2099, "area": 1.5395, "rotura": 13.43, "modulo": 1400000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [3, 4, 5], "triangulo": true, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}, {"diam": "5/8\" (1 x 19 EHS)", "diamData": {"name": "5/8", "forma": "1 x 19", "calidad": "EHS", "peso": 1.2203, "area": 1.5043, "rotura": 18.23, "modulo": 1690000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [3, 4, 5], "triangulo": false, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}, {"diam": "9/16\" (1 x 19 HS)", "diamData": {"name": "9/16", "forma": "1 x 19", "calidad": "HS", "peso": 0.948, "area": 1.2185, "rotura": 10.93, "modulo": 1690000}, "tensionPct": 10, "conexion": "Antorchada", "nodes": [3, 4, 5], "triangulo": true, "brazoLen": 1.8, "brazoPerfil": "-", "brazoPerfilCal": "-"}], "guyAnchorData": [{"elev": 0, "radio": 40, "azimut": 0}, {"elev": 0, "radio": 40, "azimut": 120}, {"elev": 0, "radio": 40, "azimut": 240}, {"elev": 0, "radio": 70, "azimut": 0}, {"elev": 0, "radio": 70, "azimut": 120}, {"elev": 0, "radio": 70, "azimut": 240}], "guyPivot": true, "location": {"lat": 19.710469100246826, "lng": -99.06828045845033}, "assetName": "rew", "siteName": "4wer", "pais": "refsf", "ingResponsable": "rwrefa", "fechaCreacion": "2026-06-20", "secData": [{"diag": "X", "bays": 2, "M": "L4X4X1/4", "MCal": "A36", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 3, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 3, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 3, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}, {"diag": "X", "bays": 5, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 6, "monoSides": 12, "monoThk": "-", "monoAp": null, "monoFy": "-"}]},
+  AUTOSOPORTADA_4P: {"type":"square","baseW":2,"topW":2,"height":30,"alturaInclinada":0,"nInc":0,"nStr":5,"nsec":5,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"434353","cliente":"AT&T","pais":"Paraguay","ingResponsable":"","revision":"01","fechaCreacion":"2026-06-19","secData":[{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":45,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":135,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":225,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":315,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36}]},
+  AUTOSOPORTADA_3P: {"type":"triangular","baseW":8.9,"topW":1.85,"height":72,"alturaInclinada":60,"nInc":10,"nStr":2,"nsec":12,"shaftW":1,"guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"Prueba","cliente":"AT\u0026T","pais":"México","ingResponsable":"Juan Espinosa","revision":"01","fechaCreacion":"2026-06-29","secData":[{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[{"version":"V1.0","descripcion":"Publicación Inicial","autor":"Juan Espinosa","fecha":"2026-06-20","locked":true},{"version":"V1.01","descripcion":"Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.","autor":"Juan Espinosa","fecha":"2026-06-28","locked":true}],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0.3,"antenasData":[{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":0,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":0.8,"epa60":0.7464,"epa90":0.4},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":120,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":0.8,"epa60":0.7464,"epa90":0.4},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":240,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":0.8,"epa60":0.7464,"epa90":0.4},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":0,"epa0":1.2,"epa60":1.2235,"epa90":0.72}]},
+  ARRIOSTRADA: {"type":"guyed","baseW":4,"topW":2,"height":120,"alturaInclinada":0,"nInc":0,"nStr":21,"nsec":21,"shaftW":1.5,"guyShape":"triangular","guyLevels":6,"guyHeights":[18,36,54,72,90,108],"guyCableData":[{"diam":"3/16\" (1 x 7 EHS)","diamData":{"name":"3/16","forma":"1 x 7","calidad":"EHS","peso":0.1086,"area":0.1386,"rotura":1.81,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/16\" (1 x 7 EHS)","diamData":{"name":"5/16","forma":"1 x 7","calidad":"EHS","peso":0.3051,"area":0.3849,"rotura":5.08,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"1/2\" (1 x 7 HS)","diamData":{"name":"1/2","forma":"1 x 7","calidad":"HS","peso":0.7694,"area":0.9853,"rotura":8.53,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 7 HS)","diamData":{"name":"5/8","forma":"1 x 7","calidad":"HS","peso":1.2099,"area":1.5395,"rotura":13.43,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 19 EHS)","diamData":{"name":"5/8","forma":"1 x 19","calidad":"EHS","peso":1.2203,"area":1.5043,"rotura":18.23,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"9/16\" (1 x 19 HS)","diamData":{"name":"9/16","forma":"1 x 19","calidad":"HS","peso":0.948,"area":1.2185,"rotura":10.93,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"}],"guyAnchorData":[{"elev":0,"radio":40,"azimut":0},{"elev":0,"radio":40,"azimut":120},{"elev":0,"radio":40,"azimut":240},{"elev":0,"radio":70,"azimut":0},{"elev":0,"radio":70,"azimut":120},{"elev":0,"radio":70,"azimut":240}],"guyPivot":true,"location":{"lat":19.710469100246826,"lng":-99.06828045845033},"assetNumber":"159047","assetName":"rew","cliente":"AT&T","pais":"","ingResponsable":"rwrefa","revision":"01","fechaCreacion":"2026-06-20","secData":[{"diag":"X","bays":2,"M":"L4X4X1/4","MCal":"A36","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":2.4,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":3.6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072}]},
 };
 function loadExampleProject(key, displayName) {
   document.getElementById('home-menu').classList.remove('open');
@@ -11991,12 +12379,12 @@ function loadProjectData(cfg, filename) {
       }
     }
     set('shaftW',        cfg.shaftW);
-    set('altBaseConst',  cfg.altBaseConst || 0);
     set('guyShape',      cfg.guyShape || 'triangular');
     guyHeights = Array.isArray(cfg.guyHeights) ? cfg.guyHeights.slice() : [];
     guyCableData  = Array.isArray(cfg.guyCableData)  ? cfg.guyCableData.slice()  : [];
     guyAnchorData = Array.isArray(cfg.guyAnchorData) ? cfg.guyAnchorData.slice() : [];
     if (document.getElementById('guyPivot')) document.getElementById('guyPivot').checked = !!cfg.guyPivot;
+    const m4El = document.getElementById('m4'); if (m4El) m4El.checked = !!cfg.m4;
     if (cfg.type === 'guyed') ensureGuyHeights();
     projectLocation = cfg.location && typeof cfg.location.lat === 'number' ? cfg.location : null;
     updateLocationThumb();
@@ -12012,6 +12400,7 @@ function loadProjectData(cfg, filename) {
     _unsavedChanges = false;
     const rsetup = document.getElementById('rpanel-setup');
     if (rsetup) rsetup.style.display = 'none';
+    document.getElementById('rpanel').classList.remove('wide', 'ant-wide');
     document.getElementById('rpanel-info').classList.add('visible');
     document.getElementById('rpanel').classList.add('visible');
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
@@ -12023,6 +12412,7 @@ function loadProjectData(cfg, filename) {
     memberOverrides = (cfg.memberOverrides && typeof cfg.memberOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.memberOverrides)) : {};
     supportOverrides = (cfg.supportOverrides && typeof cfg.supportOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.supportOverrides)) : {};
     revisionData = Array.isArray(cfg.revisionData) ? JSON.parse(JSON.stringify(cfg.revisionData)) : [];
+    comentariosData = Array.isArray(cfg.comentariosData) ? JSON.parse(JSON.stringify(cfg.comentariosData)) : [];
     // Proyectos guardados antes de que existiera Diseño por Viento no traen windData —
     // se cae a los valores por defecto (ya declarados arriba) en vez de quedar undefined.
     if (cfg.windData && typeof cfg.windData === 'object') windData = JSON.parse(JSON.stringify(cfg.windData));
@@ -12030,6 +12420,7 @@ function loadProjectData(cfg, filename) {
     dadoHeight = +cfg.dadoHeight || 0;
     if (document.getElementById('dado')) document.getElementById('dado').value = dadoHeight;
     antenasData = Array.isArray(cfg.antenasData) ? JSON.parse(JSON.stringify(cfg.antenasData)) : [];
+    antenasData.forEach(a => _calcEPA(a));
     _renderAntenasTable();
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
@@ -12151,11 +12542,10 @@ function buildSectionRows(n) {
     return g ? `${val} <span style="color:var(--txt-sec);font-size:9px;">· ${g.name} Fy ${g.fy}</span>` : val;
   };
   const altH = cfg.alturaInclinada || 0;
-  const altBase = cfg.altBaseConst || 0;
   let _cumH = 0;
   secData.forEach((s, i) => {
     const isInc = altH > 0
-      ? (_cumH >= altBase - 0.001 && _cumH < altH - 0.001)
+      ? (_cumH < altH - 0.001)
       : i < nInc;
     _cumH += +s.h || 0;
     const tipo    = isInc ? 'INC' : 'REC';
@@ -12182,13 +12572,14 @@ function buildSectionRows(n) {
       <div class="sec-row-detail"><span class="sec-row-code">Diámetro:</span><span class="sec-row-val">${i<nInc ? 'ahusado' : (s.monoAp!=null ? s.monoAp+' m' : '—')}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">Espesor:</span><span class="sec-row-val">${s.monoThk==='-'?'—':s.monoThk+' mm'}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">Fy:</span><span class="sec-row-val">${(() => { const g = steelGrades.find(g=>g.name===s.monoFy); return g ? `${g.name} (Fy ${g.fy} kg/cm²)` : '—'; })()}</span></div>
+      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">—</span></div>
       ` : `
       <div class="sec-row-detail"><span class="sec-row-code">M:</span><span class="sec-row-val">${profFy(s.M, s.MCal)}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">D:</span><span class="sec-row-val">${profFy(s.D, s.DCal)}</span></div>
       ${hasDsProfile(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Ds:</span><span class="sec-row-val">${profFy(s.Ds, s.DsCal)}</span></div>` : ''}
       ${isKPattern(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Hs:</span><span class="sec-row-val">${profFy(s.Hs, s.HsCal)}</span></div>` : ''}
       <div class="sec-row-detail"><span class="sec-row-code">H:</span><span class="sec-row-val">${s.topH ? profFy(s.Htop, s.HtopCal) : (s.bayTopH ? profFy(s.Hbay, s.HbayCal) : '—')}</span></div>
-      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">-</span></div>
+      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">—</span></div>
       `}`;
     c.appendChild(card);
     // Separador con botón + entre secciones (copia la sección actual hacia arriba en la torre)
@@ -13372,7 +13763,7 @@ function _makeDraggable(panel, handle) {
   });
   window.addEventListener('pointerup', () => { dragging = false; });
 }
-['tabla-nodos-overlay', 'tabla-barras-overlay', 'tabla-retenidas-overlay', 'tabla-apoyos-overlay', 'tabla-revisiones-overlay', 'export-warning-overlay'].forEach(id => {
+['tabla-nodos-overlay', 'tabla-barras-overlay', 'tabla-retenidas-overlay', 'tabla-apoyos-overlay', 'tabla-revisiones-overlay', 'tabla-comentarios-overlay', 'export-warning-overlay'].forEach(id => {
   const panel = document.getElementById(id);
   _makeDraggable(panel, panel.querySelector('.tabla-panel-hdr'));
 });
