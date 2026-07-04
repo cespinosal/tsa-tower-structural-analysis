@@ -538,6 +538,75 @@ body {
    del usuario (2026-06-28). */
 #rpanel-viento-body  { padding: 12px 14px; }
 #rpanel-antenas-body { padding: 12px 14px; }
+.fd-sec-lbl { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--txt-sec); margin-bottom: 7px; display: block; }
+.fd-top { margin-bottom: 14px; }
+.fd-wrap { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.fd-tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.fd-tbl thead th { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--txt-sec); padding: 6px 9px; text-align: left; background: var(--bg-deep); border-bottom: 1px solid var(--border); }
+.fd-tbl tbody td { padding: 6px 9px; border-bottom: 1px solid #0e1f38; color: var(--txt-pri); font-size: 12px; }
+.fd-tbl tbody tr:last-child td { border-bottom: none; }
+.fd-tbl tbody tr:hover td { background: rgba(0,212,255,.04); }
+.fd-tbl .tc { text-align: center; }
+.fd-badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px 1px 4px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+.fd-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--fd-dot, #888); flex-shrink: 0; }
+.fd-add-form { display: none; padding: 9px 10px; background: var(--bg-deep); border-top: 1px solid var(--border); gap: 6px; grid-template-columns: 105px 58px 42px 78px 56px 56px auto; align-items: flex-end; }
+.fd-add-form.open { display: grid; }
+.fd-ff { display: flex; flex-direction: column; gap: 3px; }
+.fd-fl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--txt-sec); }
+.fd-add-form select, .fd-add-form input[type=number] { background: var(--bg-input); border: 1px solid var(--border); color: var(--txt-pri); border-radius: 4px; padding: 4px 6px; font-size: 12px; font-family: inherit; width: 100%; outline: none; -moz-appearance: textfield; }
+.fd-add-form select:focus, .fd-add-form input:focus { border-color: var(--cyan); }
+.fd-add-form input[type=number]::-webkit-outer-spin-button, .fd-add-form input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fd-sumbar { display: flex; gap: 12px; padding: 6px 9px; background: var(--bg-deep); border-top: 1px solid var(--border); flex-wrap: wrap; }
+.fd-sum-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--txt-sec); }
+.fd-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
+.fd-leg-row { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--txt-sec); }
+.fd-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#fd-plan-win {
+  display: none; position: absolute; top: 60px; right: 12px;
+  width: 308px; background: #0D1E35;
+  border: 1px solid #1E3A5F; border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.65);
+  z-index: 200; flex-direction: column; user-select: none;
+}
+#fd-plan-win.open { display: flex; }
+#fd-plan-win-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px; cursor: move; border-bottom: 1px solid #1E3A5F;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--txt-sec);
+}
+#fd-plan-win-body { padding: 14px; display: flex; flex-direction: column; gap: 0; }
+#fd-plan-win canvas { display: block; border-radius: 4px; width: 280px; height: 280px; }
+#fd-plan-win .fd-legend { margin-top: 10px; flex-direction: row; flex-wrap: wrap; gap: 4px 14px; }
+.fd-ant-thead { display: grid; grid-template-columns: 1fr 52px 52px 1fr; background: var(--bg-deep); border-bottom: 1px solid var(--border); }
+.fd-ant-row { display: grid; grid-template-columns: 1fr 52px 52px 1fr; border-bottom: 1px solid #0e1f38; }
+.fd-ant-row:last-child { border-bottom: none; }
+.fd-ant-row:hover { background: rgba(0,212,255,.04); }
+.fd-ac { padding: 7px 9px; display: flex; align-items: center; font-size: 12px; }
+.fd-ac + .fd-ac { border-left: 1px solid #0e1f38; }
+.fd-ant-thead .fd-ac { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--txt-sec); padding: 6px 9px; }
+.fd-ac-ctr { justify-content: center; font-variant-numeric: tabular-nums; color: var(--txt-sec); }
+.fd-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.fd-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px 2px 5px; border-radius: 4px; font-size: 11px; font-weight: 500; color: #fff; }
+.fd-chip-x { cursor: pointer; opacity: .6; font-size: 11px; line-height: 1; margin-left: 1px; transition: opacity .1s; }
+.fd-chip-x:hover { opacity: 1; }
+.fd-assign-wrap { position: relative; }
+.fd-btn-assign { background: none; border: 1px dashed var(--border); color: var(--txt-sec); border-radius: 3px; padding: 2px 7px; font-size: 11px; cursor: pointer; font-family: inherit; transition: color .15s, border-color .15s; }
+.fd-btn-assign:hover { color: var(--cyan); border-color: var(--cyan); }
+.fd-drop { display: none; position: absolute; top: calc(100% + 3px); left: 0; z-index: 99; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.55); min-width: 185px; padding: 4px 0; }
+.fd-drop.open { display: block; }
+.fd-drop-item { padding: 7px 11px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 7px; color: var(--txt-pri); }
+.fd-drop-item:hover { background: var(--bg-deep); }
+.fd-drop-item.disabled { opacity: .35; pointer-events: none; }
+.fd-empty { padding: 18px; text-align: center; color: var(--txt-sec); font-size: 12px; opacity: .6; }
+.fd-btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-deep); color: var(--txt-sec); font-size: 11px; cursor: pointer; font-family: inherit; transition: color .15s, border-color .15s; }
+.fd-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+.fd-btn-ok { background: var(--btn-pri); border-color: var(--btn-pri); color: #fff; font-weight: 600; font-size: 12px; padding: 5px 12px; }
+.fd-btn-ok:hover { background: var(--btn-hov); border-color: var(--btn-hov); color: #fff; }
+.fd-btn-del { background: none; border: none; cursor: pointer; color: var(--txt-dim); padding: 2px 5px; border-radius: 3px; font-size: 13px; font-family: inherit; line-height: 1.2; transition: color .15s, background .15s; }
+.fd-btn-del:hover { color: var(--error); background: rgba(248,113,113,.12); }
+#feeders-flyout  { width: 640px; }
+#feeders-panel-body { overflow-y: auto; flex: 1; min-height: 0; }
 .ant-panel-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
 .ant-panel-card .apc-title { font-weight: 600; color: var(--txt); margin-bottom: 5px; font-size: 12.5px; }
 .ant-panel-card .apc-row { display: flex; justify-content: space-between; color: var(--txt-sec); margin-top: 2px; }
@@ -1484,9 +1553,10 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 <!-- ══════════════ TAB BAR ══════════════════════════════════════ -->
 <div class="tabbar">
   <button class="tab active" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
-  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Códigos</button>
-  <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()">&nbsp;&nbsp;Cargas de Viento</button>
+
+  <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;margin-right:4px"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M12.59 11.59A2 2 0 1 1 14 15H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/></svg>Cargas de Viento</button>
   <button class="tab" id="tab-antenas" onclick="toggleAntenasTab()">📡 &nbsp;Antenas</button>
+  <button class="tab" id="tab-feeders" onclick="toggleFeedersTab()"><svg viewBox="0 0 18 14" width="14" height="11" style="vertical-align:middle;margin-right:3px"><circle cx="2" cy="7" r="1.8" fill="currentColor"/><path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="15.2" cy="7" r="1.8" fill="currentColor"/></svg>Feeders</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Escaleras</button>
   <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Plataformas</button>
   <div class="tabbar-end">
@@ -1572,6 +1642,16 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <line x1="8" y1="20" x2="14" y2="20"/>
       </svg>
       <span class="side-tip">Antenas</span>
+    </button>
+
+    <!-- Feeders -->
+    <button class="side-btn" id="side-feeders-btn" onclick="toggleFeedersPanel(event)">
+      <svg viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="2" cy="7" r="1.8" fill="currentColor" stroke="none"/>
+        <path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7"/>
+        <circle cx="15.2" cy="7" r="1.8" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="side-tip">Feeders / Coaxiales</span>
     </button>
 
     <!-- Optimización -->
@@ -1666,6 +1746,19 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn" onclick="closeAntenasFlyout()">Cancelar</button>
         <button class="btn-accent" onclick="applyAntenas()">Aplicar</button>
+      </div>
+    </div>
+
+    <!-- Feeders flyout -->
+    <div class="torre-flyout" id="feeders-flyout">
+      <div class="tf-header">
+        <span><svg viewBox="0 0 18 14" width="13" height="10" style="vertical-align:middle;margin-right:5px"><circle cx="2" cy="7" r="1.8" fill="currentColor"/><path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="15.2" cy="7" r="1.8" fill="currentColor"/></svg>Feeders / Coaxiales</span>
+        <button onclick="closeFeedersPanel()">✕</button>
+      </div>
+      <div class="tf-scroll" id="feeders-panel-body" style="padding:12px 14px"></div>
+      <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn" onclick="closeFeedersPanel()">Cancelar</button>
+        <button class="btn-accent" onclick="_fdAplicar()">Aplicar</button>
       </div>
     </div>
 
@@ -1836,6 +1929,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <div class="tf-row"><span class="tf-lbl">CÓDIGO DE DISEÑO</span>
             <select class="tf-input" id="viento-codigo">
               <option value="ANSI_TIA_H">ANSI/TIA H</option>
+              <option value="ANSI_TIA_I" disabled>ANSI/TIA I (En proceso)</option>
               <option value="CFE2020" disabled>CFE 2020 (En proceso)</option>
             </select></div>
           <div class="tf-row"><span class="tf-lbl">TIPO DE ESTRUCTURA</span>
@@ -2153,6 +2247,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="rpanel-scroll" id="rpanel-antenas-body"></div>
     </div><!-- /rpanel-antenas -->
 
+
   </div><!-- /rpanel -->
 
 </div><!-- /main -->
@@ -2164,6 +2259,18 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   <span style="margin-left:auto; color:var(--txt-sec); font-size:10px; letter-spacing:.3px;">
     Created by: Ing Juan Christian Espinosa López
   </span>
+</div>
+
+<!-- ── Feeders plan view floating window ───────────────────── -->
+<div id="fd-plan-win">
+  <div id="fd-plan-win-hdr">
+    <span>Vista en Planta</span>
+    <button onclick="closeFdPlanWin()" style="background:none;border:none;cursor:pointer;color:var(--txt-sec);font-size:14px;line-height:1;padding:0 2px">✕</button>
+  </div>
+  <div id="fd-plan-win-body">
+    <canvas id="fd-plan-cv" width="280" height="280"></canvas>
+    <div class="fd-legend" id="fd-legend"></div>
+  </div>
 </div>
 
 <!-- ── Grid config floating panel ──────────────────────────── -->
@@ -3665,6 +3772,7 @@ const wrap = document.getElementById('viewer-wrap');
 // El grupo de zoom/orbit vivía en el tabbar (flotado por JS sobre el visor) — se mueve
 // aquí una sola vez para que su position:absolute quede relativa a #viewer-wrap.
 wrap.appendChild(document.getElementById('viewctl-group'));
+wrap.appendChild(document.getElementById('fd-plan-win'));
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0A1628);
 const _BASE_FOG_DENSITY = 0.004;
@@ -4476,9 +4584,12 @@ function updateAxisLabels() {
 }
 
 const towerGroup   = new THREE.Group();
-const antenasGroup = new THREE.Group();
+const antenasGroup  = new THREE.Group();
+const feedersGroup  = new THREE.Group();
+feedersGroup.visible = true;
 scene.add(towerGroup);
 scene.add(antenasGroup);
+scene.add(feedersGroup);
 scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
@@ -4641,6 +4752,7 @@ function renderTower(data) {
   if (document.getElementById('tabla-retenidas-overlay')?.classList.contains('open')) renderTablaRetenidas();
   if (document.getElementById('tabla-apoyos-overlay')?.classList.contains('open')) renderTablaApoyos();
   renderAntenas3D();
+  _renderFeeders3D();
   _updateSectionWeights();
 }
 
@@ -5613,6 +5725,7 @@ function openVientoFlyout() {
   if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   closeTorreFlyout();
   closeAntenasFlyout();
+  closeFeedersPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
@@ -6494,6 +6607,11 @@ let antenasData = [];
 let antenasOn   = true;
 let antenasGroupCollapsed   = {};  // panel collapse state, keyed by group content key
 let _flyoutGroupCollapsed   = {};  // flyout collapse state
+let feedersData      = [];
+let _feedersNextId   = 1;
+let _fdEditId        = null;   // id del cable en edición (null = modo agregar)
+let antFeeders       = {};
+let _feedersOn       = false;
 
 // ── TIA-222-H Appendix C — Wind Force Coefficients for Microwave Antennas ──
 // [theta_deg, CA, CS, CM] — tablas C-1 a C-4
@@ -6760,6 +6878,8 @@ function getConfig() {
     windData:       JSON.parse(JSON.stringify(windData)),
     dadoHeight:     dadoHeight,
     antenasData:    JSON.parse(JSON.stringify(antenasData)),
+    feedersData:    JSON.parse(JSON.stringify(feedersData)),
+    antFeeders:     JSON.parse(JSON.stringify(antFeeders)),
     m4:             document.getElementById('m4')?.checked || false,
     altConst:       +(document.getElementById('altConst')?.value) || 0,
     altReduccion:   +(document.getElementById('altReduccion')?.value) || 0,
@@ -7814,6 +7934,7 @@ function openAntenasFlyout() {
   if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   closeTorreFlyout();
   closeVientoFlyout();
+  closeFeedersPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('antenas-btn').classList.add('active');
   _renderAntenasTable();
@@ -8094,6 +8215,592 @@ function toggleAntenasTab() {
   }
 }
 
+// ── Feeders / Coaxiales ───────────────────────────────────────────────────────
+const _FD_TIPOS_DIAM = {'1/2"':12.7,'7/8"':22.2,'1-1/4"':32.0,'1-5/8"':41.3,'2-1/4"':57.2,'RG-213':10.3,'Otro':20.0};
+const _FD_FC_CSS     = {A:'#4a9fd0',B:'#9b72de',C:'#48c99e',D:'#e8a04a',EXT:'#4a9fd0',INT:'#7a8fa8'};
+const _FD_FC_HEX     = {A:0x4a9fd0, B:0x9b72de, C:0x48c99e, D:0xe8a04a, EXT:0x4a9fd0, INT:0x7a8fa8};
+const _FD_FLBL       = {A:'Cara A',B:'Cara B',C:'Cara C',D:'Cara D',EXT:'Externa',INT:'Interna'};
+
+// Escala de color por diámetro (mm): azul fino → rojo grueso
+const _FD_DIAM_SCALE = [
+  [10,  [80,  180, 230]],   // #50B4E6  — RG-213 / delgado
+  [22,  [72,  201, 176]],   // #48C9B0  — 7/8"
+  [32,  [168, 224,  99]],   // #A8E063  — 1-1/4"
+  [41,  [244, 162,  38]],   // #F4A226  — 1-5/8"
+  [57,  [232,  80,  74]],   // #E8504A  — 2-1/4" / grueso
+];
+function _fdDiamCss(diam) {
+  const s = _FD_DIAM_SCALE;
+  if (diam <= s[0][0]) return '#' + s[0][1].map(v=>v.toString(16).padStart(2,'0')).join('');
+  if (diam >= s[s.length-1][0]) return '#' + s[s.length-1][1].map(v=>v.toString(16).padStart(2,'0')).join('');
+  for (let i = 0; i < s.length-1; i++) {
+    const [d0,c0] = s[i], [d1,c1] = s[i+1];
+    if (diam >= d0 && diam <= d1) {
+      const t = (diam-d0)/(d1-d0);
+      return '#' + c0.map((v,j)=>Math.round(v+t*(c1[j]-v)).toString(16).padStart(2,'0')).join('');
+    }
+  }
+}
+function _fdDiamHex(diam) { return parseInt(_fdDiamCss(diam).slice(1), 16); }
+
+function _fdFaces(type) {
+  if (type === 'monopole' || type === 'guyed')
+    return [{id:'EXT',lbl:'Externa'},{id:'INT',lbl:'Interna'}];
+  if (type === 'triangular')
+    return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'INT',lbl:'Interna'}];
+  // square (default)
+  return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'D',lbl:'Cara D'},{id:'INT',lbl:'Interna'}];
+}
+
+function toggleFeedersTab() {
+  _feedersOn = !_feedersOn;
+  document.getElementById('tab-feeders').classList.toggle('active', _feedersOn);
+  feedersGroup.visible = _feedersOn;
+}
+function _fdActivateRender() {
+  if (!_feedersOn) {
+    _feedersOn = true;
+    document.getElementById('tab-feeders')?.classList.add('active');
+    feedersGroup.visible = true;
+  }
+}
+
+function toggleFeedersPanel(e) {
+  e?.stopPropagation();
+  const fl  = document.getElementById('feeders-flyout');
+  const btn = document.getElementById('side-feeders-btn');
+  const wasOpen = fl.classList.contains('open');
+  if (!wasOpen) {
+    closeTorreFlyout();
+    closeVientoFlyout();
+    closeAntenasFlyout();
+    document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
+  }
+  fl.classList.toggle('open', !wasOpen);
+  btn?.classList.toggle('active', !wasOpen);
+  if (!wasOpen) _buildFeedersPanel();
+}
+
+function closeFeedersPanel() {
+  document.getElementById('feeders-flyout')?.classList.remove('open');
+  document.getElementById('side-feeders-btn')?.classList.remove('active');
+}
+
+function toggleFdPlanWin() {
+  const win = document.getElementById('fd-plan-win');
+  const isOpen = win.classList.toggle('open');
+  document.getElementById('fd-plan-win-btn')?.classList.toggle('active', isOpen);
+  if (isOpen) _fdDrawPlan();
+}
+function closeFdPlanWin() {
+  document.getElementById('fd-plan-win')?.classList.remove('open');
+  document.getElementById('fd-plan-win-btn')?.classList.remove('active');
+}
+
+// Drag para ventana flotante de vista en planta
+(function() {
+  let drag = false, ox = 0, oy = 0;
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('#fd-plan-win-hdr')) return;
+    drag = true;
+    const win = document.getElementById('fd-plan-win');
+    const wr  = document.getElementById('viewer-wrap').getBoundingClientRect();
+    const r   = win.getBoundingClientRect();
+    // Fijar posición en left/top relativa a viewer-wrap; quitar right
+    win.style.right = '';
+    win.style.left  = (r.left - wr.left) + 'px';
+    win.style.top   = (r.top  - wr.top)  + 'px';
+    ox = e.clientX - (r.left - wr.left);
+    oy = e.clientY - (r.top  - wr.top);
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const win = document.getElementById('fd-plan-win');
+    const wr  = document.getElementById('viewer-wrap').getBoundingClientRect();
+    win.style.left = Math.max(0, Math.min(wr.width  - win.offsetWidth,  e.clientX - wr.left - ox)) + 'px';
+    win.style.top  = Math.max(0, Math.min(wr.height - win.offsetHeight, e.clientY - wr.top  - oy)) + 'px';
+  });
+  document.addEventListener('mouseup', () => { drag = false; });
+})();
+
+function _buildFeedersPanel() {
+  const body = document.getElementById('feeders-panel-body');
+  if (!body) return;
+
+  const tblRows = feedersData.map(c => `
+    <tr>
+      <td style="font-weight:500">${c.tipo}</td>
+      <td class="tc" style="color:var(--txt-sec)">${(+c.diam).toFixed(1)}</td>
+      <td class="tc">${c.n}</td>
+      <td><span class="fd-badge" style="--fd-dot:${_FD_FC_CSS[c.ruta]||'#aaa'};background:${_FD_FC_CSS[c.ruta]||'#aaa'}22;color:${_FD_FC_CSS[c.ruta]||'#aaa'}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
+      <td class="tc" style="color:var(--txt-sec)">${(+c.zi).toFixed(1)}</td>
+      <td class="tc" style="color:var(--txt-sec)">${(+c.zf).toFixed(1)}</td>
+      <td style="white-space:nowrap">
+        <button class="fd-btn-del" title="Editar" onclick="_fdStartEdit(${c.id})" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✏</button>
+        <button class="fd-btn-del" title="Eliminar" onclick="_fdDelete(${c.id})">✕</button>
+      </td>
+    </tr>`).join('');
+
+  const faceN = {};
+  feedersData.forEach(c => { faceN[c.ruta] = (faceN[c.ruta]||0) + c.n; });
+  const totalN = feedersData.reduce((s,c)=>s+c.n, 0);
+
+  const sumbarHTML = feedersData.length ? `
+    <div class="fd-sumbar">
+      <span class="fd-sum-item" style="color:var(--txt-pri)"><strong>${totalN}</strong>&nbsp;cables</span>
+      ${Object.entries(faceN).map(([f,n])=>`
+        <span class="fd-sum-item">
+          <span class="fd-leg-dot" style="background:${_FD_FC_CSS[f]}"></span>
+          ${_FD_FLBL[f]}: ${n}
+        </span>`).join('')}
+    </div>` : '';
+
+  const defaultZf = (getConfig()?.height || 30).toFixed(0);
+
+  const antRows = antenasData.map((a, ai) => {
+    if (!antFeeders[ai]) antFeeders[ai] = [];
+    const chips = antFeeders[ai].map(cid => {
+      const c = feedersData.find(x=>x.id===cid);
+      if (!c) return '';
+      return `<span class="fd-chip" style="background:${_FD_FC_CSS[c.ruta]}" title="${_FD_FLBL[c.ruta]}">
+        ${c.tipo}×${c.n}
+        <span class="fd-chip-x" onclick="_fdUnassign(${ai},${cid})">✕</span>
+      </span>`;
+    }).join('');
+
+    const dropItems = feedersData.length
+      ? feedersData.map(c => {
+          const already = antFeeders[ai].includes(c.id);
+          const oc = already ? '' : 'onclick="_fdAssign(' + ai + ',' + c.id + ')"';
+          return '<div class="fd-drop-item' + (already?' disabled':'') + '" ' + oc + '>'
+            + '<span style="width:8px;height:8px;border-radius:50%;background:' + _FD_FC_CSS[c.ruta] + ';display:inline-block;flex-shrink:0"></span>'
+            + c.tipo + ' \xd7 ' + c.n + ' — ' + _FD_FLBL[c.ruta]
+            + (already ? '<span style="margin-left:auto;font-size:10px;opacity:.5">✓</span>' : '')
+            + '</div>';
+        }).join('')
+      : '<div class="fd-drop-item disabled">Sin cables definidos</div>';
+
+    return `<div class="fd-ant-row">
+      <div class="fd-ac">
+        <div>
+          <div style="font-weight:500;font-size:12px">${a.tipo||'Antena'} ${ai+1}</div>
+          <div style="font-size:10px;color:var(--txt-sec)">${a.desc||''}</div>
+        </div>
+      </div>
+      <div class="fd-ac fd-ac-ctr">${(+a.z||0).toFixed(1)}</div>
+      <div class="fd-ac fd-ac-ctr">${+a.azimuth||0}°</div>
+      <div class="fd-ac">
+        <div class="fd-chips">
+          ${chips}
+          <div class="fd-assign-wrap">
+            <button class="fd-btn-assign" onclick="_fdDropToggle('fda${ai}')">+ Asignar</button>
+            <div class="fd-drop" id="fda${ai}">${dropItems}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <span class="fd-sec-lbl" style="margin-bottom:0">Cables Coaxiales</span>
+      <div style="display:flex;gap:6px">
+        <button class="fd-btn" id="fd-plan-win-btn" onclick="toggleFdPlanWin()" style="gap:4px">
+          <svg viewBox="0 0 14 14" width="11" height="11" style="vertical-align:middle"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" stroke-width="1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1"/></svg>
+          Planta
+        </button>
+        <button class="fd-btn" onclick="_fdToggleForm()">+ &nbsp;Agregar</button>
+      </div>
+    </div>
+    <div class="fd-top">
+      <div class="fd-wrap">
+        <table class="fd-tbl">
+          <thead><tr>
+            <th>Tipo</th><th class="tc">Ø&nbsp;mm</th><th class="tc">N°</th>
+            <th>Ruta</th><th class="tc">Z&nbsp;ini</th><th class="tc">Z&nbsp;fin</th>
+            <th style="width:28px"></th>
+          </tr></thead>
+          <tbody>${tblRows || `<tr><td colspan="7" class="fd-empty">Sin cables — usa + Agregar para comenzar</td></tr>`}</tbody>
+        </table>
+        <div id="fd-add-form" class="fd-add-form">
+          <div class="fd-ff"><label class="fd-fl">Tipo</label>
+            <select id="fdf-tipo" onchange="_fdAutoD()">
+              <option>1/2"</option><option selected>7/8"</option>
+              <option>1-1/4"</option><option>1-5/8"</option>
+              <option>2-1/4"</option><option>RG-213</option><option>Otro</option>
+            </select></div>
+          <div class="fd-ff"><label class="fd-fl">Ø (mm)</label>
+            <input type="number" id="fdf-diam" value="22.2" step="0.1" min="1"></div>
+          <div class="fd-ff"><label class="fd-fl">N°</label>
+            <input type="number" id="fdf-n" value="1" min="1" max="24"></div>
+          <div class="fd-ff"><label class="fd-fl">Ruta</label>
+            <select id="fdf-ruta">
+              ${_fdFaces(getConfig()?.type).map(f=>`<option value="${f.id}">${f.lbl}</option>`).join('')}
+            </select></div>
+          <div class="fd-ff"><label class="fd-fl">Z ini (m)</label>
+            <input type="number" id="fdf-zi" value="0" step="0.5" min="0"></div>
+          <div class="fd-ff"><label class="fd-fl">Z fin (m)</label>
+            <input type="number" id="fdf-zf" value="${defaultZf}" step="0.5" min="0"></div>
+          <div class="fd-ff" style="align-self:flex-end">
+            <button class="fd-btn fd-btn-ok" onclick="_fdConfirmAdd()">Guardar</button></div>
+        </div>
+        ${sumbarHTML}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <span class="fd-sec-lbl" style="margin-bottom:0">Antenas — Asignación de cables</span>
+    </div>
+    <div class="fd-wrap">
+      <div class="fd-ant-thead">
+        <div class="fd-ac">Antena</div>
+        <div class="fd-ac" style="justify-content:center">Z (m)</div>
+        <div class="fd-ac" style="justify-content:center">Az (°)</div>
+        <div class="fd-ac">Cables asignados</div>
+      </div>
+      <div>${antRows || '<div class="fd-empty">Sin antenas definidas</div>'}</div>
+    </div>`;
+
+  _fdDrawPlan();
+}
+
+function _fdToggleForm() {
+  const form = document.getElementById('fd-add-form');
+  if (!form) return;
+  form.classList.toggle('open');
+  if (!form.classList.contains('open')) {
+    _fdEditId = null;
+    const btn = form.querySelector('.fd-btn-ok');
+    if (btn) btn.textContent = 'Guardar';
+  }
+}
+
+function _fdAutoD() {
+  const t = document.getElementById('fdf-tipo')?.value;
+  if (t) document.getElementById('fdf-diam').value = _FD_TIPOS_DIAM[t] ?? 20;
+}
+
+function _fdConfirmAdd() {
+  const tipo = document.getElementById('fdf-tipo')?.value; if (!tipo) return;
+  const diam = +document.getElementById('fdf-diam')?.value || 20;
+  const n    = Math.max(1, +document.getElementById('fdf-n')?.value || 1);
+  const ruta = document.getElementById('fdf-ruta')?.value || 'A';
+  const zi   = +document.getElementById('fdf-zi')?.value || 0;
+  const zf   = +document.getElementById('fdf-zf')?.value || (getConfig()?.height || 30);
+  if (_fdEditId !== null) {
+    // Modo edición: actualizar entrada existente
+    const idx = feedersData.findIndex(c => c.id === _fdEditId);
+    if (idx >= 0) feedersData[idx] = { id: _fdEditId, tipo, diam, n, ruta, zi, zf };
+    _fdEditId = null;
+  } else {
+    feedersData.push({id: _feedersNextId++, tipo, diam, n, ruta, zi, zf});
+    _fdActivateRender();
+  }
+  _renderFeeders3D();
+  _buildFeedersPanel();
+}
+
+function _fdStartEdit(id) {
+  const c = feedersData.find(x => x.id === id);
+  if (!c) return;
+  _fdEditId = id;
+  // Abrir formulario y poblar con los datos del cable
+  const form = document.getElementById('fd-add-form');
+  if (form && !form.classList.contains('open')) form.classList.add('open');
+  const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+  set('fdf-tipo', c.tipo); set('fdf-diam', c.diam); set('fdf-n', c.n);
+  set('fdf-ruta', c.ruta); set('fdf-zi', c.zi);     set('fdf-zf', c.zf);
+  // Cambiar texto del botón Guardar a Actualizar
+  const btn = document.querySelector('#fd-add-form .fd-btn-ok');
+  if (btn) btn.textContent = 'Actualizar';
+}
+
+function _fdDelete(id) {
+  feedersData = feedersData.filter(c => c.id !== id);
+  Object.keys(antFeeders).forEach(k => { antFeeders[k] = antFeeders[k].filter(x => x !== id); });
+  if (_fdEditId === id) _fdEditId = null;
+  _renderFeeders3D();
+  _buildFeedersPanel();
+}
+
+function _fdAplicar() {
+  _fdEditId = null;
+  _renderFeeders3D();
+  closeFeedersPanel();
+}
+
+function _fdDropToggle(id) {
+  const m = document.getElementById(id);
+  const wasOpen = m?.classList.contains('open');
+  document.querySelectorAll('.fd-drop.open').forEach(x=>x.classList.remove('open'));
+  if (!wasOpen && m) m.classList.add('open');
+}
+
+function _fdAssign(antIdx, cid) {
+  if (!antFeeders[antIdx]) antFeeders[antIdx] = [];
+  if (!antFeeders[antIdx].includes(cid)) antFeeders[antIdx].push(cid);
+  document.querySelectorAll('.fd-drop.open').forEach(x=>x.classList.remove('open'));
+  _buildFeedersPanel();
+}
+
+function _fdUnassign(antIdx, cid) {
+  antFeeders[antIdx] = (antFeeders[antIdx]||[]).filter(x=>x!==cid);
+  _buildFeedersPanel();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.fd-assign-wrap'))
+    document.querySelectorAll('.fd-drop.open').forEach(x=>x.classList.remove('open'));
+});
+
+function _fdDrawPlan() {
+  const cv = document.getElementById('fd-plan-cv');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, cx = W/2, cy = H/2;
+  const side  = Math.round(W * 0.52);
+  const hs    = side / 2;
+  const r_mono = Math.round(W * 0.265);
+  const LO_base = Math.round(W * 0.086);  // label offset
+  const towerType = getConfig()?.type || 'square';
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0A1628'; ctx.fillRect(0,0,W,H);
+
+  ctx.setLineDash([2,4]);
+  ctx.strokeStyle = '#1a2e4a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx,6); ctx.lineTo(cx,H-6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6,cy); ctx.lineTo(W-6,cy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const fsz = Math.round(W * 0.059);  // ~16px @ 280
+  const LO  = LO_base;
+  // dots escalan con el lado de la forma, no con W, para que quepan en la cara
+  const dr  = Math.max(3, Math.round(side * 0.030));  // ~4px para side≈146
+  const gap = Math.max(2, Math.round(side * 0.020));  // ~3px
+
+  ctx.font = `600 ${fsz}px system-ui,sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  // Instancias por cara con info de diámetro individual
+  const byFacePlan = {};
+  _fdFaces(towerType).forEach(f => { byFacePlan[f.id] = []; });
+  feedersData.forEach(entry => {
+    const list = byFacePlan[entry.ruta] ?? (byFacePlan[entry.ruta] = []);
+    for (let i = 0; i < entry.n; i++) list.push(entry);
+  });
+
+  // helper: dibuja dots de una lista de instancias con color por diámetro
+  const drawDots = (instances, posFn) => {
+    const step = dr*2+gap, span = instances.length*step - gap;
+    instances.forEach((entry, i) => {
+      const color = _fdDiamCss(entry.diam);
+      const off = -span/2 + i*step + dr;
+      const [x, y] = posFn(off, entry);
+      ctx.beginPath(); ctx.arc(x,y,dr+2,0,Math.PI*2);
+      ctx.fillStyle = color+'20'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,dr,0,Math.PI*2);
+      ctx.fillStyle = color; ctx.fill();
+    });
+  };
+
+  if (towerType === 'monopole' || towerType === 'guyed') {
+    ctx.beginPath(); ctx.arc(cx,cy,r_mono,0,Math.PI*2);
+    ctx.fillStyle = '#0D1E35'; ctx.fill();
+    ctx.strokeStyle = '#2a4a70'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#2a4a70';
+    ctx.fillText('EXT',cx,cy-r_mono-LO);
+    ctx.fillText('INT',cx,cy+r_mono+LO);
+    drawDots(byFacePlan['EXT']||[], off => [cx+off, cy-r_mono]);
+    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+
+  } else if (towerType === 'triangular') {
+    const tr = hs + 2;
+    const pts = [
+      [cx,             cy-tr],
+      [cx + tr*Math.sin(Math.PI*2/3), cy-tr*Math.cos(Math.PI*2/3)],
+      [cx + tr*Math.sin(Math.PI*4/3), cy-tr*Math.cos(Math.PI*4/3)],
+    ];
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    pts.forEach(([x,y])=>ctx.lineTo(x,y)); ctx.closePath();
+    ctx.fillStyle = '#0D1E35'; ctx.fill();
+    ctx.strokeStyle = '#2a4a70'; ctx.lineWidth = 1.5; ctx.stroke();
+    pts.forEach(([x,y])=>{
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y);
+      ctx.strokeStyle = '#172a45'; ctx.lineWidth = .8; ctx.stroke();
+    });
+    const midLabel = (i,j,lbl) => {
+      const mx = (pts[i][0]+pts[j][0])/2, my = (pts[i][1]+pts[j][1])/2;
+      const dx = mx-cx, dy = my-cy, d = Math.sqrt(dx*dx+dy*dy)||1;
+      ctx.fillStyle = '#2a4a70';
+      ctx.fillText(lbl, mx + dx/d*LO, my + dy/d*LO);
+    };
+    midLabel(0,1,'B'); midLabel(1,2,'C'); midLabel(2,0,'A');
+    const faceMid = {
+      A: [(pts[2][0]+pts[0][0])/2, (pts[2][1]+pts[0][1])/2],
+      B: [(pts[0][0]+pts[1][0])/2, (pts[0][1]+pts[1][1])/2],
+      C: [(pts[1][0]+pts[2][0])/2, (pts[1][1]+pts[2][1])/2],
+    };
+    ['A','B','C'].forEach(face => {
+      const [fx,fy] = faceMid[face];
+      const edgeX = fx-cx, edgeY = fy-cy, el = Math.sqrt(edgeX*edgeX+edgeY*edgeY)||1;
+      const tx = -edgeY/el, ty = edgeX/el;
+      drawDots(byFacePlan[face]||[], off => [fx+tx*off, fy+ty*off]);
+    });
+    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+
+  } else {
+    ctx.beginPath(); ctx.rect(cx-hs,cy-hs,side,side);
+    ctx.fillStyle = '#0D1E35'; ctx.fill();
+    ctx.strokeStyle = '#2a4a70'; ctx.lineWidth = 1.5; ctx.stroke();
+    [[cx-hs,cy-hs],[cx+hs,cy-hs],[cx+hs,cy+hs],[cx-hs,cy+hs]].forEach(([x,y])=>{
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y);
+      ctx.strokeStyle = '#172a45'; ctx.lineWidth = .8; ctx.stroke();
+    });
+    [['A',cx,cy-hs-LO],['B',cx+hs+LO,cy],['C',cx,cy+hs+LO],['D',cx-hs-LO,cy]].forEach(([l,x,y])=>{
+      ctx.fillStyle = '#2a4a70'; ctx.fillText(l,x,y);
+    });
+    const sqPos = { A: off=>[cx+off,cy-hs], B: off=>[cx+hs,cy+off],
+                    C: off=>[cx+off,cy+hs], D: off=>[cx-hs,cy+off] };
+    ['A','B','C','D'].forEach(f => drawDots(byFacePlan[f]||[], sqPos[f]));
+    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+  }
+
+  // Leyenda por diámetro
+  const leg = document.getElementById('fd-legend');
+  if (!leg) return;
+  const diamMap = {};
+  feedersData.forEach(e => {
+    const k = e.diam.toFixed(1);
+    if (!diamMap[k]) diamMap[k] = { diam: e.diam, tipo: e.tipo, n: 0 };
+    diamMap[k].n += e.n;
+  });
+  const entries = Object.values(diamMap).sort((a,b) => a.diam - b.diam);
+  leg.innerHTML = entries.map(({diam,tipo,n}) => `
+    <div class="fd-leg-row">
+      <span class="fd-leg-dot" style="background:${_fdDiamCss(diam)}"></span>
+      <span>${tipo} ${diam.toFixed(1)}&nbsp;mm — ${n} cable${n>1?'s':''}</span>
+    </div>`).join('') || '<div class="fd-leg-row" style="opacity:.4">Sin cables</div>';
+}
+
+// ── 3D render ─────────────────────────────────────────────────────────────────
+function _renderFeeders3D() {
+  feedersGroup.children.slice().forEach(c => {
+    c.geometry?.dispose(); c.material?.dispose(); feedersGroup.remove(c);
+  });
+  if (!projectGenerated || feedersData.length === 0) return;
+  const cfg = getConfig();
+  if (!cfg) return;
+
+  const totalH = cfg.height || 30;
+
+  // M4: calcular zStart/zEnd del tramo REDUCCIÓN (igual que levelAt en genMixed)
+  let _fdM4zStart = 0, _fdM4zEnd = 0;
+  if (cfg.m4) {
+    const sd = cfg.secData || [];
+    const ri = sd.findIndex(s => s._m4reduc);
+    if (ri >= 0) {
+      for (let i = 0; i < ri; i++) _fdM4zStart += +sd[i].h || 0;
+      _fdM4zEnd = _fdM4zStart + (+sd[ri].h || 0);
+    }
+  }
+
+  // zInc: hasta qué altura la torre ahúsa (igual que genMixed)
+  const _fdNInc = +(cfg.nInc) || 0;
+  const _fdSecH = i => +(cfg.secData?.[i]?.h || cfg.secData?.[i]?.alt || 0);
+  const _fdZIncSum = _fdNInc > 0
+    ? Array.from({length: _fdNInc}, (_, i) => _fdSecH(i)).reduce((a,b)=>a+b, 0)
+    : 0;
+  const zInc = cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+    : (_fdZIncSum > 0 ? _fdZIncSum : totalH);
+
+  // hwAt: sigue la cara real de la torre
+  function hwAt(z) {
+    let t;
+    if (cfg.m4 && _fdM4zEnd > _fdM4zStart) {
+      if (z <= _fdM4zStart)       t = 0;
+      else if (z >= _fdM4zEnd)    t = 1;
+      else t = (z - _fdM4zStart) / (_fdM4zEnd - _fdM4zStart);
+    } else {
+      t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
+    }
+    return ((1-t)*(cfg.baseW||4) + t*(cfg.topW||2)) / 2;
+  }
+
+  const towerType = cfg.type || 'square';
+
+  // Group all cable instances by face for unified lateral distribution
+  const allFaceIds = _fdFaces(towerType).map(f=>f.id);
+  const byFace = {};
+  allFaceIds.forEach(id => { byFace[id] = []; });
+  feedersData.forEach(entry => {
+    if (!byFace[entry.ruta]) byFace[entry.ruta] = [];
+    for (let i=0; i<entry.n; i++) byFace[entry.ruta].push(entry);
+  });
+
+  // Face direction vectors: normal and tangent for each face type
+  function faceVectors(face, hw) {
+    if (towerType === 'triangular') {
+      // genTriangular legs at 270°/30°/150°.  Face midpoints (outward normals):
+      //   A = 150° (-X+Y quadrant), B = 30° (+X+Y), C = 270° (-Y)
+      const angles = {A: 5*Math.PI/6, B: Math.PI/6, C: -Math.PI/2};
+      const ang = angles[face] ?? 0;
+      return { nx: Math.cos(ang), ny: Math.sin(ang) };
+    }
+    if (towerType === 'monopole' || towerType === 'guyed') {
+      // EXT = front face (y+), INT = center
+      return face === 'EXT' ? { nx: 0, ny: 1 } : { nx: 0, ny: 0 };
+    }
+    // Square
+    if (face==='A') return { nx:0, ny:1 };
+    if (face==='B') return { nx:1, ny:0 };
+    if (face==='C') return { nx:0, ny:-1 };
+    if (face==='D') return { nx:-1, ny:0 };
+    return { nx:0, ny:0 }; // INT
+  }
+
+  Object.entries(byFace).forEach(([face, instances]) => {
+    if (!instances.length) return;
+    const maxD = Math.max(...instances.map(e => e.diam/1000));
+    const GAP  = 0.02;                                           // 2 cm entre superficies
+    const step = maxD + GAP;
+    const totalSpan = instances.length * maxD + Math.max(0, instances.length - 1) * GAP;
+
+    instances.forEach((entry, li) => {
+      const r = entry.diam / 2000;
+      const latOff = -totalSpan/2 + li*step + maxD/2;
+
+      // Alturas críticas: incluir los quiebres de pendiente dentro del rango del cable
+      const zSet = new Set();
+      const SEGS = Math.max(10, Math.round((entry.zf - entry.zi) * 2));
+      for (let si = 0; si <= SEGS; si++)
+        zSet.add(entry.zi + (entry.zf - entry.zi) * si / SEGS);
+      [zInc, _fdM4zStart, _fdM4zEnd].forEach(zh => {
+        if (zh > entry.zi + 1e-6 && zh < entry.zf - 1e-6) zSet.add(zh);
+      });
+      const zArr = [...zSet].sort((a, b) => a - b);
+
+      const mkPt = z => {
+        const hw = hwAt(z);
+        const clearance = r + 0.02;
+        const { nx, ny } = faceVectors(face, hw);
+        const isInt = (face === 'INT');
+        const dist = hw + clearance;
+        const tx = -ny, ty = nx;
+        const x = isInt ? latOff * 0.5 : nx * dist + tx * latOff;
+        const y = isInt ? 0            : ny * dist + ty * latOff;
+        return new THREE.Vector3(x, y, z);
+      };
+
+      const pts = zArr.map(mkPt);
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const geo   = new THREE.TubeGeometry(curve, Math.max(20, SEGS * 2), r, 6, false);
+      const mat   = new THREE.MeshBasicMaterial({ color: _fdDiamHex(entry.diam) });
+      feedersGroup.add(new THREE.Mesh(geo, mat));
+    });
+  });
+}
+
 function _toggleAntGrp(gidx) {
   const k = (window._antGrpKeys || [])[gidx];
   if (k != null) { antenasGroupCollapsed[k] = !antenasGroupCollapsed[k]; buildAntenasPanel(); }
@@ -8256,20 +8963,36 @@ function renderAntenas3D() {
       cumH += h;
     }
   }
-  // Offset perpendicular para antenas en el mismo azimut y altura: derecha primero, luego izquierda.
-  // Separación 60 cm entre aristas (step = ancho + 0.60 m).
-  const _perpOff = new Array(antenasData.length).fill(0);
+  // Offset perpendicular y posición radial por antena.
+  // Paneles/dishes: spread lateral normal (60 cm entre aristas).
+  // RRU: van detrás de su Panel asociado (mismo az+z, por orden), 5 cm de gap.
+  const _perpOff   = new Array(antenasData.length).fill(0);
+  const _rruBehind = new Array(antenasData.length).fill(false); // true = RRU con posición trasera
   {
     const grps = {};
     antenasData.forEach((a, i) => {
       const k = `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
-      (grps[k] = grps[k] || []).push(i);
+      if (!grps[k]) grps[k] = { panels: [], rrus: [] };
+      (a.tipo === 'RRU' ? grps[k].rrus : grps[k].panels).push(i);
     });
-    Object.values(grps).forEach(grp => {
-      const N = grp.length;
-      if (N < 2) return;
-      const step = (+antenasData[grp[0]].ancho || 0.25) + 0.60;
-      grp.forEach((idx, k) => { _perpOff[idx] = ((N - 1) / 2 - k) * step; });
+    Object.values(grps).forEach(({ panels, rrus }) => {
+      // Spread lateral de paneles/dishes (lógica previa)
+      const Np = panels.length;
+      if (Np >= 2) {
+        const step = (+antenasData[panels[0]].ancho || 0.25) + 0.60;
+        panels.forEach((idx, k) => { _perpOff[idx] = ((Np - 1) / 2 - k) * step; });
+      }
+      // RRUs: hasta 3 por panel, alineadas detrás de su panel padre (por orden)
+      rrus.forEach((rruIdx, ri) => {
+        const parentPanelIdx = panels[Math.floor(ri / 3)]; // panel padre (grupos de 3)
+        const posInSet  = ri % 3;                           // posición dentro del grupo (0-2)
+        const setSize   = Math.min(3, rrus.length - Math.floor(ri / 3) * 3);
+        const rruW      = +antenasData[rruIdx].ancho || 0.30;
+        const rruStep   = rruW + 0.15;
+        const panelOff  = parentPanelIdx != null ? _perpOff[parentPanelIdx] : 0;
+        _perpOff[rruIdx]   = panelOff + ((setSize - 1) / 2 - posInSet) * rruStep;
+        _rruBehind[rruIdx] = true;
+      });
     });
   }
 
@@ -8450,7 +9173,12 @@ function renderAntenas3D() {
       }
     } else {
       // ── Panel / RRU / Otros (forma extruida rectangular) ─────────────────
-      const radialOffset = (cfg.type === 'monopole' ? 0.5 : halfW) + 0.60 + E / 2;
+      // RRU con _rruBehind: espalda con espalda del panel, 5 cm de separación.
+      // radialOffset RRU → su cara frontal queda a 5 cm de la cara trasera del panel.
+      const base = cfg.type === 'monopole' ? 0.5 : halfW;
+      const radialOffset = _rruBehind[dataIdx]
+        ? base + 0.55 - E / 2        // cara frontal RRU = base+0.55 (5 cm atrás del panel)
+        : base + 0.60 + E / 2;       // posición normal panel/otros
       const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
       const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
       const pz = +a.z || 0;
@@ -8486,6 +9214,7 @@ function switchToTorre() {
   document.getElementById('torre-btn').classList.add('active');
   closeVientoFlyout();
   closeAntenasFlyout();
+  closeFeedersPanel();
   // Ocultar la vista de Cargas de Viento al cambiar a Torre — si no, su clase "visible"
   // se queda pegada y compite con rpanel-info la próxima vez que se muestre el panel —
   // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
@@ -8515,6 +9244,25 @@ function nuevoProyecto() {
   supportOverrides = {};
   revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
   antenasData = [];
+  antenasOn = true;
+  antenasGroupCollapsed = {};
+  windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
+    velTipo:'regional', velOperacional:97.2, asnm:null, topoCat:'plano',
+    topoH:null, topoL:null, topoX:null, topoDir:'favor', directions:[0,60,90] };
+  windForcesOn = false;
+  windForceLabelsOn = false;
+  _windForceResults = null;
+  _clearWindForceArrows();
+  antenasGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); antenasGroup.remove(c); });
+  feedersData = []; antFeeders = {}; _feedersNextId = 1; _feedersOn = false;
+  feedersGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); feedersGroup.remove(c); });
+  feedersGroup.visible = true;
+  document.getElementById('tab-cargasviento')?.classList.remove('active');
+  document.getElementById('tab-antenas')?.classList.remove('active');
+  document.getElementById('tab-feeders')?.classList.remove('active');
+  document.getElementById('feeders-flyout')?.classList.remove('open');
+  document.getElementById('side-feeders-btn')?.classList.remove('active');
+  closeFdPlanWin();
   aislarTramoSec = null;
   dadoHeight = 0;
   ['s-assetnum','s-asset','s-cliente','s-pais','s-ing','s-revision'].forEach(id => document.getElementById(id).value = '');
@@ -9660,7 +10408,7 @@ function _memFooterHtml() {
 // pero se cubre por las dudas). El método de diseño se deriva del código — pedido
 // explícito del usuario (2026-06-28: "Si es TIA H el método es LRFD") — no es un campo
 // capturado aparte.
-const _VIENTO_CODIGO_LABELS = { ANSI_TIA_H: 'ANSI/TIA H', CFE2020: 'CFE 2020' };
+const _VIENTO_CODIGO_LABELS = { ANSI_TIA_H: 'ANSI/TIA H', ANSI_TIA_I: 'ANSI/TIA I', CFE2020: 'CFE 2020' };
 const _VIENTO_METODO_POR_CODIGO = { ANSI_TIA_H: 'LRFD' };
 function _memCoverHtml(cfg) {
   const seccionLabel = REPORT_TYPE_LABELS[cfg.type] || cfg.type;
@@ -10788,11 +11536,40 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
     const vMs   = fmt1(vKmh / 3.6);
     const vLabel = `${fmt1(vKmh)} km/h`;
 
+    // ── OMML math helpers (scope local a windAngleTables) ─────────────────
+    const mr    = t  => new D.MathRun(t);
+    const mSub  = (base, sub)  => new D.MathSubScript({
+      children: Array.isArray(base) ? base : [base],
+      subScript: Array.isArray(sub)  ? sub  : [sub],
+    });
+    const mSup  = (base, sup)  => new D.MathSuperScript({
+      children: Array.isArray(base) ? base : [base],
+      superScript: Array.isArray(sup) ? sup : [sup],
+    });
+    const mFrac = (num, den)   => new D.MathFraction({
+      numerator:   Array.isArray(num) ? num : [num],
+      denominator: Array.isArray(den) ? den : [den],
+    });
+    const mMath = (...cs) => new D.Paragraph({
+      alignment: D.AlignmentType.CENTER,
+      spacing: { before: 100, after: 140 },
+      children: [new D.Math({ children: cs })],
+    });
+
     // ── Bloque de procedimiento y definiciones ─────────────────────────────
     const procedBlock = [
       h2('Procedimiento de Cálculo'),
       para([run('1.  Presión de velocidad del viento  (ANSI/TIA-222-H §2.6.11.6):', { bold: true, size: SSM })], { spacing: { after: 60 } }),
-      para([run('qz  =  0.613 · Kz · Kzt · Ks · Ke · Kd · V²     [N/m²]', { size: SSM })], { spacing: { after: 120 } }),
+      // q_z = 0.613 · K_z · K_zt · K_s · K_e · K_d · V²  [N/m²]
+      mMath(
+        mSub(mr('q'), mr('z')), mr(' = 0.613 ⋅ '),
+        mSub(mr('K'), mr('z')), mr(' ⋅ '),
+        mSub(mr('K'), mr('zt')), mr(' ⋅ '),
+        mSub(mr('K'), mr('s')), mr(' ⋅ '),
+        mSub(mr('K'), mr('e')), mr(' ⋅ '),
+        mSub(mr('K'), mr('d')), mr(' ⋅ '),
+        mSup(mr('V'), mr('2')), mr('  [N/m²]'),
+      ),
       ltable([
         ['V',   'Velocidad de diseño',                                              `${vLabel} = ${vMs} m/s`],
         ['Kd',  'Factor de direccionalidad  (TIA Tabla 2-2)',                       fmt3(Kd)],
@@ -10804,8 +11581,23 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
       ], [700, 5500, 3160]),
       blank(),
       para([run('2.  Fuerza total de viento por sección  (ANSI/TIA-222-H §2.6.11.1):', { bold: true, size: SSM })], { spacing: { after: 60 } }),
-      para([run('FST  =  qz · Gh · (EPA)s     [kgf]', { size: SSM })], { spacing: { after: 80 } }),
-      para([run('(EPA)s  =  Cf · [ Df · ΣAf  +  Dr · Σ(Ar · Rr) ]     [m²]', { size: SSM })], { spacing: { after: 120 } }),
+      // F_ST = q_z · G_h · (EPA)_s  [kgf]
+      mMath(
+        mSub(mr('F'), mr('ST')), mr(' = '),
+        mSub(mr('q'), mr('z')), mr(' ⋅ '),
+        mSub(mr('G'), mr('h')), mr(' ⋅ '),
+        mSub([mr('(EPA)')], [mr('s')]), mr('  [kgf]'),
+      ),
+      // (EPA)_s = C_f · [D_f · ΣA_f + D_r · Σ(A_r · R_r)]  [m²]
+      mMath(
+        mSub([mr('(EPA)')], [mr('s')]), mr(' = '),
+        mSub(mr('C'), mr('f')), mr(' ⋅ ['),
+        mSub(mr('D'), mr('f')), mr(' ⋅ Σ'),
+        mSub(mr('A'), mr('f')), mr(' + '),
+        mSub(mr('D'), mr('r')), mr(' ⋅ Σ('),
+        mSub(mr('A'), mr('r')), mr(' ⋅ '),
+        mSub(mr('R'), mr('r')), mr(')]  [m²]'),
+      ),
       ltable([
         ['Af', 'Área proyectada de perfiles angulares/planos por sección',       'm²'],
         ['Ar', 'Área proyectada de perfiles circulares (tubos) por sección',     'm²'],
@@ -12036,11 +12828,16 @@ async function _doExportSTAAD() {
 
   let out = '';
   out += `STAAD SPACE ${_staadUpper(cfg.assetNumber)}-${_staadUpper(cfg.assetName)}\n`;
+  out += `* ---------------------------------------------------------\n`;
+  out += `* GENERADO EN TSA - TOWER STRUCTURAL ANALYSIS V1.01\n`;
+  out += `* PROGRAMA DESARROLLADO POR: ING. JUAN CHRISTIAN ESPINOSA LOPEZ\n`;
+  out += `* ---------------------------------------------------------\n`;
+  out += `* AVISO: PROGRAMA EN DESARROLLO TODOS LOS DATOS DEBEN SER\n`;
+  out += `* REVISADOS POR EL INGENIERO RESPONSABLE ANTES DE USARSE EN DISENO.\n`;
+  out += `* ---------------------------------------------------------\n`;
   out += `START JOB INFORMATION\n`;
   out += `ENGINEER DATE ${_staadDate(cfg.fechaCreacion)}\n`;
   out += `ENGINEER NAME ${_staadUpper(cfg.ingResponsable)}\n`;
-  out += `* PROGRAMA EN VERSIÓN BETA, TODOS LOS DATOS DE NODOS, BARRAS, PROPIEDADES\n`;
-  out += `* Y MATERIALES DEBEN SER REVISADOS POR EL INGENIERO RESPONSABLE DEL PROYECTO\n`;
   out += `END JOB INFORMATION\n`;
   out += `INPUT WIDTH 79\n`;
   out += `${staadUnit}\n`;
@@ -12415,22 +13212,21 @@ async function _doExportSTAAD() {
       if (Math.abs(fz) > 0.001) line += ` FZ ${fz.toFixed(2)}`;
       if (line !== `_SEC${i+1}_VIENTO`) out += `${line}\n`;
     });
-    // Fuerzas en antenas — una línea por antena, etiquetada como comentario
+    // Fuerzas en antenas — comentario en línea propia antes de cada carga
     if (_stAntForces.length > 0) {
-      out += `*ANTENAS\n`;
-      _stAntForces.forEach(af => {
+      out += `*\n*ANTENAS\n*\n`;
+      _stAntForces.forEach((af, li) => {
         const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
         const nIdx = _nearestLegNodeIdx(af.z, nodes, _stAntLegSet);
         if (nIdx == null) return;
         const stId = nodeNewId[nIdx];
         if (!stId) return;
-        // Descomponer en FX (TSA X) y FZ (-TSA Y) — misma convención que cargas de torre
         let line = `${stId}`;
         if (Math.abs(fd.fx_staad) > 0.001) line += ` FX ${fd.fx_staad.toFixed(2)}`;
         if (Math.abs(fd.fz_staad) > 0.001) line += ` FZ ${fd.fz_staad.toFixed(2)}`;
-        const label = `ANT${af.antIdx + 1} Z=${af.z.toFixed(1)}M AZ=${af.azimuth}`;
-        if (line !== `${stId}`) out += `${line} * ${label}\n`;
+        const label = `* ANT${af.antIdx + 1} Z=${af.z.toFixed(1)}M AZ=${af.azimuth}`;
+        if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
   });
@@ -12721,6 +13517,12 @@ function loadProjectData(cfg, filename) {
     antenasData = Array.isArray(cfg.antenasData) ? JSON.parse(JSON.stringify(cfg.antenasData)) : [];
     antenasData.forEach(a => _calcEPA(a));
     _renderAntenasTable();
+    feedersData = Array.isArray(cfg.feedersData) ? JSON.parse(JSON.stringify(cfg.feedersData)) : [];
+    antFeeders  = (cfg.antFeeders && typeof cfg.antFeeders === 'object') ? JSON.parse(JSON.stringify(cfg.antFeeders)) : {};
+    _feedersNextId = feedersData.length ? Math.max(...feedersData.map(c => c.id || 0)) + 1 : 1;
+    _feedersOn = feedersData.length > 0;
+    feedersGroup.visible = true;
+    document.getElementById('tab-feeders')?.classList.toggle('active', _feedersOn);
     aislarTramoSec = null;
     if (Array.isArray(cfg.secData)) {
       cfg.secData.forEach((s, i) => { if (s) secData[i] = s; });
