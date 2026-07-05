@@ -607,6 +607,20 @@ body {
 .fd-btn-del:hover { color: var(--error); background: rgba(248,113,113,.12); }
 #feeders-flyout  { width: 640px; }
 #feeders-panel-body { overflow-y: auto; flex: 1; min-height: 0; }
+#combis-flyout { width: 640px; }
+.lc-norma-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+.lc-norma-tab { padding:4px 11px; border-radius:5px; border:1px solid var(--border); background:none; color:var(--txt-sec); font-size:11px; cursor:pointer; font-family:inherit; transition:all .15s; }
+.lc-norma-tab.active { background:var(--btn-pri); border-color:var(--btn-pri); color:#fff; font-weight:600; }
+.lc-norma-tab:hover:not(.active) { border-color:var(--txt-dim); color:var(--txt); }
+.lc-table { width:100%; border-collapse:collapse; font-size:12px; }
+.lc-table th { color:var(--txt-sec); font-size:10px; font-weight:600; padding:5px 6px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+.lc-table td { padding:5px 6px; border-bottom:1px solid rgba(255,255,255,.035); vertical-align:middle; }
+.lc-table tbody tr:hover { background:rgba(255,255,255,.025); }
+.lc-fac { text-align:right; font-variant-numeric:tabular-nums; }
+.lc-ref-cell { font-size:10px; color:var(--txt-dim); }
+.lc-row-edit td { background:rgba(74,159,208,.07); }
+.lc-edit-input { width:100%; padding:2px 5px; background:var(--bg-deep); border:1px solid var(--border); border-radius:3px; color:var(--txt); font-size:11px; font-family:inherit; }
+.lc-edit-input.num { width:52px; text-align:right; }
 .ant-panel-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; }
 .ant-panel-card .apc-title { font-weight: 600; color: var(--txt); margin-bottom: 5px; font-size: 12.5px; }
 .ant-panel-card .apc-row { display: flex; justify-content: space-between; color: var(--txt-sec); margin-top: 2px; }
@@ -650,8 +664,8 @@ body {
 .ant-inp:focus { border-color: var(--cyan); outline: none; }
 .ant-num  { width: 56px; text-align: right; }
 .ant-sel  { background: #060f1c; border: 1px solid #1E3050; color: #CBD5E1; border-radius: 3px; padding: 3px 4px; font-size: 11px; width: 100%; }
-.ant-del  { background: none; border: none; color: #556; cursor: pointer; padding: 2px 6px; font-size: 13px; line-height: 1; }
-.ant-del:hover { color: #ff6b6b; }
+.ant-del  { background: none; border: none; color: #e05555; cursor: pointer; padding: 2px 6px; font-size: 15px; font-weight: 700; line-height: 1; border-radius: 3px; transition: color .15s, background .15s; }
+.ant-del:hover { color: #f87171; background: rgba(248,113,113,.12); }
 .ant-add-btn { display: block; margin: 10px 14px; background: none; border: 1px dashed #2E4060; color: var(--cyan); border-radius: 4px; padding: 6px 0; cursor: pointer; font-size: 12px; width: calc(100% - 28px); }
 .ant-add-btn:hover { background: #0D2040; }
 .ant-add-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px 4px; flex-wrap: wrap; }
@@ -901,7 +915,8 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
 .sec-edit-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .sec-edit-btn-active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.12); }
 .sec-insert-btn:hover { border-color: #4ade80 !important; color: #4ade80 !important; }
-.sec-delete-btn:hover { border-color: #f87171 !important; color: #f87171 !important; }
+.sec-delete-btn { border-color: rgba(224,85,85,.4) !important; color: #e05555 !important; }
+.sec-delete-btn:hover { border-color: #f87171 !important; color: #f87171 !important; background: rgba(248,113,113,.12) !important; }
 .sec-add-strip {
   display: flex; align-items: center; gap: 6px; padding: 2px 14px;
   border-bottom: 1px solid #111c28;
@@ -1232,11 +1247,14 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   border: 1px solid transparent; border-radius: 4px;
 }
 .ret-cable-cell:hover { background: #152340; border-color: #1E3A5F; }
-.ret-table .row-del {
-  background: transparent; border: none; color: var(--txt-sec);
-  cursor: pointer; font-size: 13px;
+.row-del {
+  background: none; border: none; color: #e05555;
+  cursor: pointer; font-size: 15px; font-weight: 700; line-height: 1;
+  padding: 2px 5px; border-radius: 3px; font-family: inherit;
+  transition: color .15s, background .15s;
 }
-.ret-table .row-del:hover { color: #EF4444; }
+.row-del:hover { color: #f87171; background: rgba(248,113,113,.12); }
+.row-del:disabled { opacity: .3; cursor: default; pointer-events: none; }
 .diam-row { cursor: pointer; }
 .diam-row:hover { background: #152340; }
 .btn-add-row {
@@ -1632,6 +1650,17 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Viento</span>
     </button>
 
+    <!-- Combinaciones de Carga -->
+    <button class="side-btn" id="combis-btn" onclick="toggleCombisPanel(event)">
+      <svg viewBox="0 0 20 20" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3.5" width="16" height="3" rx="1"/>
+        <rect x="2" y="8.5" width="16" height="3" rx="1" opacity=".65"/>
+        <rect x="2" y="13.5" width="10" height="3" rx="1" opacity=".35"/>
+        <circle cx="17" cy="15" r="2.5" fill="currentColor" stroke="none" opacity=".9"/>
+      </svg>
+      <span class="side-tip">Combinaciones</span>
+    </button>
+
     <!-- Antenas -->
     <button class="side-btn" id="antenas-btn" onclick="openAntenasFlyout()">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1765,6 +1794,57 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn" onclick="closeFeedersPanel()">Cancelar</button>
         <button class="btn-accent" onclick="_fdAplicar()">Aplicar</button>
+      </div>
+    </div>
+
+    <!-- Combinaciones de Carga flyout -->
+    <div class="torre-flyout" id="combis-flyout">
+      <div class="tf-header">
+        <span><svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:5px"><rect x="2" y="4" width="16" height="2.5" rx="1"/><rect x="2" y="8.75" width="16" height="2.5" rx="1" opacity=".6"/><rect x="2" y="13.5" width="9" height="2.5" rx="1" opacity=".35"/></svg>Combinaciones de Carga</span>
+        <button onclick="closeCombisPanel()">✕</button>
+      </div>
+      <div class="tf-scroll" id="combis-panel-body" style="padding:14px 16px"></div>
+      <div class="tf-footer" style="padding:10px 16px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn-accent" onclick="closeCombisPanel()">Cerrar</button>
+      </div>
+    </div>
+
+    <!-- Modal editor de paquetes de coaxiales -->
+    <div id="fd-paq-modal" style="display:none;position:fixed;inset:0;z-index:9900;align-items:center;justify-content:center;background:rgba(0,0,0,.6)">
+      <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;width:520px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.7)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--txt)">Editor de Paquete</div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <label style="font-size:10px;color:var(--txt-sec)">Z ini (m)</label>
+            <input id="fd-paq-zi" type="number" step="0.5" min="0" value="0" oninput="_fdPaqSyncPreview()" style="width:68px;padding:3px 6px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:12px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <label style="font-size:10px;color:var(--txt-sec)">Z fin (m)</label>
+            <input id="fd-paq-zf" type="number" step="0.5" min="0" value="30" oninput="_fdPaqSyncPreview()" style="width:68px;padding:3px 6px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:12px;font-family:inherit">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <label style="font-size:10px;color:var(--txt-sec)">Cara</label>
+            <select id="fd-paq-ruta" onchange="_fdPaqSyncPreview()" style="padding:3px 6px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:12px;font-family:inherit"></select>
+          </div>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--txt-sec);background:var(--bg-deep);user-select:none;margin-bottom:1px" title="Empaquetado circular con separación 2mm entre cables (TIA-222-H Fig. 2-14)">
+            <input type="checkbox" id="fd-paq-cluster" onchange="_fdPaqToggleCluster()" style="accent-color:var(--cyan);width:13px;height:13px">
+            <span style="font-weight:600;color:var(--cyan)">Cluster</span>
+          </label>
+          <div id="fd-paq-dc-row" style="display:none;padding:4px 10px;background:rgba(74,159,208,.12);border:1px solid rgba(74,159,208,.3);border-radius:6px;font-size:11px;color:var(--txt)">
+            D<sub>c</sub>&nbsp;= <strong id="fd-paq-dc-val" style="color:var(--cyan)">—</strong>
+            <span style="color:var(--txt-dim);font-size:10px;margin-left:4px">(TIA-222-H §2-14)</span>
+          </div>
+        </div>
+        <div id="fd-paq-desc" style="font-size:10px;color:var(--txt-sec);margin-bottom:6px">Columnas de izquierda a derecha — cables apilados desde la torre hacia afuera:</div>
+        <div id="fd-paq-grid" style="display:flex;gap:8px;overflow-x:auto;flex:1;min-height:80px;max-height:340px;padding-bottom:4px;align-items:flex-start"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <button onclick="_fdPaqAddCol()" style="padding:4px 10px;border:1px dashed var(--border);border-radius:4px;background:none;color:var(--txt-sec);font-size:11px;cursor:pointer;font-family:inherit">+ Columna</button>
+          <span id="fd-paq-total" style="font-size:11px;color:var(--txt-sec)"></span>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <button class="fd-btn" onclick="_fdPaqClose()">Cancelar</button>
+          <button class="fd-btn fd-btn-ok" onclick="_fdPaqSave()">Guardar</button>
+        </div>
       </div>
     </div>
 
@@ -4107,7 +4187,7 @@ function _buildProfileLabels() {
     const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
     const div = document.createElement('div');
     div.className = 'profile-id-label';
-    div.textContent = _profileId(m);
+    div.textContent = getMemberProfile(m).profile || '—';
     const obj = new THREE.CSS2DObject(div);
     obj.position.set((ni.x+nj.x)/2, (ni.y+nj.y)/2, (ni.z+nj.z)/2);
     profileLabelsGroup.add(obj);
@@ -5793,7 +5873,7 @@ function _renderDirsChips() {
   el.innerHTML = _flyoutDirs.map((d, i) =>
     `<span style="display:inline-flex;align-items:center;gap:3px;background:#1E3A5F;color:#E2E8F0;
        padding:2px 8px;border-radius:12px;font-size:11px;">${d}°<button onclick="_removeFlyoutDir(${i})"
-       style="background:none;border:none;cursor:pointer;color:#94A3B8;font-size:13px;padding:0;line-height:1;margin-left:2px;">×</button></span>`
+       style="background:none;border:none;cursor:pointer;color:#e05555;font-size:14px;font-weight:700;padding:0;line-height:1;margin-left:2px;border-radius:2px;transition:color .15s" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#e05555'">×</button></span>`
   ).join('');
 }
 function _addFlyoutDir() {
@@ -8244,8 +8324,207 @@ function toggleAntenasTab() {
   }
 }
 
+// ── Combinaciones de Carga ────────────────────────────────────────────────────
+// ANSI/TIA-222-H §2.3.2 — Strength Limit State Load Combinations
+// fD/fDg=muerta estructura/tensores, fDi=hielo, fWo=viento sin hielo,
+// fWi=viento con hielo, fTi=temperatura, fEh/fEv=sísmico H/V
+const _LC_TIA222H = [
+  {id:'LC1', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
+   activa:true,  fD:1.2, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
+   nota:'', ref:'§2.3.2-(1)', preset:true},
+  {id:'LC2', formula:'0.9·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
+   activa:true,  fD:0.9, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
+   nota:'Solo autosoportadas', ref:'§2.3.2-(2)', preset:true},
+  {id:'LC3', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·D<sub>i</sub> + 1.0·W<sub>i</sub> + 1.0·T<sub>i</sub>',
+   activa:false, fD:1.2, fDg:1.0, fDi:1.0, fWo:0, fWi:1.0, fTi:1.0, fEh:0, fEv:0,
+   nota:'T<sub>i</sub>: no aplica autosoportadas', ref:'§2.3.2-(3)', preset:true},
+  {id:'LC4', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·E<sub>v</sub> + 1.0·E<sub>h</sub>',
+   activa:false, fD:1.2, fDg:1.0, fDi:0, fWo:0, fWi:0, fTi:0, fEh:1.0, fEv:1.0,
+   nota:'', ref:'§2.3.2-(4)', preset:true},
+  {id:'LC5', formula:'0.9·D + 1.0·D<sub>g</sub> + 1.0·E<sub>v</sub> + 1.0·E<sub>h</sub>',
+   activa:false, fD:0.9, fDg:1.0, fDi:0, fWo:0, fWi:0, fTi:0, fEh:1.0, fEv:1.0,
+   nota:'Solo autosoportadas', ref:'§2.3.2-(5)', preset:true},
+];
+
+let _lcCombis = _LC_TIA222H.map(c => ({...c}));
+let _lcEditId = null;
+let _lcNextId = 100;
+(function(){ try{
+  const s = JSON.parse(localStorage.getItem('lc-data')||'{}');
+  // Ignorar formato viejo (tenía fW/fL sin fDg) para no cargar combis obsoletas
+  if (Array.isArray(s.combis) && s.combis.length && s.combis[0].fDg !== undefined)
+    _lcCombis = s.combis;
+  if (s.nextId) _lcNextId = s.nextId;
+}catch(e){} })();
+
+function _lcSave() {
+  try{ localStorage.setItem('lc-data', JSON.stringify({combis:_lcCombis, nextId:_lcNextId})); }catch(e){}
+}
+
+function toggleCombisPanel(e) {
+  e?.stopPropagation();
+  const fl  = document.getElementById('combis-flyout');
+  const btn = document.getElementById('combis-btn');
+  const wasOpen = fl?.classList.contains('open');
+  if (!wasOpen) {
+    closeTorreFlyout?.();
+    closeVientoFlyout?.();
+    closeAntenasFlyout?.();
+    closeFeedersPanel?.();
+    document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
+  }
+  fl?.classList.toggle('open', !wasOpen);
+  btn?.classList.toggle('active', !wasOpen);
+  if (!wasOpen) _buildCombisPanel();
+}
+
+function closeCombisPanel() {
+  document.getElementById('combis-flyout')?.classList.remove('open');
+  document.getElementById('combis-btn')?.classList.remove('active');
+}
+
+function _buildCombisPanel() {
+  const body = document.getElementById('combis-panel-body');
+  if (!body) return;
+
+  const activasN = _lcCombis.filter(c => c.activa).length;
+
+  const combiRows = _lcCombis.map(c => {
+    const op = c.activa ? '1' : '.4';
+    if (_lcEditId === c.id && !c.preset) {
+      return `<tr class="lc-row-edit">
+        <td style="text-align:center"><input type="checkbox" ${c.activa?'checked':''} onchange="_lcToggleActiva('${c.id}')"></td>
+        <td><input id="lce-id" class="lc-edit-input" style="width:46px" value="${c.id.replace(/"/g,'&quot;')}"></td>
+        <td><input id="lce-formula" class="lc-edit-input" value="${c.formula.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}"></td>
+        <td><input id="lce-nota" class="lc-edit-input" value="${(c.nota||'').replace(/"/g,'&quot;')}"></td>
+        <td><input id="lce-ref" class="lc-edit-input" style="width:90px" value="${c.ref.replace(/"/g,'&quot;')}"></td>
+        <td style="text-align:center;white-space:nowrap">
+          <button onclick="_lcSaveEdit('${c.id}')" style="background:var(--btn-pri);border:none;border-radius:3px;color:#fff;font-size:10px;padding:2px 7px;cursor:pointer;font-family:inherit">✓</button>
+        </td>
+      </tr>`;
+    }
+    const del = `<button class="fd-btn-del" onclick="_lcDelete('${c.id}')" title="Eliminar" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>`;
+    const edt = !c.preset ? `<button class="fd-btn-del" onclick="_lcStartEdit('${c.id}')" title="Editar" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✎</button>` : '';
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" ${c.activa?'checked':''} onchange="_lcToggleActiva('${c.id}')"></td>
+      <td style="opacity:${op};font-weight:700;color:var(--cyan);font-size:11px">${c.id}</td>
+      <td style="opacity:${op}">${c.formula}</td>
+      <td class="lc-ref-cell" style="opacity:${op}">${c.nota||''}</td>
+      <td class="lc-ref-cell" style="opacity:${op}">${c.ref}</td>
+      <td style="text-align:center;white-space:nowrap">${edt}${del}</td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--txt)">ANSI/TIA-222-H</div>
+        <div style="font-size:10px;color:var(--txt-sec)">§2.3.2 — Strength Limit State Load Combinations</div>
+      </div>
+      <span style="font-size:11px;color:var(--txt-dim)">${activasN} activa${activasN!==1?'s':''} de ${_lcCombis.length}</span>
+    </div>
+
+    <div style="overflow-x:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:6px">
+      <table class="lc-table">
+        <thead><tr>
+          <th style="width:30px;text-align:center">✓</th>
+          <th style="width:38px">ID</th>
+          <th>Fórmula</th>
+          <th style="min-width:100px">Nota</th>
+          <th style="min-width:80px">Ref.</th>
+          <th style="width:52px"></th>
+        </tr></thead>
+        <tbody>${combiRows||'<tr><td colspan="6" style="padding:12px 6px;color:var(--txt-dim);font-style:italic">Sin combinaciones</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button onclick="_lcReset()" class="btn" style="font-size:11px;padding:4px 10px">↺ Restablecer</button>
+      <button onclick="_lcAddCombi()" class="fd-btn" style="font-size:11px;padding:4px 12px">+ Personalizada</button>
+    </div>
+
+    <div style="padding:12px 14px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:7px;font-size:11px">
+      <div style="font-weight:600;color:var(--txt);margin-bottom:8px">Simbología — TIA-222-H §2.3.1</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;line-height:1.75;color:var(--txt-sec)">
+        <span style="font-weight:600;color:var(--txt)">D</span><span>Carga muerta — peso propio estructura (excl. tensores)</span>
+        <span style="font-weight:600;color:var(--txt)">D<sub>g</sub></span><span>Carga muerta — peso de tensores (guy assemblies)</span>
+        <span style="font-weight:600;color:var(--txt)">D<sub>i</sub></span><span>Peso del hielo acumulado</span>
+        <span style="font-weight:600;color:var(--cyan)">W<sub>o</sub></span><span>Viento sin hielo (wind load without ice)</span>
+        <span style="font-weight:600;color:var(--cyan)">W<sub>i</sub></span><span>Viento simultáneo con hielo (concurrent wind with ice)</span>
+        <span style="font-weight:600;color:var(--txt-sec)">T<sub>i</sub></span><span>Efectos por temperatura — no aplica a autosoportadas</span>
+        <span style="font-weight:600;color:#f87171">E<sub>h</sub></span><span>Efecto sísmico horizontal</span>
+        <span style="font-weight:600;color:#f87171">E<sub>v</sub></span><span>Efecto sísmico vertical</span>
+      </div>
+    </div>`;
+}
+
+function _lcReset() {
+  _lcCombis = _LC_TIA222H.map(c => ({...c}));
+  _lcEditId = null;
+  _lcSave();
+  _buildCombisPanel();
+}
+
+function _lcToggleActiva(id) {
+  const c = _lcCombis.find(x => x.id === id);
+  if (c) { c.activa = !c.activa; _lcSave(); _buildCombisPanel(); }
+}
+
+function _lcStartEdit(id) { _lcEditId = id; _buildCombisPanel(); }
+
+function _lcSaveEdit(id) {
+  const c = _lcCombis.find(x => x.id === id);
+  if (!c) return;
+  const rawFormula = document.getElementById('lce-formula')?.value || c.formula;
+  c.id      = document.getElementById('lce-id')?.value      || c.id;
+  c.formula = rawFormula.replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  c.nota    = document.getElementById('lce-nota')?.value    ?? c.nota;
+  c.ref     = document.getElementById('lce-ref')?.value     || c.ref;
+  _lcEditId = null;
+  _lcSave();
+  _buildCombisPanel();
+}
+
+function _lcAddCombi() {
+  const id = 'C' + (_lcNextId++);
+  _lcCombis.push({ id, formula:'1.0·D + 1.0·W<sub>o</sub>', activa:true,
+    fD:1.0, fDg:0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
+    nota:'', ref:'Personalizado', preset:false });
+  _lcEditId = id;
+  _lcSave();
+  _buildCombisPanel();
+}
+
+function _lcDelete(id) {
+  _lcCombis = _lcCombis.filter(x => x.id !== id);
+  if (_lcEditId === id) _lcEditId = null;
+  _lcSave();
+  _buildCombisPanel();
+}
+
+// Getter público para usar en cálculos
+function getLcActivas() { return _lcCombis.filter(c => c.activa); }
+
 // ── Feeders / Coaxiales ───────────────────────────────────────────────────────
-const _FD_TIPOS_DIAM = {'1/2"':12.7,'7/8"':22.2,'1-1/4"':32.0,'1-5/8"':41.3,'2-1/4"':57.2,'RG-213':10.3,'Otro':20.0};
+const _FD_TIPOS = [
+  {tipo:'1/8"',   diam:3.3,   peso:0.02},
+  {tipo:'7/32"',  diam:5.6,   peso:0.05},
+  {tipo:'5/16"',  diam:8.0,   peso:0.07},
+  {tipo:'1/4"',   diam:8.8,   peso:0.09},
+  {tipo:'3/8"',   diam:11.2,  peso:0.12},
+  {tipo:'1/2"',   diam:16.0,  peso:0.22},
+  {tipo:'5/8"',   diam:22.0,  peso:0.22},
+  {tipo:'7/8"',   diam:27.7,  peso:0.49},
+  {tipo:'1 1/4"', diam:39.4,  peso:0.94},
+  {tipo:'1 5/8"', diam:50.3,  peso:1.22},
+  {tipo:'2 1/4"', diam:59.7,  peso:1.82},
+  {tipo:'3"',     diam:76.7,  peso:2.65},
+  {tipo:'4"',     diam:101.6, peso:0},
+];
+let _fdUserTipos = [];
+try { _fdUserTipos = JSON.parse(localStorage.getItem('fd-user-tipos') || '[]'); } catch(e){}
+function _fdAllTipos() { return [..._FD_TIPOS, ..._fdUserTipos]; }
+function _fdSaveUserTipos() { try{ localStorage.setItem('fd-user-tipos', JSON.stringify(_fdUserTipos)); }catch(e){} }
 const _FD_FC_CSS     = {A:'#4a9fd0',B:'#9b72de',C:'#48c99e',D:'#e8a04a',EXT:'#4a9fd0',INT:'#7a8fa8'};
 const _FD_FC_HEX     = {A:0x4a9fd0, B:0x9b72de, C:0x48c99e, D:0xe8a04a, EXT:0x4a9fd0, INT:0x7a8fa8};
 const _FD_FLBL       = {A:'Cara A',B:'Cara B',C:'Cara C',D:'Cara D',EXT:'Externa',INT:'Interna'};
@@ -8304,6 +8583,7 @@ function toggleFeedersPanel(e) {
     closeTorreFlyout();
     closeVientoFlyout();
     closeAntenasFlyout();
+    closeCombisPanel();
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   }
   fl.classList.toggle('open', !wasOpen);
@@ -8358,20 +8638,39 @@ function _buildFeedersPanel() {
   const body = document.getElementById('feeders-panel-body');
   if (!body) return;
 
-  const tblRows = [...feedersData].sort((a,b) => +a.zi - +b.zi).map(c => `
-    <tr>
+  const tblRows = [...feedersData].sort((a,b) => +a.zi - +b.zi).map(c => {
+    if (c.type === 'paquete') {
+      const nCols = c.columnas?.length || 0;
+      const depths = (c.columnas||[]).map(col=>col.length).join('+');
+      const tipos = [...new Set((c.columnas||[]).flat().map(x=>x.tipo))].join(', ');
+      return `<tr style="background:rgba(100,200,255,.04)">
+        <td class="tc" style="color:var(--txt-sec)">${(+c.zi).toFixed(1)}</td>
+        <td class="tc" style="color:var(--txt-sec)">${(+c.zf).toFixed(1)}</td>
+        <td style="font-weight:500;color:var(--cyan)">Paquete<span style="font-weight:400;font-size:10px;color:var(--txt-sec);display:block">${nCols} col. (${depths})</span></td>
+        <td class="tc" style="color:var(--txt-dim);font-size:10px">${tipos}</td>
+        <td class="tc">${c.n}</td>
+        <td><span class="fd-badge" style="--fd-dot:${_FD_FC_CSS[c.ruta]||'#aaa'};background:${_FD_FC_CSS[c.ruta]||'#aaa'}22;color:${_FD_FC_CSS[c.ruta]||'#aaa'}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
+        <td></td>
+        <td style="white-space:nowrap">
+          <button class="fd-btn-del" title="Editar" onclick="_fdPaqOpen(${c.id})" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✏</button>
+          <button class="fd-btn-del" title="Eliminar" onclick="_fdDelete(${c.id})" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>
+        </td>
+      </tr>`;
+    }
+    return `<tr>
       <td class="tc" style="color:var(--txt-sec)">${(+c.zi).toFixed(1)}</td>
       <td class="tc" style="color:var(--txt-sec)">${(+c.zf).toFixed(1)}</td>
       <td style="font-weight:500">${c.tipo}</td>
       <td class="tc" style="color:var(--txt-sec)">${(+c.diam).toFixed(1)}</td>
       <td class="tc">${c.n}</td>
       <td><span class="fd-badge" style="--fd-dot:${_FD_FC_CSS[c.ruta]||'#aaa'};background:${_FD_FC_CSS[c.ruta]||'#aaa'}22;color:${_FD_FC_CSS[c.ruta]||'#aaa'}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
-      <td><button class="fd-btn" style="font-size:11px;padding:2px 7px" onclick="_fdArreglo(${c.id})">Arreglo</button></td>
+      <td></td>
       <td style="white-space:nowrap">
         <button class="fd-btn-del" title="Editar" onclick="_fdStartEdit(${c.id})" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✏</button>
         <button class="fd-btn-del" title="Eliminar" onclick="_fdDelete(${c.id})" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const faceN = {};
   feedersData.forEach(c => { faceN[c.ruta] = (faceN[c.ruta]||0) + c.n; });
@@ -8442,6 +8741,7 @@ function _buildFeedersPanel() {
           Planta
         </button>
         <button class="fd-btn" onclick="_fdToggleForm()">+ &nbsp;Agregar</button>
+        <button class="fd-btn" onclick="_fdPaqOpen(null)" style="color:var(--cyan);border-color:var(--cyan)">+ &nbsp;Paquete</button>
       </div>
     </div>
     <div class="fd-top">
@@ -8461,12 +8761,12 @@ function _buildFeedersPanel() {
             <input type="number" id="fdf-zf" value="${defaultZf}" step="0.5" min="0"></div>
           <div class="fd-ff"><label class="fd-fl">Tipo</label>
             <select id="fdf-tipo" onchange="_fdAutoD()">
-              <option>1/2"</option><option selected>7/8"</option>
-              <option>1-1/4"</option><option>1-5/8"</option>
-              <option>2-1/4"</option><option>RG-213</option><option>Otro</option>
+              ${_fdAllTipos().map(x=>`<option value="${x.tipo.replace(/"/g,'&quot;')}"${x.tipo==='7/8"'?' selected':''}>${x.tipo}</option>`).join('')}
             </select></div>
           <div class="fd-ff"><label class="fd-fl">Ø (mm)</label>
-            <input type="number" id="fdf-diam" value="22.2" step="0.1" min="1"></div>
+            <input type="number" id="fdf-diam" value="27.7" step="0.1" min="1"></div>
+          <div class="fd-ff"><label class="fd-fl">Peso (kg/m)</label>
+            <input type="number" id="fdf-peso" value="0.49" step="0.01" min="0"></div>
           <div class="fd-ff"><label class="fd-fl">N°</label>
             <input type="number" id="fdf-n" value="1" min="1" max="24"></div>
           <div class="fd-ff"><label class="fd-fl">Ruta</label>
@@ -8477,6 +8777,49 @@ function _buildFeedersPanel() {
             <button class="fd-btn fd-btn-ok" onclick="_fdConfirmAdd()">Guardar</button></div>
         </div>
         ${sumbarHTML}
+        <details style="margin-top:8px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <summary style="padding:6px 10px;font-size:11px;font-weight:600;color:var(--txt-sec);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+            <span style="font-size:9px;color:var(--txt-dim)">▶</span> Tipos de cable personalizados
+            <span style="margin-left:auto;font-size:10px;color:var(--txt-dim)">${_fdUserTipos.length ? _fdUserTipos.length+' definido'+(_fdUserTipos.length!==1?'s':'') : 'ninguno'}</span>
+          </summary>
+          <div style="padding:8px 10px;background:var(--bg-deep)">
+            <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px">
+              <thead><tr style="color:var(--txt-sec);font-size:10px">
+                <th style="text-align:left;padding:2px 4px">Nombre</th>
+                <th style="text-align:right;padding:2px 4px">Ø (mm)</th>
+                <th style="text-align:right;padding:2px 4px">Peso (kg/m)</th>
+                <th style="width:24px"></th>
+              </tr></thead>
+              <tbody id="fd-user-tipos-body">
+                ${_fdUserTipos.length
+                  ? _fdUserTipos.map((t,i)=>`<tr>
+                      <td style="padding:2px 4px;color:var(--txt)">${t.tipo}</td>
+                      <td style="padding:2px 4px;text-align:right;color:var(--txt)">${(+t.diam).toFixed(1)}</td>
+                      <td style="padding:2px 4px;text-align:right;color:var(--txt)">${(+t.peso).toFixed(2)}</td>
+                      <td style="padding:2px 4px;text-align:center">
+                        <button class="row-del" onclick="_fdDelUserTipo(${i})" title="Eliminar">✕</button>
+                      </td>
+                    </tr>`).join('')
+                  : '<tr><td colspan="4" style="padding:4px;color:var(--txt-dim);font-style:italic">Sin tipos personalizados</td></tr>'}
+              </tbody>
+            </table>
+            <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <label style="font-size:9px;color:var(--txt-sec)">Nombre</label>
+                <input id="fdu-tipo" placeholder='Ej: RG-213' style="width:80px;padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <label style="font-size:9px;color:var(--txt-sec)">Ø (mm)</label>
+                <input id="fdu-diam" type="number" step="0.1" min="0.1" placeholder="10.3" style="width:60px;padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <label style="font-size:9px;color:var(--txt-sec)">Peso (kg/m)</label>
+                <input id="fdu-peso" type="number" step="0.01" min="0" placeholder="0.10" style="width:60px;padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">
+              </div>
+              <button onclick="_fdAddUserTipo()" class="fd-btn" style="padding:4px 10px;font-size:11px;align-self:flex-end">+ Agregar</button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
     `;
@@ -8496,24 +8839,28 @@ function _fdToggleForm() {
 }
 
 function _fdAutoD() {
-  const t = document.getElementById('fdf-tipo')?.value;
-  if (t) document.getElementById('fdf-diam').value = _FD_TIPOS_DIAM[t] ?? 20;
+  const t = document.getElementById('fdf-tipo')?.value; if (!t) return;
+  const spec = _fdAllTipos().find(x => x.tipo === t);
+  if (spec) {
+    document.getElementById('fdf-diam').value = spec.diam;
+    document.getElementById('fdf-peso').value = spec.peso;
+  }
 }
 
 function _fdConfirmAdd() {
   const tipo = document.getElementById('fdf-tipo')?.value; if (!tipo) return;
   const diam = +document.getElementById('fdf-diam')?.value || 20;
+  const peso = +document.getElementById('fdf-peso')?.value || 0;
   const n    = Math.max(1, +document.getElementById('fdf-n')?.value || 1);
   const ruta = document.getElementById('fdf-ruta')?.value || 'A';
   const zi   = +document.getElementById('fdf-zi')?.value || 0;
   const zf   = +document.getElementById('fdf-zf')?.value || (getConfig()?.height || 30);
   if (_fdEditId !== null) {
-    // Modo edición: actualizar entrada existente
     const idx = feedersData.findIndex(c => c.id === _fdEditId);
-    if (idx >= 0) feedersData[idx] = { id: _fdEditId, tipo, diam, n, ruta, zi, zf };
+    if (idx >= 0) feedersData[idx] = { id: _fdEditId, tipo, diam, peso, n, ruta, zi, zf };
     _fdEditId = null;
   } else {
-    feedersData.push({id: _feedersNextId++, tipo, diam, n, ruta, zi, zf});
+    feedersData.push({id: _feedersNextId++, tipo, diam, peso, n, ruta, zi, zf});
     _fdActivateRender();
   }
   _renderFeeders3D();
@@ -8528,7 +8875,7 @@ function _fdStartEdit(id) {
   const form = document.getElementById('fd-add-form');
   if (form && !form.classList.contains('open')) form.classList.add('open');
   const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
-  set('fdf-tipo', c.tipo); set('fdf-diam', c.diam); set('fdf-n', c.n);
+  set('fdf-tipo', c.tipo); set('fdf-diam', c.diam); set('fdf-peso', c.peso||0); set('fdf-n', c.n);
   set('fdf-ruta', c.ruta); set('fdf-zi', c.zi);     set('fdf-zf', c.zf);
   // Cambiar texto del botón Guardar a Actualizar
   const btn = document.querySelector('#fd-add-form .fd-btn-ok');
@@ -8549,8 +8896,251 @@ function _fdAplicar() {
   closeFeedersPanel();
 }
 
-function _fdArreglo(id) {
-  showToast('Función Arreglo — próximamente.', 'info');
+// ── Cluster helpers (TIA-222-H Figure 2-14) ──────────────────────────────────
+
+// Número de anillo exterior mínimo para N cables (packing hexagonal)
+function _fdClusterOuterRing(N) {
+  if (N <= 1) return 0;
+  let n = 0;
+  while (1 + 3 * n * (n + 1) < N) n++;
+  return n;
+}
+
+// Diámetro del cluster para N cables de diámetro d con separación g entre superficies
+// TIA-222-H Figure 2-14: Dc = (2n+1)(d+g) - g
+function _fdClusterDiam(N, d, g = 2) {
+  if (N <= 0) return 0;
+  if (N === 1) return d;
+  const n = _fdClusterOuterRing(N);
+  return (2 * n + 1) * (d + g) - g;
+}
+
+// Posiciones hexagonales para N cables de diámetro d_max con separación g (en mm)
+// Retorna [{x, y}] relativo al centro del cluster
+function _fdHexPositions(N, d_max, g = 2) {
+  const s = d_max + g; // distancia centro a centro
+  const pts = [];
+  if (N <= 0) return pts;
+
+  pts.push({x: 0, y: 0}); // centro
+
+  // Axial (q,r) → cartesiano (pointy-top)
+  const toXY = (q, r) => ({
+    x: s * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r),
+    y: s * 1.5 * r
+  });
+
+  const dirs = [[-1,1],[-1,0],[0,-1],[1,-1],[1,0],[0,1]];
+  for (let ring = 1; pts.length < N; ring++) {
+    let q = ring, r = 0;
+    for (const [dq, dr] of dirs) {
+      for (let step = 0; step < ring && pts.length < N; step++) {
+        pts.push(toXY(q, r));
+        q += dq; r += dr;
+      }
+    }
+  }
+  return pts;
+}
+
+// ── Paquetes de coaxiales ─────────────────────────────────────────────────────
+let _fdPaqId      = null;
+let _fdPaqCols    = [];
+let _fdPaqBackup  = null;
+let _fdPaqIsNew   = false;
+let _fdPaqCluster = false;
+
+// Genera <option> con 'selected' correcto para UN select específico.
+// Usa &quot; para evitar que los nombres como 7/8" rompan el atributo value.
+function _fdPaqCableOptsFor(selTipo, selDiam) {
+  const seen = new Map();
+  _fdAllTipos().forEach(({tipo, diam}) => seen.set(tipo, diam));
+  feedersData.forEach(e => { if (e.type !== 'paquete') seen.set(e.tipo, e.diam); });
+  return [...seen.entries()].map(([t, d]) => {
+    const v   = t.replace(/"/g, '&quot;') + '__' + d;
+    const sel = (t === selTipo && Math.abs(+d - +selDiam) < 0.01) ? ' selected' : '';
+    return `<option value="${v}"${sel}>${t} (${(+d).toFixed(1)} mm)</option>`;
+  }).join('');
+}
+
+// Actualiza el entry preview en feedersData y redibuja la vista en planta.
+function _fdPaqSyncPreview() {
+  if (_fdPaqId == null) return;
+  const entry = feedersData.find(x => x.id === _fdPaqId);
+  if (!entry) return;
+  const ruta = document.getElementById('fd-paq-ruta')?.value || entry.ruta;
+  const zi   = +document.getElementById('fd-paq-zi')?.value  || 0;
+  const zf   = +document.getElementById('fd-paq-zf')?.value  || (getConfig()?.height || 30);
+  entry.ruta    = ruta; entry.zi = zi; entry.zf = zf;
+  entry.columnas = _fdPaqCols.map(col => col.map(c => ({...c})));
+  entry.n        = _fdPaqCols.reduce((s, col) => s + col.length, 0);
+  entry.cluster  = _fdPaqCluster;
+
+  // Actualizar display de Dc cuando hay cluster activo
+  if (_fdPaqCluster) {
+    const all   = _fdPaqCols.flat();
+    const dMax  = all.length ? Math.max(...all.map(c => c.diam)) : 0;
+    const Dc    = _fdClusterDiam(all.length, dMax, 2);
+    const dcEl  = document.getElementById('fd-paq-dc-val');
+    if (dcEl) dcEl.textContent = Dc.toFixed(1) + ' mm';
+  }
+  _fdDrawPlan();
+}
+
+function _fdPaqToggleCluster() {
+  _fdPaqCluster = document.getElementById('fd-paq-cluster')?.checked ?? false;
+  const dcRow = document.getElementById('fd-paq-dc-row');
+  if (dcRow) dcRow.style.display = _fdPaqCluster ? '' : 'none';
+  const desc = document.getElementById('fd-paq-desc');
+  if (desc) desc.textContent = _fdPaqCluster
+    ? 'Cables del cluster — defina los tipos en las columnas (el arreglo circular es automático):'
+    : 'Columnas de izquierda a derecha — cables apilados desde la torre hacia afuera:';
+  _fdPaqSyncPreview();
+}
+
+function _fdPaqOpen(id) {
+  // Limpiar cualquier preview huérfano de una sesión anterior fallida
+  if (_fdPaqId != null && _fdPaqIsNew) {
+    feedersData = feedersData.filter(e => e.id !== _fdPaqId);
+  }
+  const existing = id != null ? feedersData.find(x => x.id === id) : null;
+  const cfg = getConfig();
+  _fdPaqIsNew = (existing == null);
+  if (existing) {
+    _fdPaqId     = existing.id;
+    _fdPaqBackup = {...existing, columnas: existing.columnas.map(col => col.map(c => ({...c})))};
+    _fdPaqCols   = existing.columnas.map(col => col.map(c => ({...c})));
+  } else {
+    _fdPaqId   = _feedersNextId++;
+    _fdPaqBackup = null;
+    _fdPaqCols = [[{tipo:'7/8"', diam:27.7}]];
+    feedersData.push({ id:_fdPaqId, type:'paquete', ruta:'A',
+      zi:0, zf:cfg?.height||30, n:1,
+      columnas:_fdPaqCols.map(col=>col.map(c=>({...c}))) });
+    // _fdActivateRender() se llama al guardar, no al abrir, para evitar crash sin torre cargada
+  }
+  document.getElementById('fd-paq-zi').value = existing?.zi ?? 0;
+  document.getElementById('fd-paq-zf').value = existing?.zf ?? (cfg?.height || 30);
+  const rs = document.getElementById('fd-paq-ruta');
+  if (rs) rs.innerHTML = _fdFaces(cfg?.type).map(f =>
+    `<option value="${f.id}"${(existing?.ruta||'A')===f.id?' selected':''}>${f.lbl}</option>`).join('');
+  // Restaurar flag cluster
+  _fdPaqCluster = existing?.cluster ?? false;
+  const clusterCb = document.getElementById('fd-paq-cluster');
+  if (clusterCb) clusterCb.checked = _fdPaqCluster;
+  const dcRow = document.getElementById('fd-paq-dc-row');
+  if (dcRow) dcRow.style.display = _fdPaqCluster ? '' : 'none';
+  const desc = document.getElementById('fd-paq-desc');
+  if (desc) desc.textContent = _fdPaqCluster
+    ? 'Cables del cluster — defina los tipos en las columnas (el arreglo circular es automático):'
+    : 'Columnas de izquierda a derecha — cables apilados desde la torre hacia afuera:';
+  _fdPaqRenderGrid();
+  document.getElementById('fd-paq-modal').style.display = 'flex';
+}
+
+function _fdPaqRenderGrid() {
+  const grid = document.getElementById('fd-paq-grid');
+  if (!grid) return;
+  grid.innerHTML = _fdPaqCols.map((col, ci) => `
+    <div style="display:flex;flex-direction:column;gap:3px;min-width:120px;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:3px;border-bottom:1px solid var(--border)">
+        <span style="font-size:10px;font-weight:600;color:var(--cyan)">Col.${ci+1}</span>
+        ${_fdPaqCols.length > 1
+          ? `<button onclick="_fdPaqRemoveCol(${ci})" style="background:none;border:none;cursor:pointer;color:var(--txt-dim);font-size:11px;padding:0 2px;font-family:inherit">✕</button>`
+          : ''}
+      </div>
+      ${col.map((cable, ri) => `
+        <div style="display:flex;gap:2px;align-items:center">
+          <select style="flex:1;padding:2px 3px;background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;color:var(--txt);font-size:10px;font-family:inherit"
+            onchange="_fdPaqSetCable(${ci},${ri},this.value)">
+            ${_fdPaqCableOptsFor(cable.tipo, cable.diam)}
+          </select>
+          ${col.length > 1
+            ? `<button onclick="_fdPaqRemoveCable(${ci},${ri})" style="background:none;border:none;cursor:pointer;color:var(--txt-dim);font-size:10px;padding:0;font-family:inherit;flex-shrink:0">✕</button>`
+            : ''}
+        </div>`).join('')}
+      <button onclick="_fdPaqAddCable(${ci})" style="padding:2px 0;border:1px dashed var(--border);border-radius:3px;background:none;color:var(--txt-dim);font-size:10px;cursor:pointer;font-family:inherit;margin-top:2px">+ cable</button>
+    </div>`).join('');
+  const total = _fdPaqCols.reduce((s, col) => s + col.length, 0);
+  const el = document.getElementById('fd-paq-total');
+  if (el) el.textContent = total > 0 ? `${total} cable${total!==1?'s':''} total` : '';
+  _fdPaqSyncPreview();
+}
+
+function _fdPaqSetCable(ci, ri, value) {
+  if (!_fdPaqCols[ci]) return;
+  const sep = value.indexOf('__');
+  _fdPaqCols[ci][ri] = {tipo: value.slice(0, sep), diam: +value.slice(sep + 2)};
+  _fdPaqSyncPreview();
+}
+
+function _fdPaqAddCol() {
+  const first = feedersData.find(e => e.type !== 'paquete' && e.id !== _fdPaqId);
+  _fdPaqCols.push([first ? {tipo:first.tipo, diam:first.diam} : {tipo:'7/8"', diam:22.2}]);
+  _fdPaqRenderGrid();
+}
+
+function _fdPaqRemoveCol(ci) {
+  if (_fdPaqCols.length <= 1) return;
+  _fdPaqCols.splice(ci, 1);
+  _fdPaqRenderGrid();
+}
+
+function _fdPaqAddCable(ci) {
+  if (!_fdPaqCols[ci]) return;
+  _fdPaqCols[ci].push({...(_fdPaqCols[ci].slice(-1)[0] || {tipo:'7/8"', diam:22.2})});
+  _fdPaqRenderGrid();
+}
+
+function _fdPaqRemoveCable(ci, ri) {
+  if (!_fdPaqCols[ci] || _fdPaqCols[ci].length <= 1) return;
+  _fdPaqCols[ci].splice(ri, 1);
+  _fdPaqRenderGrid();
+}
+
+function _fdPaqSave() {
+  if (!_fdPaqCols.length || _fdPaqCols.every(col => !col.length)) {
+    showToast('Agregue al menos una columna con cables.', 'warn'); return;
+  }
+  _fdPaqSyncPreview();
+  const wasNew = _fdPaqIsNew;
+  _fdPaqId = null; _fdPaqCols = []; _fdPaqBackup = null; _fdPaqIsNew = false;
+  document.getElementById('fd-paq-modal').style.display = 'none';
+  if (wasNew) _fdActivateRender();
+  _renderFeeders3D();
+  _buildFeedersPanel();
+}
+
+function _fdPaqClose() {
+  if (_fdPaqIsNew) {
+    feedersData = feedersData.filter(e => e.id !== _fdPaqId);
+  } else if (_fdPaqBackup) {
+    const idx = feedersData.findIndex(x => x.id === _fdPaqId);
+    if (idx >= 0) feedersData[idx] = _fdPaqBackup;
+  }
+  _fdPaqId = null; _fdPaqCols = []; _fdPaqBackup = null; _fdPaqIsNew = false;
+  const m = document.getElementById('fd-paq-modal');
+  if (m) m.style.display = 'none';
+  _renderFeeders3D();
+  _buildFeedersPanel();
+  _fdDrawPlan();
+}
+
+function _fdAddUserTipo() {
+  const tipo = document.getElementById('fdu-tipo')?.value?.trim();
+  const diam = +document.getElementById('fdu-diam')?.value;
+  const peso = +document.getElementById('fdu-peso')?.value;
+  if (!tipo || !diam) { showToast('Ingrese nombre y diámetro.', 'warn'); return; }
+  if (_fdAllTipos().some(x => x.tipo === tipo)) { showToast('Ese nombre ya existe.', 'warn'); return; }
+  _fdUserTipos.push({tipo, diam, peso: peso||0});
+  _fdSaveUserTipos();
+  _buildFeedersPanel();
+}
+
+function _fdDelUserTipo(i) {
+  _fdUserTipos.splice(i, 1);
+  _fdSaveUserTipos();
+  _buildFeedersPanel();
 }
 
 function _fdDropToggle(id) {
@@ -8606,24 +9196,78 @@ function _fdDrawPlan() {
   ctx.font = `600 ${fsz}px system-ui,sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
-  // Instancias por cara con info de diámetro individual
-  const byFacePlan = {};
-  _fdFaces(towerType).forEach(f => { byFacePlan[f.id] = []; });
-  feedersData.forEach(entry => {
-    const list = byFacePlan[entry.ruta] ?? (byFacePlan[entry.ruta] = []);
-    for (let i = 0; i < entry.n; i++) list.push(entry);
-  });
+  // Slot-based expansion for plan view (soporta paquetes/arreglos)
+  const planStep = dr*2 + gap;
+  const PLAN_BUNDLE_GAP = gap * 3;
 
-  // helper: dibuja dots de una lista de instancias con color por diámetro
-  const drawDots = (instances, posFn) => {
-    const step = dr*2+gap, span = instances.length*step - gap;
-    instances.forEach((entry, i) => {
+  function buildFacePlanInsts(faceId) {
+    const slots = [];
+    feedersData.forEach(entry => {
+      if (entry.ruta !== faceId) return;
+      if (entry.type === 'paquete' && entry.columnas?.length > 0) {
+        const allCables = entry.columnas.flat();
+        const N = allCables.length;
+        if (N === 0) return;
+        const dMaxMm = Math.max(...allCables.map(c => c.diam));
+
+        if (entry.cluster) {
+          // Cluster: packing hexagonal en canvas
+          const Dc    = _fdClusterDiam(N, dMaxMm, 2);
+          const hexPts = _fdHexPositions(N, dMaxMm, 2);
+          const minY  = Math.min(...hexPts.map(p => p.y));
+          // En el canvas, planStep es escala; convertir mm → unidades de planStep
+          const scale = planStep / dMaxMm;
+          const centerRad = (dMaxMm / 2 - minY) * scale;
+          const insts = hexPts.map((pt, i) => ({
+            entry: {...entry, diam: allCables[i].diam, tipo: allCables[i].tipo},
+            localLat: pt.x * scale,
+            rad: centerRad + pt.y * scale
+          }));
+          slots.push({ slotW: Dc * scale, insts });
+        } else {
+          const nCols = entry.columnas.length;
+          const slotW = nCols > 1 ? nCols * planStep - gap : planStep;
+          const insts = [];
+          entry.columnas.forEach((col, ci) => {
+            col.forEach((cableSpec, ri) => {
+              insts.push({
+                entry: {...entry, diam: cableSpec.diam, tipo: cableSpec.tipo},
+                localLat: nCols > 1 ? (ci - (nCols-1)/2) * planStep : 0,
+                rad: ri * planStep
+              });
+            });
+          });
+          slots.push({ slotW, insts });
+        }
+      } else {
+        const slotW = entry.n > 1 ? entry.n * planStep - gap : planStep;
+        const insts = [];
+        for (let i = 0; i < entry.n; i++)
+          insts.push({ entry, localLat: entry.n > 1 ? (i - (entry.n-1)/2) * planStep : 0, rad: 0 });
+        slots.push({ slotW, insts });
+      }
+    });
+    if (!slots.length) return [];
+    const totalW = slots.reduce((s, sl) => s + sl.slotW, 0) + Math.max(0, slots.length-1) * PLAN_BUNDLE_GAP;
+    const result = [];
+    let cursor = -totalW / 2;
+    slots.forEach(slot => {
+      const center = cursor + slot.slotW / 2;
+      cursor += slot.slotW + PLAN_BUNDLE_GAP;
+      slot.insts.forEach(({ entry, localLat, rad }) =>
+        result.push({ entry, lat: center + localLat, rad }));
+    });
+    return result;
+  }
+
+  // drawDots: faceId → lista de instancias con (lat, rad); posFn(lat, rad) → [x,y]
+  const drawDots = (faceId, posFn) => {
+    buildFacePlanInsts(faceId).forEach(({ entry, lat, rad }) => {
       const color = _fdDiamCss(entry.diam);
-      const off = -span/2 + i*step + dr;
-      const [x, y] = posFn(off, entry);
-      ctx.beginPath(); ctx.arc(x,y,dr+2,0,Math.PI*2);
+      const [x, y] = posFn(lat, rad);
+      ctx.beginPath(); ctx.arc(x, y, dr+2, 0, Math.PI*2);
       ctx.fillStyle = color+'20'; ctx.fill();
-      ctx.beginPath(); ctx.arc(x,y,dr,0,Math.PI*2);
+      ctx.beginPath(); ctx.arc(x, y, dr, 0, Math.PI*2);
       ctx.fillStyle = color; ctx.fill();
     });
   };
@@ -8635,8 +9279,8 @@ function _fdDrawPlan() {
     ctx.fillStyle = '#2a4a70';
     ctx.fillText('EXT',cx,cy-r_mono-LO);
     ctx.fillText('INT',cx,cy+r_mono+LO);
-    drawDots(byFacePlan['EXT']||[], off => [cx+off, cy-r_mono]);
-    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+    drawDots('EXT', (lat, rad) => [cx+lat, cy-r_mono-rad]);
+    drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
 
   } else if (towerType === 'triangular') {
     const tr = hs + 2;
@@ -8659,19 +9303,20 @@ function _fdDrawPlan() {
       ctx.fillStyle = '#2a4a70';
       ctx.fillText(lbl, mx + dx/d*LO, my + dy/d*LO);
     };
-    midLabel(0,1,'B'); midLabel(1,2,'C'); midLabel(2,0,'A');
+    midLabel(0,1,'B'); midLabel(1,2,'A'); midLabel(2,0,'C');
     const faceMid = {
-      A: [(pts[2][0]+pts[0][0])/2, (pts[2][1]+pts[0][1])/2],
+      A: [(pts[1][0]+pts[2][0])/2, (pts[1][1]+pts[2][1])/2],
       B: [(pts[0][0]+pts[1][0])/2, (pts[0][1]+pts[1][1])/2],
-      C: [(pts[1][0]+pts[2][0])/2, (pts[1][1]+pts[2][1])/2],
+      C: [(pts[2][0]+pts[0][0])/2, (pts[2][1]+pts[0][1])/2],
     };
     ['A','B','C'].forEach(face => {
       const [fx,fy] = faceMid[face];
       const edgeX = fx-cx, edgeY = fy-cy, el = Math.sqrt(edgeX*edgeX+edgeY*edgeY)||1;
-      const tx = -edgeY/el, ty = edgeX/el;
-      drawDots(byFacePlan[face]||[], off => [fx+tx*off, fy+ty*off]);
+      const nx = edgeX/el, ny = edgeY/el;
+      const tx = -ny, ty = nx;
+      drawDots(face, (lat, rad) => [fx + tx*lat + nx*rad, fy + ty*lat + ny*rad]);
     });
-    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+    drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
 
   } else {
     ctx.beginPath(); ctx.rect(cx-hs,cy-hs,side,side);
@@ -8684,27 +9329,109 @@ function _fdDrawPlan() {
     [['A',cx,cy-hs-LO],['B',cx+hs+LO,cy],['C',cx,cy+hs+LO],['D',cx-hs-LO,cy]].forEach(([l,x,y])=>{
       ctx.fillStyle = '#2a4a70'; ctx.fillText(l,x,y);
     });
-    const sqPos = { A: off=>[cx+off,cy-hs], B: off=>[cx+hs,cy+off],
-                    C: off=>[cx+off,cy+hs], D: off=>[cx-hs,cy+off] };
-    ['A','B','C','D'].forEach(f => drawDots(byFacePlan[f]||[], sqPos[f]));
-    drawDots(byFacePlan['INT']||[], off => [cx+off*0.4, cy]);
+    const sqPos = {
+      A: (lat, rad) => [cx+lat, cy-hs-rad],
+      B: (lat, rad) => [cx+hs+rad, cy+lat],
+      C: (lat, rad) => [cx+lat, cy+hs+rad],
+      D: (lat, rad) => [cx-hs-rad, cy+lat]
+    };
+    ['A','B','C','D'].forEach(f => drawDots(f, sqPos[f]));
+    drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
   }
 
   // Leyenda por diámetro
   const leg = document.getElementById('fd-legend');
   if (!leg) return;
   const diamMap = {};
+  const addToLegend = (diam, tipo, n) => {
+    const k = (+diam).toFixed(1);
+    if (!diamMap[k]) diamMap[k] = { diam: +diam, tipo, n: 0 };
+    diamMap[k].n += n;
+  };
   feedersData.forEach(e => {
-    const k = e.diam.toFixed(1);
-    if (!diamMap[k]) diamMap[k] = { diam: e.diam, tipo: e.tipo, n: 0 };
-    diamMap[k].n += e.n;
+    if (e.type === 'paquete') {
+      (e.columnas||[]).flat().forEach(c => addToLegend(c.diam, c.tipo, 1));
+    } else if (e.diam != null) {
+      addToLegend(e.diam, e.tipo, e.n || 1);
+    }
   });
   const entries = Object.values(diamMap).sort((a,b) => a.diam - b.diam);
   leg.innerHTML = entries.map(({diam,tipo,n}) => `
     <div class="fd-leg-row">
       <span class="fd-leg-dot" style="background:${_fdDiamCss(diam)}"></span>
-      <span>${tipo} ${diam.toFixed(1)}&nbsp;mm — ${n} cable${n>1?'s':''}</span>
+      <span>${tipo} ${(+diam).toFixed(1)}&nbsp;mm — ${n} cable${n>1?'s':''}</span>
     </div>`).join('') || '<div class="fd-leg-row" style="opacity:.4">Sin cables</div>';
+}
+
+// ── Expansión de instancias por cara (soporta paquetes con arreglo de filas) ──
+function _fdExpandInstancesForFace(faceId) {
+  const CABLE_GAP  = 0.02;  // m entre superficies de cables
+  const BUNDLE_GAP = 0.05;  // m entre entradas distintas en la misma cara
+  const slots = [];
+  feedersData.forEach(entry => {
+    if (entry.ruta !== faceId) return;
+    if (entry.type === 'paquete' && entry.columnas?.length > 0) {
+      const allCables = entry.columnas.flat();
+      const N = allCables.length;
+      if (N === 0) return;
+      const allDiams = allCables.map(c => c.diam / 1000);
+      const maxD = Math.max(...allDiams);
+
+      if (entry.cluster) {
+        // ── Modo Cluster: packing hexagonal (TIA-222-H Figure 2-14) ─────────
+        const g = 0.002; // 2mm separación entre superficies
+        const Dc = _fdClusterDiam(N, maxD * 1000, 2) / 1000; // metros
+        const hexPts = _fdHexPositions(N, maxD * 1000, 2); // posiciones en mm
+        // Trasladar para que el cable más próximo a la cara toque la cara
+        const minY = Math.min(...hexPts.map(p => p.y));
+        const centerRad = (maxD / 2 - minY / 1000); // metros: frente del cluster toca la cara
+        const insts = hexPts.map((pt, i) => ({
+          entry: { ...entry, diam: allCables[i].diam, tipo: allCables[i].tipo },
+          localLat: pt.x / 1000,
+          rad: centerRad + pt.y / 1000
+        }));
+        slots.push({ slotW: Dc, insts });
+      } else {
+        // ── Modo Columnas ────────────────────────────────────────────────────
+        const nCols = entry.columnas.length;
+        const step  = maxD + CABLE_GAP;
+        const slotW = nCols > 1 ? nCols * step - CABLE_GAP : maxD;
+        const insts = [];
+        entry.columnas.forEach((col, ci) => {
+          let radCursor = 0;
+          col.forEach((cableSpec) => {
+            const r = cableSpec.diam / 2000;
+            insts.push({
+              entry: { ...entry, diam: cableSpec.diam, tipo: cableSpec.tipo },
+              localLat: nCols > 1 ? (ci - (nCols-1)/2) * step : 0,
+              rad: radCursor + r
+            });
+            radCursor += cableSpec.diam / 1000 + CABLE_GAP;
+          });
+        });
+        slots.push({ slotW, insts });
+      }
+    } else {
+      const d = entry.diam / 1000;
+      const step = d + CABLE_GAP;
+      const slotW = entry.n > 1 ? entry.n * step - CABLE_GAP : d;
+      const insts = [];
+      for (let i = 0; i < entry.n; i++)
+        insts.push({ entry, localLat: entry.n > 1 ? (i - (entry.n-1)/2) * step : 0, rad: 0 });
+      slots.push({ slotW, insts });
+    }
+  });
+  if (!slots.length) return [];
+  const totalSpan = slots.reduce((s, sl) => s + sl.slotW, 0) + Math.max(0, slots.length-1) * BUNDLE_GAP;
+  const result = [];
+  let cursor = -totalSpan / 2;
+  slots.forEach(slot => {
+    const center = cursor + slot.slotW / 2;
+    cursor += slot.slotW + BUNDLE_GAP;
+    slot.insts.forEach(({ entry, localLat, rad }) =>
+      result.push({ entry, latOff: center + localLat, radOff: rad }));
+  });
+  return result;
 }
 
 // ── 3D render ─────────────────────────────────────────────────────────────────
@@ -8757,17 +9484,14 @@ function _renderFeeders3D() {
   const allFaceIds = _fdFaces(towerType).map(f=>f.id);
   const byFace = {};
   allFaceIds.forEach(id => { byFace[id] = []; });
-  feedersData.forEach(entry => {
-    if (!byFace[entry.ruta]) byFace[entry.ruta] = [];
-    for (let i=0; i<entry.n; i++) byFace[entry.ruta].push(entry);
-  });
+  allFaceIds.forEach(fid => { byFace[fid] = _fdExpandInstancesForFace(fid); });
 
   // Face direction vectors: normal and tangent for each face type
   function faceVectors(face, hw) {
     if (towerType === 'triangular') {
       // Normales a las caras reales (en escena, tras la negación de addNode):
       // A(entre B-C)=150°, B(entre C-A)=30°, C(entre A-B)=270°
-      const angles = {A: 5*Math.PI/6, B: Math.PI/6, C: -Math.PI/2};
+      const angles = {A: -Math.PI/2, B: Math.PI/6, C: 5*Math.PI/6};
       const ang = angles[face] ?? 0;
       return { nx: Math.cos(ang), ny: Math.sin(ang) };
     }
@@ -8783,18 +9507,12 @@ function _renderFeeders3D() {
     return { nx:0, ny:0 }; // INT
   }
 
-  Object.entries(byFace).forEach(([face, instances]) => {
-    if (!instances.length) return;
-    const maxD = Math.max(...instances.map(e => e.diam/1000));
-    const GAP  = 0.02;                                           // 2 cm entre superficies
-    const step = maxD + GAP;
-    const totalSpan = instances.length * maxD + Math.max(0, instances.length - 1) * GAP;
+  Object.entries(byFace).forEach(([face, instList]) => {
+    if (!instList.length) return;
 
-    instances.forEach((entry, li) => {
+    instList.forEach(({ entry, latOff, radOff }) => {
       const r = entry.diam / 2000;
-      const latOff = -totalSpan/2 + li*step + maxD/2;
 
-      // Alturas críticas: incluir los quiebres de pendiente dentro del rango del cable
       const zSet = new Set();
       const SEGS = Math.max(10, Math.round((entry.zf - entry.zi) * 2));
       for (let si = 0; si <= SEGS; si++)
@@ -8808,11 +9526,10 @@ function _renderFeeders3D() {
         const hw = hwAt(z);
         const { nx, ny } = faceVectors(face, hw);
         const isInt = (face === 'INT');
-        // Inradius = hw/√3: distancia del eje al centro de cada cara (no al montante)
         const baseDist = (towerType === 'triangular' && !isInt)
           ? hw / Math.sqrt(3)
           : hw;
-        const dist = baseDist + r + 0.02;
+        const dist = baseDist + r + 0.02 + radOff;
         const tx = -ny, ty = nx;
         const x = isInt ? latOff * 0.5 : nx * dist + tx * latOff;
         const y = isInt ? 0            : ny * dist + ty * latOff;
@@ -9290,6 +10007,7 @@ function nuevoProyecto() {
   document.getElementById('tab-feeders')?.classList.remove('active');
   document.getElementById('feeders-flyout')?.classList.remove('open');
   document.getElementById('side-feeders-btn')?.classList.remove('active');
+  closeCombisPanel();
   closeFdPlanWin();
   aislarTramoSec = null;
   dadoHeight = 0;
