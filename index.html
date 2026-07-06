@@ -8625,6 +8625,9 @@ function toggleAntenasTab() {
 // fD/fDg=muerta estructura/tensores, fDi=hielo, fWo=viento sin hielo,
 // fWi=viento con hielo, fTi=temperatura, fEh/fEv=sísmico H/V
 const _LC_TIA222H = [
+  {id:'SLC1', formula:'1.0·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
+   activa:true,  fD:1.0, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
+   nota:'Servicio — V = 60 mph [27 m/s], K<sub>d</sub>=0.85', ref:'§2.8.3', preset:true},
   {id:'LC1', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
    activa:true,  fD:1.2, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
    nota:'', ref:'§2.3.2-(1)', preset:true},
@@ -8648,8 +8651,12 @@ let _lcNextId = 100;
 (function(){ try{
   const s = JSON.parse(localStorage.getItem('lc-data')||'{}');
   // Ignorar formato viejo (tenía fW/fL sin fDg) para no cargar combis obsoletas
-  if (Array.isArray(s.combis) && s.combis.length && s.combis[0].fDg !== undefined)
+  if (Array.isArray(s.combis) && s.combis.length && s.combis[0].fDg !== undefined) {
     _lcCombis = s.combis;
+    // Migración: insertar SLC1 si no existe (añadido en v2026-07-06)
+    if (!_lcCombis.find(c => c.id === 'SLC1'))
+      _lcCombis.unshift({..._LC_TIA222H.find(c => c.id === 'SLC1')});
+  }
   if (s.nextId) _lcNextId = s.nextId;
 }catch(e){} })();
 
