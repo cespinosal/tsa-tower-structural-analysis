@@ -12978,7 +12978,31 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   ];
 
   // ── Cap. 7 — Combinaciones de Carga ────────────────────────────────────────
-  const ch7 = [h1('7. Combinaciones de Carga'), pend('módulo de combinaciones de carga')];
+  const ch7 = (() => {
+    const _dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+    const activas = (_lcCombis || []).filter(c => c.activa);
+    const _rows = [];
+    activas.forEach(c => {
+      const hasWind = c.fWo > 0 || c.fWi > 0;
+      if (hasWind) _dirs.forEach(angle => _rows.push([c, angle]));
+      else _rows.push([c, null]);
+    });
+    const strip = s => String(s).replace(/<[^>]+>/g, '');
+    const hdrs = ['#', 'ID', 'Caso de Carga', 'Dirección', 'Ref.', 'Nota'];
+    const ww   = [400, 900, 3000, 900, 1300, 2860];
+    const tbl  = !_rows.length
+      ? [pend('sin combinaciones activas')]
+      : [dtable(hdrs,
+          _rows.map(([c, angle], i) => [
+            String(i + 1),
+            `${c.id}${angle !== null ? '-' + angle : ''}`,
+            strip(c.formula),
+            angle !== null ? angle + '°' : '—',
+            c.ref || '—',
+            strip(c.nota || ''),
+          ]), ww)];
+    return [h1('7. Combinaciones de Carga'), h2('7.1 Tabla de Casos de Carga'), ...tbl];
+  })();
 
   // ── Cap. 8 — Configuración de la Torre (siempre al final) ─────────────────
   // Imagen combinada (elevación + tabla) de _reportElevAndTableSvg — una sola
