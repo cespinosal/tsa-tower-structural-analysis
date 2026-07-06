@@ -617,7 +617,7 @@ body {
 .lc-table td { padding:5px 6px; border-bottom:1px solid rgba(255,255,255,.035); vertical-align:middle; }
 .lc-table tbody tr:hover { background:rgba(255,255,255,.025); }
 .lc-fac { text-align:right; font-variant-numeric:tabular-nums; }
-.lc-ref-cell { font-size:10px; color:var(--txt-dim); }
+.lc-ref-cell { font-size:10px; color:var(--txt-sec); }
 .lc-row-edit td { background:rgba(74,159,208,.07); }
 .lc-edit-input { width:100%; padding:2px 5px; background:var(--bg-deep); border:1px solid var(--border); border-radius:3px; color:var(--txt); font-size:11px; font-family:inherit; }
 .lc-edit-input.num { width:52px; text-align:right; }
@@ -1679,6 +1679,23 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Antenas</span>
     </button>
 
+    <!-- Accesorios -->
+    <button class="side-btn" id="side-accesorios-btn" onclick="toggleAccesoriosPanel(event)">
+      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Perno vertical -->
+        <line x1="11" y1="3" x2="11" y2="19"/>
+        <!-- Tuercas -->
+        <rect x="8.5" y="5.5" width="5" height="3" rx="0.5"/>
+        <rect x="8.5" y="13.5" width="5" height="3" rx="0.5"/>
+        <!-- Escuadra horizontal -->
+        <line x1="4" y1="11" x2="18" y2="11"/>
+        <!-- Extremos de placa -->
+        <line x1="4"  y1="9.5" x2="4"  y2="12.5"/>
+        <line x1="18" y1="9.5" x2="18" y2="12.5"/>
+      </svg>
+      <span class="side-tip">Accesorios</span>
+    </button>
+
     <!-- Feeders -->
     <button class="side-btn" id="side-feeders-btn" onclick="toggleFeedersPanel(event)">
       <svg viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1748,8 +1765,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
                 <th style="min-width:80px">Tipo</th>
                 <th style="min-width:60px" title="Altura del centroide de la antena">h centroide (m)</th>
                 <th style="min-width:52px">Az (°)</th>
+                <th style="min-width:60px" title="Altura de panel / Diámetro de microonda">Alto / D (m)</th>
                 <th style="min-width:60px">Ancho (m)</th>
-                <th style="min-width:60px">Alto (m)</th>
                 <th style="min-width:56px">Esp (m)</th>
                 <th style="min-width:56px">Peso (kg)</th>
                 <th style="min-width:62px">EPA 0° m²</th>
@@ -5833,6 +5850,7 @@ function openVientoFlyout() {
   closeTorreFlyout();
   closeAntenasFlyout();
   closeFeedersPanel();
+  closeCombisPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
@@ -6527,6 +6545,146 @@ function _renderAntennaForceTable(cfg) {
     </table>`;
 }
 
+// ── Fuerzas de viento en coaxiales / feeders ─────────────────────────────────
+// TIA-222-H §2.6.11.4: FC = Cd · EPA · Gh · qz  (Cd=1.0, sección redonda sin hielo)
+//
+// EPA según geometría:
+//   • Cluster (TIA Fig.2-14) : EPA = (Dc/1000) × L          — omnidireccional
+//   • Bundle plano (N cables): EPA = d×L×(N·cos²θ + sin²θ)  — ángulo relativo por ruta
+//   • Feeder simple N=1      : EPA = d × L                  — omnidireccional
+//
+// Ángulo φ_face = ángulo de viento que produce máxima fuerza sobre cada cara
+//   Triangular : A=0°, B=240°, C=120°
+//   Cuadrada   : A=0°, B=90°,  C=180°, D=270°
+//   Monopolo/arriostrada: sin orientación preferida (EXT=conservador, INT=ignorado)
+
+function _fdFaceAngle(ruta, towerType) {
+  if (towerType === 'triangular') return ({A:0, B:240, C:120})[ruta] ?? null;
+  if (towerType === 'square')     return ({A:0, B:90, C:180, D:270})[ruta] ?? null;
+  return null;
+}
+
+function _feederEPA(f, L_overlap, towerType, windAngleDeg) {
+  if (f.type === 'paquete' && f.columnas?.length > 0) {
+    const allCables = f.columnas.flat();
+    const N = allCables.length;
+    if (!N) return 0;
+    if (f.cluster) {
+      const dMax = Math.max(...allCables.map(c => +c.diam || 0));
+      const Dc   = _fdClusterDiam(N, dMax, 2);
+      return (Dc / 1000) * L_overlap;
+    }
+    const sumD = allCables.reduce((s, c) => s + (+c.diam || 0), 0);
+    const dAvg = sumD / N;
+    const phi  = _fdFaceAngle(f.ruta, towerType);
+    if (phi === null) return (sumD / 1000) * L_overlap;
+    const cosT = Math.cos((windAngleDeg - phi) * Math.PI / 180);
+    const cos2 = cosT * cosT;
+    return (dAvg / 1000) * L_overlap * (N * cos2 + (1 - cos2));
+  }
+  const d = (f.diam || 0) / 1000;
+  const N = f.n || 1;
+  if (N <= 1) return d * L_overlap;
+  const phi = _fdFaceAngle(f.ruta, towerType);
+  if (phi === null) return N * d * L_overlap;
+  const cosT = Math.cos((windAngleDeg - phi) * Math.PI / 180);
+  const cos2 = cosT * cosT;
+  return d * L_overlap * (N * cos2 + (1 - cos2));
+}
+
+function _calcFeederWindForces(cfg, windData, angleDeg) {
+  if (!feedersData.length || !projectGenerated) return [];
+  const Cd   = 1.0;
+  const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
+  const Gh   = _tiaGh(cfg.height, cfg.type);
+  const results = [];
+  let zBase = dadoHeight;
+  for (let i = 0; i < nsec; i++) {
+    const h    = +secData[i]?.h || (cfg.height / nsec);
+    const zBot = zBase, zTop = zBase + h, zMid = zBase + h / 2;
+    const qz   = calcWindPressure(cfg, windData, zMid);
+    const rows = [];
+    feedersData.forEach(f => {
+      if (f.ruta === 'INT') return;  // cables interiores: sin fuerza de viento
+      const overlap = Math.max(0, Math.min(+f.zf, zTop) - Math.max(+f.zi, zBot));
+      if (!(overlap > 0)) return;
+      let label, dLabel, epa;
+      if (f.type === 'paquete' && f.columnas?.length > 0) {
+        const allCables = f.columnas.flat();
+        const N = allCables.length;
+        if (!N) return;
+        if (f.cluster) {
+          const dMax = Math.max(...allCables.map(c => +c.diam || 0));
+          const Dc   = _fdClusterDiam(N, dMax, 2);
+          label  = `Paquete cluster`;
+          dLabel = `Dc=${Dc.toFixed(0)} mm`;
+        } else {
+          const sumD = allCables.reduce((s, c) => s + (+c.diam || 0), 0);
+          label  = `Paquete (${N} cables)`;
+          dLabel = `Σd=${sumD.toFixed(0)} mm`;
+        }
+        epa = _feederEPA(f, overlap, cfg.type, angleDeg);
+      } else {
+        label  = f.tipo;
+        dLabel = `${f.diam} mm`;
+        epa    = _feederEPA(f, overlap, cfg.type, angleDeg);
+      }
+      rows.push({ label, dLabel, n: f.n, ruta: f.ruta,
+                  overlap, EPA: epa, F_kgf: Cd * qz * Gh * epa / 9.80665 });
+    });
+    if (rows.length) {
+      results.push({ sec: i + 1, z: zMid, qz, Gh, Cd,
+        totalEPA:   rows.reduce((s, r) => s + r.EPA, 0),
+        totalF_kgf: rows.reduce((s, r) => s + r.F_kgf, 0), rows });
+    }
+    zBase = zTop;
+  }
+  return results;
+}
+
+function _renderFeederForceTable(cfg) {
+  const container = document.getElementById('feeder-force-table-container');
+  if (!container) return;
+  if (!feedersData.length) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales registrados.</div>';
+    return;
+  }
+  const secs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
+  if (!secs.length) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales en rango de la torre.</div>';
+    return;
+  }
+  let rowsHtml = '', total = 0;
+  secs.forEach(s => {
+    s.rows.forEach((r, k) => {
+      rowsHtml += `<tr>
+        <td>${k === 0 ? s.sec : ''}</td>
+        <td>${k === 0 ? s.z.toFixed(1) : ''}</td>
+        <td style="text-align:left;max-width:110px;overflow:hidden;white-space:nowrap;">${r.label}</td>
+        <td>${r.dLabel}</td><td>${r.ruta}</td>
+        <td>${r.overlap.toFixed(2)}</td>
+        <td>${r.EPA.toFixed(4)}</td>
+        <td>${(s.qz / 9.80665).toFixed(1)}</td>
+        <td>${s.Gh.toFixed(3)}</td>
+        <td><b>${r.F_kgf.toFixed(2)}</b></td>
+      </tr>`;
+      total += r.F_kgf;
+    });
+  });
+  container.innerHTML = `
+    <table class="ret-table wind-table-center" style="font-size:10.5px;">
+      <thead><tr><th>Sec.</th><th>z (m)</th><th>Tipo</th><th>d / Dc</th>
+        <th>Ruta</th><th>L (m)</th><th>EPA (m²)</th><th>qz (kg/m²)</th><th>Gh</th><th>FC (kgf)</th></tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr style="font-weight:700;border-top:2px solid var(--border);">
+          <td colspan="9" style="text-align:right;">TOTAL</td>
+          <td>${total.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
 function _onWindAngleSelect(val) {
   _selectedWindAngle = +val;
   const cfg = getConfig();
@@ -6541,6 +6699,7 @@ function _onWindAngleSelect(val) {
   }
   _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
+  _renderFeederForceTable(cfg);
   // Actualizar flechas 3D con el nuevo ángulo
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
@@ -6650,12 +6809,20 @@ function buildCargasVientoPanel() {
     <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
       FA = qz·Gh·EPA(θ) — §2.6.11.2. θr = ángulo viento − azimut antena. Nodo = más cercano a z centroide.
     </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN COAXIALES</div>
+    <div id="feeder-force-table-container"></div>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+      FC = Cd·EPA·Gh·qz — §2.6.11.4. Cd=1.0 (redondo sin hielo). Cluster: Dc per Fig.2-14.
+      Bundle plano: EPA=d·L·(N·cos²θ+sin²θ), θ relativo a la cara (ruta).
+    </div>
   `;
   // Inicializar ángulo seleccionado al primero de la lista si aún no está en las opciones
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   if (!dirs.includes(_selectedWindAngle)) _selectedWindAngle = dirs[0];
   _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
+  _renderFeederForceTable(cfg);
 }
 
 function saveSettingsModal() {
@@ -6709,8 +6876,10 @@ function setupKeyboardShortcuts() {
 }
 
 // ── Antenas y Equipos ──────────────────────────────────────────
-// { desc, tipo, z, azimuth, ancho, alto, espesor, peso, epa0, epa60, epa90 }
+// { id, desc, tipo, z, azimuth, ancho, alto, espesor, peso, epa0, epa60, epa90, linkedTo }
+// linkedTo: id de la antena Panel/Dish a la que está vinculado un RRU (null = libre)
 let antenasData = [];
+let _antNextId  = 1;
 let antenasOn   = true;
 let antenasGroupCollapsed   = {};  // panel collapse state, keyed by group content key
 let _flyoutGroupCollapsed   = {};  // flyout collapse state
@@ -8042,6 +8211,7 @@ function openAntenasFlyout() {
   closeTorreFlyout();
   closeVientoFlyout();
   closeFeedersPanel();
+  closeCombisPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('antenas-btn').classList.add('active');
   _renderAntenasTable();
@@ -8060,15 +8230,18 @@ function _renderAntenasTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  // Agrupar por campos compartidos (desc, tipo, z, ancho, alto, esp, peso)
-  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso].join('\x00');
+  _ensureAntIds();
+  _syncLinkedRRUs();
+
+  // linkedTo incluido en la clave para que RRUs con distintos vínculos no se agrupen
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.linkedTo??''].join('\x00');
   const groupMap = new Map();
   antenasData.forEach((a, i) => {
     const k = gKey(a);
     if (!groupMap.has(k)) groupMap.set(k, { k, indices: [], a });
     groupMap.get(k).indices.push(i);
   });
-  const groups = [...groupMap.values()];
+  const groups = [...groupMap.values()].sort((x, y) => y.a.z - x.a.z);
   window._flyoutGrpKeys = groups.map(g => g.k);
 
   groups.forEach(({ k, indices, a }, gi) => {
@@ -8082,11 +8255,12 @@ function _renderAntenasTable() {
       indices.map(i => `antenasData[${i}].${field}=${str?'':'+'  }this.value`).join(';');
     const calcAll = () => indices.map(i => `_calcEPA(antenasData[${i}])`).join(';');
     const refresh = () => `_refreshEPACells(${fi})`;
-    const syncDish = isDish ? ';' + indices.map(i => `antenasData[${i}].alto=antenasData[${i}].ancho`).join(';') : '';
+    // Para dishes: al editar 'alto' (diámetro), sincroniza ancho = alto
+    const syncDish = isDish ? ';' + indices.map(i => `antenasData[${i}].ancho=antenasData[${i}].alto`).join(';') : '';
 
     const dimInpG = (field, val, step) =>
       `<input class="ant-inp ant-num" type="number" value="${val??''}" step="${step}" min="0"
-        oninput="${updAll(field)}${field==='ancho'?syncDish:''};${calcAll()};${refresh()}">`;
+        oninput="${updAll(field)}${field==='alto'?syncDish:''};${calcAll()};${refresh()}">`;
 
     const epaInpG = (field) =>
       `<input class="ant-inp ant-num" id="ant-${field}-${fi}" type="number"
@@ -8098,31 +8272,63 @@ function _renderAntenasTable() {
         ${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}
       </select>`;
 
+    const isRRU      = a.tipo === 'RRU';
+    const isLinked   = isRRU && !isGroup && a.linkedTo != null;
+    const linkedParent = isLinked ? antenasData.find(x => x.id === a.linkedTo) : null;
+
+    // Selector de vínculo: solo aparece en filas RRU individuales
+    const linkSel = (isRRU && !isGroup) ? (() => {
+      const antOpts = antenasData
+        .filter(x => x.tipo !== 'RRU' && x.id != null)
+        .map(x => `<option value="${x.id}"${a.linkedTo===x.id?' selected':''}>${_esc(x.desc||'Ant.')} — z=${x.z}m / az=${x.azimuth}°</option>`)
+        .join('');
+      return `<select class="ant-sel" style="margin-top:3px;font-size:10px"
+          title="Vincular RRU a antena" onchange="_antLinkTo(${fi},+this.value||null)">
+          <option value="">🔗 sin vincular</option>
+          ${antOpts}
+        </select>`;
+    })() : '';
+
     // Celda de azimuth según estado
     let azCell;
-    if (!isGroup) {
+    if (isLinked) {
+      azCell = `<span class="ant-inp" style="opacity:.5;font-size:10px;text-align:center;display:block">🔗 ${a.azimuth}°</span>`;
+    } else if (!isGroup) {
       azCell = `<input class="ant-inp ant-num" type="number" value="${a.azimuth??0}" min="0" max="359"
         oninput="antenasData[${fi}].azimuth=+this.value">`;
     } else if (collapsed) {
-      const azTxt = indices.map(i => (antenasData[i].azimuth??0)+'°').join(' · ');
+      const azTxt = isRRU
+        ? `${indices.length} RRU`
+        : indices.map(i => (antenasData[i].azimuth??0)+'°').join(' · ');
       azCell = `<span style="color:var(--accent);font-size:9px">${azTxt}</span>
         <button class="ant-del" style="font-size:9px;padding:0 3px;margin-left:2px"
           onclick="_toggleFlyoutGrp(${gi})" title="Expandir">&#9660;</button>`;
     } else {
+      const expandLbl = isRRU ? `&#9650; ${indices.length} RRU` : `&#9650; ${indices.length} az.`;
       azCell = `<button class="btn" style="font-size:9px;padding:1px 4px;white-space:nowrap"
-        onclick="_toggleFlyoutGrp(${gi})">&#9650; ${indices.length} az.</button>`;
+        onclick="_toggleFlyoutGrp(${gi})">${expandLbl}</button>`;
     }
 
+    // Celda z: si vinculada, mostrar solo el valor heredado (read-only)
+    const zCell = isLinked
+      ? `<span class="ant-inp" style="opacity:.5;font-size:10px;text-align:center;display:block">🔗 ${a.z}m</span>`
+      : dimInpG('z', a.z, 0.5);
+
+    // Desc + link selector (RRU individuales)
+    const descCell = `<input class="ant-inp" value="${_esc(a.desc||'')}" placeholder="Descripción"
+        oninput="${updAll('desc',true)};if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows();}">
+      ${linkSel}`;
+
     const headTr = document.createElement('tr');
-    if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
+    if (isLinked) headTr.style.background = 'rgba(0,100,180,0.08)';
+    else if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
     headTr.innerHTML =
-      `<td><input class="ant-inp" value="${_esc(a.desc||'')}" placeholder="Descripción"
-          oninput="${updAll('desc',true)};if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows();}"></td>` +
+      `<td>${descCell}</td>` +
       `<td>${tipoSel}</td>` +
-      `<td>${dimInpG('z', a.z, 0.5)}</td>` +
+      `<td>${zCell}</td>` +
       `<td>${azCell}</td>` +
-      `<td>${dimInpG('ancho', a.ancho, isDish?0.05:0.01)}</td>` +
-      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimInpG('alto', a.alto, 0.01)}</td>` +
+      `<td>${isDish?dimInpG('alto', a.alto, 0.05):dimInpG('alto', a.alto, 0.01)}</td>` +
+      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimInpG('ancho', a.ancho, 0.01)}</td>` +
       `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">—</span>`:dimInpG('espesor', a.espesor, 0.001)}</td>` +
       `<td>${dimInpG('peso', a.peso, 0.5)}</td>` +
       `<td>${epaInpG('epa0')}</td>` +
@@ -8134,13 +8340,38 @@ function _renderAntenasTable() {
     // Sub-filas de azimuths expandidos
     if (isGroup && !collapsed) {
       indices.forEach((idx, ki) => {
-        const subTr = document.createElement('tr');
-        subTr.style.background = 'rgba(0,30,60,0.6)';
-        subTr.innerHTML =
-          `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Azimut ${ki+1}</td>` +
-          `<td><input class="ant-inp ant-num" type="number" value="${antenasData[idx].azimuth??0}"
-              min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
-          `<td colspan="7"></td>` +
+        const sub    = antenasData[idx];
+        const isRRUSub = sub.tipo === 'RRU';
+        const subTr  = document.createElement('tr');
+        subTr.style.background = isRRUSub && sub.linkedTo
+          ? 'rgba(0,100,180,0.10)'
+          : 'rgba(0,30,60,0.6)';
+
+        // Selector de vínculo para sub-filas RRU
+        const subLinkSel = isRRUSub ? (() => {
+          const opts = antenasData
+            .filter(x => x.tipo !== 'RRU' && x.id != null)
+            .map(x => `<option value="${x.id}"${sub.linkedTo===x.id?' selected':''}>${_esc(x.desc||'Ant.')} — z=${x.z}m</option>`)
+            .join('');
+          return `<select class="ant-sel" style="font-size:10px;width:100%"
+              title="Vincular RRU a antena" onchange="_antLinkTo(${idx},+this.value||null)">
+              <option value="">🔗 sin vincular</option>${opts}
+            </select>`;
+        })() : '';
+
+        const labelCell = isRRUSub
+          ? `<td style="font-size:10px;padding-left:12px;color:var(--cyan)">↳ RRU ${ki+1}</td>`
+          : `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Azimut ${ki+1}</td>`;
+
+        subTr.innerHTML = labelCell +
+          (isRRUSub
+            ? `<td colspan="2">${subLinkSel}</td>` +
+              `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
+                  min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value;_syncLinkedRRUs();_renderAntenasTable()"></td>` +
+              `<td colspan="6"></td>`
+            : `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
+                  min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
+              `<td colspan="7"></td>`) +
           `<td><button class="ant-del" onclick="deleteAntenaRow(${idx})">✕</button></td>`;
         tbody.appendChild(subTr);
       });
@@ -8168,9 +8399,13 @@ function _updateAntAddAngles() {
   const prev = [...box.querySelectorAll('.ant-az-inp')].map(el => +el.value);
   box.innerHTML = '';
   const tipo = document.getElementById('ttype')?.value || '';
-  const sqDef = [45, 135, 225, 315];
+  const sqDef  = [45, 135, 225, 315];
+  const triDef = [0, 120, 180];
   for (let i = 0; i < n; i++) {
-    const defAz = (i < prev.length) ? prev[i] : (tipo === 'square' ? (sqDef[i] ?? Math.round(45 + (360/n)*i)) : Math.round((360/n)*i));
+    const defAz = (i < prev.length) ? prev[i]
+      : tipo === 'square'     ? (sqDef[i]  ?? Math.round(45  + (360/n)*i))
+      : tipo === 'triangular' ? (triDef[i] ?? Math.round((360/n)*i))
+      : Math.round((360/n)*i);
     const inp = document.createElement('input');
     inp.type = 'number'; inp.min = 0; inp.max = 359; inp.step = 1;
     inp.value = defAz;
@@ -8185,7 +8420,7 @@ function _addAntenasMulti() {
   const n   = Math.max(1, +document.getElementById('ant-add-count').value || 1);
   const azs = [...document.getElementById('ant-add-angles').querySelectorAll('.ant-az-inp')].map(el => +el.value);
   for (let i = 0; i < n; i++) {
-    const a = { desc: '', tipo: 'Panel', z: 0, azimuth: azs[i] ?? 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0 };
+    const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: azs[i] ?? 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null };
     _calcEPA(a);
     antenasData.push(a);
   }
@@ -8204,8 +8439,9 @@ function _caFlat(ar) {
 function _calcEPA(a) {
   if (_isDishType(a.tipo)) {
     // Anexo C — microwave dish: EPA(θ) = (CA(θ)·cosθ + CS(θ)·sinθ) · A
-    const D = +a.ancho || 0;
-    a.alto = D;
+    // Diámetro se almacena en 'alto' (campo primario); ancho se sincroniza = alto
+    const D = +a.alto || +a.ancho || 0;
+    a.alto = D; a.ancho = D;
     const A   = Math.PI * D * D / 4;
     const c0  = _dishCoeff(a.tipo, 0);
     const c60 = _dishCoeff(a.tipo, 60);
@@ -8284,14 +8520,74 @@ function _nearestLegNodeIdx(antZ, nodes, legSet) {
 }
 
 function addAntenaRow() {
-  const a = { desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0 };
+  const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null };
   _calcEPA(a);
   antenasData.push(a);
   _renderAntenasTable();
 }
 
 function deleteAntenaRow(i) {
+  const removed = antenasData[i];
   antenasData.splice(i, 1);
+  // Desvincular RRUs que apuntaban a esta antena
+  if (removed?.id != null) {
+    antenasData.forEach(a => { if (a.linkedTo === removed.id) a.linkedTo = null; });
+  }
+  _renderAntenasTable();
+}
+
+// Asegura que cada entrada tenga un id estable (migración de datos viejos)
+function _ensureAntIds() {
+  antenasData.forEach(a => { if (a.id == null) a.id = _antNextId++; });
+}
+
+// Copia z (con offset vertical) y azimuth del padre a todos los RRUs vinculados.
+// Para n RRUs del mismo padre: k=0 → z padre, k=1 → +step, k=2 → −step, ...
+// step = Alto del RRU + 2 cm
+function _syncLinkedRRUs() {
+  // Agrupar RRUs por padre (conservando orden de aparición en antenasData)
+  const byParent = new Map();
+  antenasData.forEach((a, idx) => {
+    if (a.tipo !== 'RRU' || !a.linkedTo) return;
+    if (!byParent.has(a.linkedTo)) byParent.set(a.linkedTo, []);
+    byParent.get(a.linkedTo).push({ a, idx });
+  });
+
+  byParent.forEach((rrus, parentId) => {
+    const parent = antenasData.find(x => x.id === parentId);
+    if (!parent) { rrus.forEach(({ a }) => { a.linkedTo = null; }); return; }
+
+    const h0  = rrus[0].a.alto || 0.4;
+    const gap = 0.02;
+    // curTopBound / curBotBound: cara externa del último RRU colocado arriba/abajo
+    let curTop = parent.z + h0 / 2;
+    let curBot = parent.z - h0 / 2;
+
+    rrus.forEach(({ a }, k) => {
+      a.azimuth = parent.azimuth;
+      if (k === 0) { a.z = parent.z; return; }
+      const hk = a.alto || 0.4;
+      if (k % 2 === 1) {
+        // Arriba: cara inferior de este RRU = curTop + 2 cm
+        const z = curTop + gap + hk / 2;
+        a.z    = Math.round(z * 1000) / 1000;
+        curTop = z + hk / 2;
+      } else {
+        // Abajo: cara superior de este RRU = curBot − 2 cm
+        const z = curBot - gap - hk / 2;
+        a.z    = Math.round(z * 1000) / 1000;
+        curBot = z - hk / 2;
+      }
+    });
+  });
+}
+
+// Vincula o desvincula un RRU; si parentId es null/0 → desvincula
+function _antLinkTo(rruIdx, parentId) {
+  const rru = antenasData[rruIdx];
+  if (!rru) return;
+  rru.linkedTo = parentId || null;
+  _syncLinkedRRUs();
   _renderAntenasTable();
 }
 
@@ -8390,7 +8686,7 @@ function _buildCombisPanel() {
   const activasN = _lcCombis.filter(c => c.activa).length;
 
   const combiRows = _lcCombis.map(c => {
-    const op = c.activa ? '1' : '.4';
+    const op = c.activa ? '1' : '.6';
     if (_lcEditId === c.id && !c.preset) {
       return `<tr class="lc-row-edit">
         <td style="text-align:center"><input type="checkbox" ${c.activa?'checked':''} onchange="_lcToggleActiva('${c.id}')"></td>
@@ -8403,8 +8699,8 @@ function _buildCombisPanel() {
         </td>
       </tr>`;
     }
-    const del = `<button class="fd-btn-del" onclick="_lcDelete('${c.id}')" title="Eliminar" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>`;
-    const edt = !c.preset ? `<button class="fd-btn-del" onclick="_lcStartEdit('${c.id}')" title="Editar" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✎</button>` : '';
+    const del = `<button class="row-del" onclick="_lcDelete('${c.id}')" title="Eliminar">✕</button>`;
+    const edt = !c.preset ? `<button class="fd-btn-del" onclick="_lcStartEdit('${c.id}')" title="Editar" style="color:var(--cyan);font-size:14px;margin-right:2px">✎</button>` : '';
     return `<tr>
       <td style="text-align:center"><input type="checkbox" ${c.activa?'checked':''} onchange="_lcToggleActiva('${c.id}')"></td>
       <td style="opacity:${op};font-weight:700;color:var(--cyan);font-size:11px">${c.id}</td>
@@ -8421,7 +8717,7 @@ function _buildCombisPanel() {
         <div style="font-size:11px;font-weight:700;color:var(--txt)">ANSI/TIA-222-H</div>
         <div style="font-size:10px;color:var(--txt-sec)">§2.3.2 — Strength Limit State Load Combinations</div>
       </div>
-      <span style="font-size:11px;color:var(--txt-dim)">${activasN} activa${activasN!==1?'s':''} de ${_lcCombis.length}</span>
+      <span style="font-size:11px;color:var(--txt-sec);white-space:nowrap;flex-shrink:0">${activasN} activa${activasN!==1?'s':''} de ${_lcCombis.length}</span>
     </div>
 
     <div style="overflow-x:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:6px">
@@ -8573,6 +8869,11 @@ function _fdActivateRender() {
   }
 }
 
+function toggleAccesoriosPanel(e) {
+  e?.stopPropagation();
+  showToast('Panel de Accesorios — próximamente.', 'info');
+}
+
 function toggleFeedersPanel(e) {
   e?.stopPropagation();
   if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
@@ -8652,7 +8953,7 @@ function _buildFeedersPanel() {
         <td><span class="fd-badge" style="--fd-dot:${_FD_FC_CSS[c.ruta]||'#aaa'};background:${_FD_FC_CSS[c.ruta]||'#aaa'}22;color:${_FD_FC_CSS[c.ruta]||'#aaa'}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
         <td></td>
         <td style="white-space:nowrap">
-          <button class="fd-btn-del" title="Editar" onclick="_fdPaqOpen(${c.id})" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✏</button>
+          <button class="fd-btn-del" title="Editar" onclick="_fdPaqOpen(${c.id})" style="color:var(--cyan);font-size:14px;margin-right:2px">✏</button>
           <button class="fd-btn-del" title="Eliminar" onclick="_fdDelete(${c.id})" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>
         </td>
       </tr>`;
@@ -8666,7 +8967,7 @@ function _buildFeedersPanel() {
       <td><span class="fd-badge" style="--fd-dot:${_FD_FC_CSS[c.ruta]||'#aaa'};background:${_FD_FC_CSS[c.ruta]||'#aaa'}22;color:${_FD_FC_CSS[c.ruta]||'#aaa'}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
       <td></td>
       <td style="white-space:nowrap">
-        <button class="fd-btn-del" title="Editar" onclick="_fdStartEdit(${c.id})" style="color:var(--txt-sec);font-size:11px;margin-right:2px">✏</button>
+        <button class="fd-btn-del" title="Editar" onclick="_fdStartEdit(${c.id})" style="color:var(--cyan);font-size:14px;margin-right:2px">✏</button>
         <button class="fd-btn-del" title="Eliminar" onclick="_fdDelete(${c.id})" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button>
       </td>
     </tr>`;
@@ -8893,7 +9194,6 @@ function _fdDelete(id) {
 function _fdAplicar() {
   _fdEditId = null;
   _renderFeeders3D();
-  closeFeedersPanel();
 }
 
 // ── Cluster helpers (TIA-222-H Figure 2-14) ──────────────────────────────────
@@ -9596,7 +9896,7 @@ function buildAntenasPanel() {
     if (!groupMap.has(k)) groupMap.set(k, { k, indices: [], a });
     groupMap.get(k).indices.push(i);
   });
-  const groups = [...groupMap.values()];
+  const groups = [...groupMap.values()].sort((x, y) => y.a.z - x.a.z);
   window._antGrpKeys    = groups.map(g => g.k);
   window._antGrpIndices = groups.map(g => g.indices);
 
@@ -9933,7 +10233,7 @@ function renderAntenas3D() {
       const mat   = new THREE.MeshBasicMaterial({ color: panelCol, side: THREE.DoubleSide });
       const mesh  = new THREE.Mesh(geo, mat);
       mesh.position.set(px, py, pz);
-      mesh.rotation.z = -az;
+      mesh.rotation.z = a.tipo === 'RRU' ? -az + Math.PI : -az;
       antenasGroup.add(mesh);
       const edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 15),
@@ -9949,7 +10249,6 @@ function renderAntenas3D() {
 function applyAntenas() {
   renderAntenas3D();
   if (antenasOn) buildAntenasPanel();
-  closeAntenasFlyout();
 }
 
 function switchToTorre() {
@@ -9959,6 +10258,7 @@ function switchToTorre() {
   closeVientoFlyout();
   closeAntenasFlyout();
   closeFeedersPanel();
+  closeCombisPanel();
   // Ocultar la vista de Cargas de Viento al cambiar a Torre — si no, su clase "visible"
   // se queda pegada y compite con rpanel-info la próxima vez que se muestre el panel —
   // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
@@ -10033,6 +10333,7 @@ function nuevoProyecto() {
   currentFileHandle = null;
   document.getElementById('rpanel').classList.remove('visible');
   document.getElementById('rpanel-info').classList.remove('visible');
+  closeCombisPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
   document.getElementById('torre-flyout').classList.add('open');
@@ -11110,7 +11411,7 @@ function _reportPlanSvg(cfg) {
 const MEM_CHAPTERS = [
   { num: 1, title: 'Información General', subs: ['1.1 Alcance', '1.2 Datos del Sitio', '1.3 Historial de Revisiones'], modulo: 'Información General' },
   { num: 2, title: 'Parámetros de Diseño', subs: ['2.1 Norma de Diseño y Normas Referenciadas', '2.2 Materiales', '2.3 Parámetros de Viento', '2.4 Parámetros de Hielo', '2.5 Parámetros Sísmicos'], modulo: 'Parámetros de Diseño (Viento/Hielo/Sismo)' },
-  { num: 3, title: 'Cargas', subs: ['3.1 Listado de Antenas', '3.2 Soportes y Montajes', '3.3 Escalerillas de Cable y Plataformas', '3.4 Resumen de Carga Muerta', '3.5 Inventario de Antenas y Equipos'], modulo: 'Cargas/Antenas' },
+  { num: 3, title: 'Cargas', subs: ['3.1 Listado de Antenas y Equipos', '3.2 Soportes y Montajes', '3.3 Escalerillas de Cable y Plataformas', '3.4 Resumen de Carga Muerta', '3.5 Inventario de Antenas y Equipos (EPA)', '3.6 Coaxiales y Feeders'], modulo: 'Cargas/Antenas' },
   { num: 4, title: 'Lista de Materiales (Solo Estructura)', subs: ['4.1 Lista de Materiales por Perfil', '4.2 Desglose de Peso por Secciones', '4.3 Resumen de Peso Total'] },
   { num: 5, title: 'Listado de Códigos de Elementos', subs: [], modulo: 'Códigos de Elementos' },
   { num: 6, title: 'Análisis de Carga de Viento (EPA)', subs: ['6.1 Cálculo de EPA — Último', '6.2 Cálculo de EPA — Servicio', '6.3 Cargas de Viento en Accesorios', '6.4 Resumen de Cortante Basal y Momento de Vuelco'], modulo: 'Viento (EPA)' },
@@ -11452,6 +11753,174 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
     ${angleTablesHtml}
   `;
 }
+function _memChapter3Html(cfg) {
+  const ch  = MEM_CHAPTERS.find(c => c.num === 3);
+  const pend = label => `
+    <h2 class="rp-h2" id="${_memAnchorId(label)}">${label}</h2>
+    <div class="rp-pending">Pendiente — requiere módulo correspondiente (no implementado todavía)</div>`;
+  const noData = msg => `<p style="font-size:11px;color:#777;font-style:italic;">${msg}</p>`;
+  const fmt2 = v => v != null && v !== '' ? (+v).toFixed(2) : '—';
+  const fmt3 = v => v != null && v !== '' ? (+v).toFixed(3) : '—';
+  const fmt4 = v => v != null && v !== '' ? (+v).toFixed(4) : '—';
+
+  // §3.1 Listado de antenas ordenado de mayor a menor altura
+  const sorted = [...antenasData].sort((a, b) => (+b.z || 0) - (+a.z || 0));
+  const antListHtml = !sorted.length ? noData('Sin antenas ni equipos registrados.') : `
+    <table class="rp-table" style="font-size:10.5px;">
+      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (m)</th><th>Az°</th>
+        <th>Alto/D (m)</th><th>Ancho (m)</th><th>Esp. (m)</th><th>Peso (kg)</th><th>Vínculo</th></tr></thead>
+      <tbody>
+        ${sorted.map((a, i) => {
+          const isDish  = _isDishType(a.tipo);
+          const linked  = a.linkedTo != null
+            ? (antenasData.find(x => x.id === a.linkedTo)?.desc || `ID ${a.linkedTo}`)
+            : '—';
+          return `<tr>
+            <td>${i + 1}</td>
+            <td style="text-align:left;">${a.desc || '—'}</td>
+            <td>${a.tipo || 'Panel'}</td>
+            <td>${(+a.z || 0).toFixed(1)}</td>
+            <td>${a.azimuth ?? 0}°</td>
+            <td>${fmt2(a.alto)}</td>
+            <td>${isDish ? '= D' : fmt2(a.ancho)}</td>
+            <td>${isDish ? '—' : fmt3(a.espesor)}</td>
+            <td>${a.peso != null && a.peso !== '' ? (+a.peso).toFixed(1) : '—'}</td>
+            <td style="text-align:left;">${linked}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+
+  // §3.5 Inventario EPA — valores capturados por el usuario (no fuerza calculada)
+  const epaHtml = !sorted.length ? noData('Sin antenas ni equipos registrados.') : `
+    <table class="rp-table" style="font-size:10.5px;">
+      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (m)</th>
+        <th>EPA N/S (m²)</th><th>EPA 60° (m²)</th><th>EPA E/O (m²)</th></tr></thead>
+      <tbody>
+        ${sorted.map((a, i) => `<tr>
+          <td>${i + 1}</td>
+          <td style="text-align:left;">${a.desc || '—'}</td>
+          <td>${a.tipo || 'Panel'}</td>
+          <td>${(+a.z || 0).toFixed(1)}</td>
+          <td>${fmt4(a.epa0)}</td>
+          <td>${fmt4(a.epa60)}</td>
+          <td>${fmt4(a.epa90)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:#777;margin-top:6px;">
+      EPA N/S = viento a 0° (normal a frente). EPA E/O = viento a 90° (perpendicular al frente).
+    </div>`;
+
+  // §3.6 Coaxiales y Feeders
+  const feederHtml = !feedersData.length ? noData('Sin coaxiales registrados.') : `
+    <table class="rp-table" style="font-size:10.5px;">
+      <thead><tr><th>Tipo</th><th>N</th><th>d / Dc (mm)</th><th>Ruta</th>
+        <th>Zi (m)</th><th>Zf (m)</th><th>Long. (m)</th><th>Peso (kg/m)</th></tr></thead>
+      <tbody>
+        ${feedersData.map(f => {
+          let label, dLabel, nStr, peso;
+          if (f.type === 'paquete' && f.columnas?.length > 0) {
+            const all  = f.columnas.flat();
+            const N    = all.length;
+            if (f.cluster) {
+              const dMax = Math.max(...all.map(c => +c.diam || 0));
+              const Dc   = _fdClusterDiam(N, dMax, 2);
+              label  = `Paquete cluster`;
+              dLabel = `Dc=${Dc.toFixed(0)} mm`;
+            } else {
+              const sumD = all.reduce((s, c) => s + (+c.diam || 0), 0);
+              label  = `Paquete (${N} cables)`;
+              dLabel = `Σd=${sumD.toFixed(0)} mm`;
+            }
+            nStr = N; peso = '—';
+          } else {
+            label  = f.tipo;
+            dLabel = `${f.diam} mm`;
+            nStr   = f.n;
+            peso   = f.peso != null && f.peso !== '' ? (+f.peso).toFixed(3) : '—';
+          }
+          const L = Math.max(0, (+f.zf || 0) - (+f.zi || 0));
+          return `<tr>
+            <td style="text-align:left;">${label}</td>
+            <td>${nStr}</td><td>${dLabel}</td><td>${f.ruta}</td>
+            <td>${(+f.zi || 0).toFixed(1)}</td>
+            <td>${(+f.zf || 0).toFixed(1)}</td>
+            <td>${L.toFixed(1)}</td>
+            <td>${peso}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+
+  return `
+    <div class="mem-chapter-title" id="sec-3">3. ${ch.title}</div>
+    <h2 class="rp-h2" id="sec-3-1" style="margin-top:0;">3.1 Listado de Antenas y Equipos</h2>
+    ${antListHtml}
+    ${pend('3.2 Soportes y Montajes')}
+    ${pend('3.3 Escalerillas de Cable y Plataformas')}
+    ${pend('3.4 Resumen de Carga Muerta')}
+    <h2 class="rp-h2" id="sec-3-5">3.5 Inventario de Antenas y Equipos (EPA)</h2>
+    ${epaHtml}
+    <h2 class="rp-h2" id="sec-3-6">3.6 Coaxiales y Feeders</h2>
+    ${feederHtml}
+  `;
+}
+
+function _memChapter7Html(cfg) {
+  const ch   = MEM_CHAPTERS.find(c => c.num === 7);
+  const dirs = Array.isArray(windData.directions) && windData.directions.length
+    ? windData.directions : [0];
+  const activas = (_lcCombis || []).filter(c => c.activa);
+
+  // Expandir por dirección solo las combinaciones que tienen carga de viento
+  const rows = [];
+  activas.forEach(c => {
+    const hasWind = (c.fWo > 0 || c.fWi > 0);
+    if (hasWind) {
+      dirs.forEach(angle => rows.push({ c, angle }));
+    } else {
+      rows.push({ c, angle: null });
+    }
+  });
+
+  const tableHtml = !rows.length
+    ? `<p style="font-size:11px;color:#777;font-style:italic;">Sin combinaciones activas.</p>`
+    : `<table class="rp-table" style="font-size:10.5px;">
+        <thead><tr>
+          <th style="white-space:nowrap;">#</th>
+          <th style="white-space:nowrap;">ID</th>
+          <th style="text-align:left;min-width:180px;">Caso de Carga</th>
+          <th style="white-space:nowrap;">Dirección</th>
+          <th style="white-space:nowrap;font-size:9px;">Ref.</th>
+          <th style="text-align:left;min-width:100px;font-size:9px;">Nota</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(({c, angle}, i) => `<tr>
+            <td>${i + 1}</td>
+            <td style="white-space:nowrap;font-weight:700;color:#1B3A6B;">${c.id}${angle !== null ? `-${angle}` : ''}</td>
+            <td style="text-align:left;">${c.formula}</td>
+            <td style="white-space:nowrap;">${angle !== null ? angle + '°' : '—'}</td>
+            <td style="font-size:9px;white-space:nowrap;">${c.ref || '—'}</td>
+            <td style="text-align:left;font-size:9px;color:#555;">${c.nota || ''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+
+  return `
+    <div class="mem-chapter-title" id="sec-7">7. ${ch.title}</div>
+    <h2 class="rp-h2" id="sec-7-1" style="margin-top:0;">7.1 Tabla de Casos de Carga</h2>
+    <div style="font-size:10.5px;color:#555;margin-bottom:8px;">
+      ANSI/TIA-222-H §2.3.2 — Strength Limit State Load Combinations · Solo combinaciones activas
+    </div>
+    ${tableHtml}
+    <div style="font-size:10px;color:#777;margin-top:8px;">
+      Las combinaciones con W<sub>o</sub>/W<sub>i</sub> se expanden por cada ángulo de viento configurado en §2.3.
+      Las sísmicas (E<sub>h</sub>/E<sub>v</sub>) aplican sin expansión por dirección de viento.
+    </div>
+  `;
+}
+
 function _memChapter6Html(cfg) {
   const ch = MEM_CHAPTERS.find(c => c.num === 6);
   const pend = label => `
@@ -11481,7 +11950,88 @@ function _memChapter6Html(cfg) {
     <div class="mem-chapter-title" id="sec-6">6. ${ch.title}</div>
     ${sec61}
     ${sec62}
-    ${pend('6.3 Cargas de Viento en Accesorios')}
+    <h2 class="rp-h2" id="${_memAnchorId('6.3 Cargas de Viento en Accesorios')}">6.3 Cargas de Viento en Accesorios</h2>
+    ${(() => {
+      const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+      const antForces = _calcAntennaForces(cfg, windData);
+      const noData = msg => `<p style="font-size:11px;color:#777;font-style:italic;">${msg}</p>`;
+      return dirs.map(angleDeg => {
+        // ── Antenas ──
+        const antRows = antForces.map((r, i) => {
+          const fd = r.forcesByDir.find(f => f.angleDeg === angleDeg) || r.forcesByDir[0];
+          return `<tr>
+            <td>${i + 1}</td>
+            <td style="text-align:left;max-width:90px;overflow:hidden;white-space:nowrap;">${r.desc}</td>
+            <td>${r.z.toFixed(1)}</td><td>${r.azimuth}°</td>
+            <td>${Math.round(fd.theta_rel)}°</td>
+            <td>${fd.EPA.toFixed(4)}</td>
+            <td>${(r.qz / 9.80665).toFixed(1)}</td>
+            <td>${r.Gh.toFixed(3)}</td>
+            <td><b>${fd.FA_kgf.toFixed(2)}</b></td>
+          </tr>`;
+        }).join('');
+        const antTotal = antForces.reduce((s, r) => {
+          const fd = r.forcesByDir.find(f => f.angleDeg === angleDeg) || r.forcesByDir[0];
+          return s + fd.FA_kgf;
+        }, 0);
+        const antTable = antForces.length
+          ? `<table class="rp-table" style="font-size:10.5px;">
+              <thead><tr><th>#</th><th>Descripción</th><th>z (m)</th><th>Az°</th>
+                <th>θr°</th><th>EPA (m²)</th><th>qz (kg/m²)</th><th>Gh</th><th>FA (kgf)</th></tr></thead>
+              <tbody>${antRows}
+                <tr style="font-weight:700;border-top:2px solid #ccc;">
+                  <td colspan="8" style="text-align:right;">TOTAL</td>
+                  <td>${antTotal.toFixed(2)}</td>
+                </tr>
+              </tbody>
+             </table>`
+          : noData('Sin antenas registradas.');
+
+        // ── Coaxiales ──
+        const fdSecs = _calcFeederWindForces(cfg, windData, angleDeg);
+        let fdRows = '', fdTotal = 0;
+        fdSecs.forEach(s => s.rows.forEach((r, k) => {
+          fdRows += `<tr>
+            <td>${k === 0 ? s.sec : ''}</td>
+            <td>${k === 0 ? s.z.toFixed(1) : ''}</td>
+            <td style="text-align:left;max-width:100px;overflow:hidden;white-space:nowrap;">${r.label}</td>
+            <td>${r.dLabel}</td><td>${r.ruta}</td>
+            <td>${r.overlap.toFixed(2)}</td>
+            <td>${r.EPA.toFixed(4)}</td>
+            <td>${(s.qz / 9.80665).toFixed(1)}</td>
+            <td>${s.Gh.toFixed(3)}</td>
+            <td><b>${r.F_kgf.toFixed(2)}</b></td>
+          </tr>`;
+          fdTotal += r.F_kgf;
+        }));
+        const fdTable = fdSecs.length
+          ? `<table class="rp-table" style="font-size:10.5px;">
+              <thead><tr><th>Sec.</th><th>z (m)</th><th>Tipo</th><th>d/Dc</th><th>Ruta</th>
+                <th>L (m)</th><th>EPA (m²)</th><th>qz (kg/m²)</th><th>Gh</th><th>FC (kgf)</th></tr></thead>
+              <tbody>${fdRows}
+                <tr style="font-weight:700;border-top:2px solid #ccc;">
+                  <td colspan="9" style="text-align:right;">TOTAL</td>
+                  <td>${fdTotal.toFixed(2)}</td>
+                </tr>
+              </tbody>
+             </table>`
+          : noData('Sin coaxiales registrados.');
+
+        return `
+          <h3 style="font-size:11px;font-weight:700;color:#1B3A6B;margin:14px 0 6px;">
+            Ángulo de Viento θ = ${angleDeg}°
+          </h3>
+          <p style="font-size:10.5px;font-weight:600;margin:8px 0 4px;color:#444;">Antenas y Equipos — FA (kgf)</p>
+          ${antTable}
+          <p style="font-size:10.5px;font-weight:600;margin:12px 0 4px;color:#444;">Coaxiales y Feeders — FC (kgf)</p>
+          ${fdTable}
+        `;
+      }).join('');
+    })()}
+    <div style="font-size:10px;color:#777;margin-top:8px;">
+      FA = qz·Gh·EPA(θ) — §2.6.11.2.&nbsp;&nbsp;
+      FC = Cd·EPA·Gh·qz — §2.6.11.4, Cd=1.0. Bundle plano: EPA=d·L·(N·cos²θ+sin²θ).
+    </div>
     ${pend('6.4 Resumen de Cortante Basal y Momento de Vuelco')}
   `;
 }
@@ -11660,7 +12210,13 @@ function _memDisclaimerHtml() {
 function _buildMemoriaPages(cfg) {
   const interior = [];
   MEM_CHAPTERS.forEach(ch => {
-    interior.push(ch.num === 2 ? _memChapter2Html(cfg) : ch.num === 4 ? _memChapter4Html(cfg) : ch.num === 6 ? _memChapter6Html(cfg) : _memChapterPendingHtml(ch));
+    interior.push(
+      ch.num === 2 ? _memChapter2Html(cfg) :
+      ch.num === 3 ? _memChapter3Html(cfg) :
+      ch.num === 4 ? _memChapter4Html(cfg) :
+      ch.num === 6 ? _memChapter6Html(cfg) :
+      ch.num === 7 ? _memChapter7Html(cfg) :
+      _memChapterPendingHtml(ch));
   });
   // 8.1 puede ocupar varios bloques (torres con muchas secciones) — cada uno entra
   // por separado a "interior", así cada uno se convierte en su propio
