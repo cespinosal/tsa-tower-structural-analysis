@@ -1575,8 +1575,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;margin-right:4px"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M12.59 11.59A2 2 0 1 1 14 15H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/></svg>Cargas de Viento</button>
   <button class="tab" id="tab-antenas" onclick="toggleAntenasTab()">📡 &nbsp;Antenas</button>
   <button class="tab" id="tab-feeders" onclick="toggleFeedersTab()"><svg viewBox="0 0 18 14" width="14" height="11" style="vertical-align:middle;margin-right:3px"><circle cx="2" cy="7" r="1.8" fill="currentColor"/><path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="15.2" cy="7" r="1.8" fill="currentColor"/></svg>Feeders</button>
-  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Escaleras</button>
-  <button class="tab" onclick="switchTab(this, 'info')">⬡ &nbsp;Plataformas</button>
+  <button class="tab" id="tab-escaleras" onclick="toggleCgoEscalViz()"><svg viewBox="0 0 18 18" width="13" height="13" style="vertical-align:middle;margin-right:3px" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="4" x2="3" y2="14"/><line x1="15" y1="4" x2="15" y2="14"/><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="9" x2="15" y2="9"/><line x1="3" y1="12" x2="15" y2="12"/></svg>Escaleras</button>
+  <button class="tab" id="tab-herrajes" onclick="toggleHerrajesViz()"><svg viewBox="0 0 20 18" width="14" height="13" style="vertical-align:middle;margin-right:3px" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="3" y1="2" x2="3" y2="16"/><line x1="17" y1="2" x2="17" y2="16"/><line x1="3" y1="5.5" x2="10" y2="5.5"/><line x1="10" y1="5.5" x2="17" y2="5.5"/><rect x="9" y="3.5" width="2" height="4" rx="0.5" fill="currentColor" stroke="none"/><line x1="3" y1="12.5" x2="10" y2="12.5"/><line x1="10" y1="12.5" x2="17" y2="12.5"/><rect x="9" y="10.5" width="2" height="4" rx="0.5" fill="currentColor" stroke="none"/></svg>Herrajes</button>
   <div class="tabbar-end">
     <button class="icon-btn">📈<span class="icon-tip">Gráficas</span></button>
     <div class="viewctl-group" id="viewctl-group">
@@ -1679,21 +1679,19 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <span class="side-tip">Antenas</span>
     </button>
 
-    <!-- Accesorios -->
+    <!-- Herrajes -->
     <button class="side-btn" id="side-accesorios-btn" onclick="toggleAccesoriosPanel(event)">
-      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <!-- Perno vertical -->
-        <line x1="11" y1="3" x2="11" y2="19"/>
-        <!-- Tuercas -->
-        <rect x="8.5" y="5.5" width="5" height="3" rx="0.5"/>
-        <rect x="8.5" y="13.5" width="5" height="3" rx="0.5"/>
-        <!-- Escuadra horizontal -->
-        <line x1="4" y1="11" x2="18" y2="11"/>
-        <!-- Extremos de placa -->
-        <line x1="4"  y1="9.5" x2="4"  y2="12.5"/>
-        <line x1="18" y1="9.5" x2="18" y2="12.5"/>
+      <svg viewBox="0 0 22 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <line x1="3" y1="2" x2="3" y2="18"/>
+        <line x1="19" y1="2" x2="19" y2="18"/>
+        <line x1="3" y1="6" x2="11" y2="6"/>
+        <line x1="11" y1="6" x2="19" y2="6"/>
+        <rect x="10" y="4" width="2.5" height="4.5" rx="0.6" fill="currentColor" stroke="none"/>
+        <line x1="3" y1="14" x2="11" y2="14"/>
+        <line x1="11" y1="14" x2="19" y2="14"/>
+        <rect x="10" y="12" width="2.5" height="4.5" rx="0.6" fill="currentColor" stroke="none"/>
       </svg>
-      <span class="side-tip">Accesorios</span>
+      <span class="side-tip">Herrajes</span>
     </button>
 
     <!-- Feeders -->
@@ -1703,7 +1701,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7"/>
         <circle cx="15.2" cy="7" r="1.8" fill="currentColor" stroke="none"/>
       </svg>
-      <span class="side-tip">Feeders / Coaxiales</span>
+      <span class="side-tip">Coaxiales / CGO / Escalerilla</span>
     </button>
 
     <!-- Optimización -->
@@ -1804,13 +1802,25 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     <!-- Feeders flyout -->
     <div class="torre-flyout" id="feeders-flyout">
       <div class="tf-header">
-        <span><svg viewBox="0 0 18 14" width="13" height="10" style="vertical-align:middle;margin-right:5px"><circle cx="2" cy="7" r="1.8" fill="currentColor"/><path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="15.2" cy="7" r="1.8" fill="currentColor"/></svg>Feeders / Coaxiales</span>
+        <span><svg viewBox="0 0 18 14" width="13" height="10" style="vertical-align:middle;margin-right:5px"><circle cx="2" cy="7" r="1.8" fill="currentColor"/><path d="M3.8 7 Q7 1.5 11 7 Q13 10 15.2 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="15.2" cy="7" r="1.8" fill="currentColor"/></svg>Coaxiales / CGO / Escalerilla</span>
         <button onclick="closeFeedersPanel()">✕</button>
       </div>
       <div class="tf-scroll" id="feeders-panel-body" style="padding:12px 14px"></div>
       <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn" onclick="closeFeedersPanel()">Cancelar</button>
         <button class="btn-accent" onclick="_fdAplicar()">Aplicar</button>
+      </div>
+    </div>
+
+    <!-- Herrajes flyout -->
+    <div class="torre-flyout" id="herrajes-flyout" style="width:420px">
+      <div class="tf-header">
+        <span><svg viewBox="0 0 20 18" width="13" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="vertical-align:middle;margin-right:5px"><line x1="3" y1="2" x2="3" y2="16"/><line x1="17" y1="2" x2="17" y2="16"/><line x1="3" y1="5" x2="9" y2="5"/><line x1="11" y1="5" x2="17" y2="5"/><rect x="9" y="3" width="2" height="4" rx="0.5"/><line x1="3" y1="13" x2="9" y2="13"/><line x1="11" y1="13" x2="17" y2="13"/><rect x="9" y="11" width="2" height="4" rx="0.5"/></svg>Herrajes de Montaje</span>
+        <button onclick="closeHerrajesPanel()">✕</button>
+      </div>
+      <div class="tf-scroll" id="herrajes-panel-body" style="padding:10px 14px"></div>
+      <div class="tf-footer" style="padding:10px 14px;border-top:1px solid #1E3050;display:flex;justify-content:flex-end">
+        <button class="btn-accent" onclick="closeHerrajesPanel()">Cerrar</button>
       </div>
     </div>
 
@@ -2630,6 +2640,13 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="sm-field" style="margin-bottom:4px;">
         <label class="sm-lbl">¿Qué le agregarías o cambiarías?</label>
         <textarea class="sm-inp" id="fb-agregaria" rows="4" style="resize:vertical;"></textarea>
+      </div>
+      <div class="sm-field" style="margin-bottom:12px;">
+        <label class="sm-lbl">Adjuntar archivo (opcional)</label>
+        <input class="sm-inp" type="file" id="fb-archivo" style="padding:4px 6px;cursor:pointer;">
+        <div style="font-size:10.5px;color:var(--txt-sec);margin-top:5px;line-height:1.5;">
+          Límite: <b>10 MB</b> en total. Si adjuntas varios archivos, comprímelos en un solo <b>.ZIP</b>.
+        </div>
       </div>
       <div class="sm-field" style="margin-bottom:4px;">
         <label class="sm-chk-row">
@@ -4456,15 +4473,23 @@ function _buildWindForceArrows() {
     _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
     const wRad = _selectedWindAngle * Math.PI / 180;
     const dirXY = { x: Math.sin(wRad), y: Math.cos(wRad) };
+    const antByNode = new Map();
     _calcAntennaForces(cfg, windData).forEach(af => {
       const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
       if (!fd || fd.FA_kgf < 0.001) return;
       const nIdx = _nearestLegNodeIdx(af.z, _towerData.nodes, legSet);
       if (nIdx == null) return;
+      if (!antByNode.has(nIdx)) antByNode.set(nIdx, { nIdx, F_kgf: 0, descs: [] });
+      const e = antByNode.get(nIdx);
+      e.F_kgf += fd.FA_kgf;
+      if (!e.descs.includes(af.desc)) e.descs.push(af.desc);
+    });
+    antByNode.forEach(entry => {
       _windForceResults.push({
-        nodeIdx: nIdx, z: _towerData.nodes[nIdx].z,
-        F_kgf: fd.FA_kgf, dir: dirXY,
-        sec: null, isAntenna: true, antIdx: af.antIdx, desc: af.desc,
+        nodeIdx: entry.nIdx, z: _towerData.nodes[entry.nIdx].z,
+        F_kgf: entry.F_kgf, dir: dirXY,
+        sec: null, isAntenna: true,
+        desc: entry.descs.join(' + '),
       });
     });
   }
@@ -4707,13 +4732,19 @@ function updateAxisLabels() {
   }
 }
 
-const towerGroup   = new THREE.Group();
+const towerGroup    = new THREE.Group();
 const antenasGroup  = new THREE.Group();
 const feedersGroup  = new THREE.Group();
-feedersGroup.visible = true;
+const cgoEscalGroup  = new THREE.Group();  // CGO + escalerilla, independiente de feeders
+const herrajesGroup  = new THREE.Group();  // herrajes de montaje, independiente de antenas
+feedersGroup.visible  = true;
+cgoEscalGroup.visible = true;
+herrajesGroup.visible = true;
 scene.add(towerGroup);
 scene.add(antenasGroup);
 scene.add(feedersGroup);
+scene.add(cgoEscalGroup);
+scene.add(herrajesGroup);
 scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
@@ -5729,6 +5760,7 @@ function pickerConfirm() {
 const FEEDBACK_FORMSPREE_URL = 'https://formspree.io/f/mbdvrbno';
 function openFeedbackModal() {
   ['fb-gusto','fb-confuso','fb-agregaria','fb-correo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fb-archivo').value = '';
   document.getElementById('fb-quiere-correo').checked = false;
   document.getElementById('fb-correo-wrap').style.display = 'none';
   document.getElementById('feedback-modal-overlay').classList.add('open');
@@ -5758,6 +5790,16 @@ async function submitFeedback() {
     if (quiereCorreo && correo) {
       fd.append('Quiere actualizaciones por correo', 'Sí');
       fd.append('Correo', correo);
+    }
+    const fileInput = document.getElementById('fb-archivo');
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('El archivo supera 10 MB. Comprímelo en un .ZIP e intenta de nuevo.', 'warn');
+        btn.disabled = false; btn.textContent = 'Enviar';
+        return;
+      }
+      fd.append('Archivo adjunto', file, file.name);
     }
     const res = await fetch(FEEDBACK_FORMSPREE_URL, { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd });
     if (res.ok) {
@@ -6593,8 +6635,9 @@ function _feederEPA(f, L_overlap, towerType, windAngleDeg) {
 }
 
 function _calcFeederWindForces(cfg, windData, angleDeg) {
-  if (!feedersData.length || !projectGenerated) return [];
-  const Cd   = 1.0;
+  const hasData = feedersData.length || cgoData.length || escalData.length;
+  if (!hasData || !projectGenerated) return [];
+  const Cd_coax = 1.0;
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
   const Gh   = _tiaGh(cfg.height, cfg.type);
   const results = [];
@@ -6604,8 +6647,10 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
     const zBot = zBase, zTop = zBase + h, zMid = zBase + h / 2;
     const qz   = calcWindPressure(cfg, windData, zMid);
     const rows = [];
+
+    // ── Coaxiales / paquetes ──────────────────────────────────────────────────
     feedersData.forEach(f => {
-      if (f.ruta === 'INT') return;  // cables interiores: sin fuerza de viento
+      if (f.ruta === 'INT') return;
       const overlap = Math.max(0, Math.min(+f.zf, zTop) - Math.max(+f.zi, zBot));
       if (!(overlap > 0)) return;
       let label, dLabel, epa;
@@ -6630,10 +6675,32 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
         epa    = _feederEPA(f, overlap, cfg.type, angleDeg);
       }
       rows.push({ label, dLabel, n: f.n, ruta: f.ruta,
-                  overlap, EPA: epa, F_kgf: Cd * qz * Gh * epa / 9.80665 });
+                  overlap, EPA: epa, F_kgf: Cd_coax * qz * Gh * epa / 9.80665 });
     });
+
+    // ── CGO (Cd = 2.0, perfil angular) ───────────────────────────────────────
+    cgoData.forEach(cgo => {
+      const overlap = Math.max(0, Math.min(+cgo.zf, zTop) - Math.max(+cgo.zi, zBot));
+      if (!(overlap > 0)) return;
+      const epa = _cgoEPAdir(overlap, cfg.type, cgo.ruta, angleDeg);
+      rows.push({ label: 'CGO', dLabel: `B=${_CGO.B} mm, Cd=${_CGO.Cd}`,
+                  n: 1, ruta: cgo.ruta, overlap,
+                  EPA: epa, F_kgf: _CGO.Cd * qz * Gh * epa / 9.80665 });
+    });
+
+    // ── Escalerilla (Cd = 1.3) ────────────────────────────────────────────────
+    escalData.forEach(esc => {
+      const overlap = Math.max(0, Math.min(+esc.zf, zTop) - Math.max(+esc.zi, zBot));
+      if (!(overlap > 0)) return;
+      const dRung = (_ESC_RUNGS.find(r => r.label === esc.rung) || _ESC_RUNGS[0]).d;
+      const epa = _escEPAdir(overlap, dRung, cfg.type, esc.ruta, angleDeg);
+      rows.push({ label: 'Escalerilla', dLabel: `B=${_ESC.B} mm, Cd=${_ESC.Cd}`,
+                  n: 1, ruta: esc.ruta, overlap,
+                  EPA: epa, F_kgf: _ESC.Cd * qz * Gh * epa / 9.80665 });
+    });
+
     if (rows.length) {
-      results.push({ sec: i + 1, z: zMid, qz, Gh, Cd,
+      results.push({ sec: i + 1, z: zMid, qz, Gh,
         totalEPA:   rows.reduce((s, r) => s + r.EPA, 0),
         totalF_kgf: rows.reduce((s, r) => s + r.F_kgf, 0), rows });
     }
@@ -6645,13 +6712,13 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
 function _renderFeederForceTable(cfg) {
   const container = document.getElementById('feeder-force-table-container');
   if (!container) return;
-  if (!feedersData.length) {
-    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales registrados.</div>';
+  if (!feedersData.length && !cgoData.length && !escalData.length) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales, CGO ni escalerilla registrados.</div>';
     return;
   }
   const secs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
   if (!secs.length) {
-    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales en rango de la torre.</div>';
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin elementos en rango de la torre.</div>';
     return;
   }
   let rowsHtml = '', total = 0;
@@ -6885,6 +6952,7 @@ let antenasGroupCollapsed   = {};  // panel collapse state, keyed by group conte
 let _flyoutGroupCollapsed   = {};  // flyout collapse state
 let feedersData      = [];
 let _feedersNextId   = 1;
+let _cgoEscalVisible = true;
 let _fdEditId        = null;   // id del cable en edición (null = modo agregar)
 let antFeeders       = {};
 let _feedersOn       = false;
@@ -8206,6 +8274,22 @@ function closeTorreFlyout() {
 // ── Flyout Antenas ─────────────────────────────────────────────
 const _ANT_TIPOS = ['Panel', 'Parabólica sin radomo', 'Parabólica con radomo', 'Parabólica cilíndrica', 'Parabólica grid', 'RRU', 'Otros'];
 
+// ── Herrajes de montaje ──────────────────────────────────────────────────────
+// EPA calculada según geometría de perfiles (PTR/OC/LI). Pendiente: escudamiento.
+const _HERRAJES = [
+  { id: 'ninguno',   label: 'Sin herraje',               EPA_N: 0,     EPA_T: 0 },
+  { id: 'MW',        label: 'Herraje MW',                EPA_N: 0.206, EPA_T: 0.404 },
+  { id: 'RF_H',      label: 'Herraje RF Bandera H',      EPA_N: 0.727, EPA_T: 0.632 },
+  { id: 'RF_simple', label: 'Herraje RF Bandera Simple', EPA_N: 0.159, EPA_T: 0.342 },
+];
+
+function _herrEPAdir(herrId, thetaRel) {
+  const h = _HERRAJES.find(x => x.id === herrId);
+  if (!h || !h.EPA_N) return 0;
+  const t = thetaRel * Math.PI / 180;
+  return h.EPA_N * Math.cos(t) ** 2 + h.EPA_T * Math.sin(t) ** 2;
+}
+
 function openAntenasFlyout() {
   if (!_towerData) { showToast('Primero cargue o genere un modelo de torre.', 'warn'); return; }
   closeTorreFlyout();
@@ -8233,8 +8317,8 @@ function _renderAntenasTable() {
   _ensureAntIds();
   _syncLinkedRRUs();
 
-  // linkedTo incluido en la clave para que RRUs con distintos vínculos no se agrupen
-  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.linkedTo??''].join('\x00');
+  // linkedTo y herraje incluidos en la clave para evitar agrupaciones incorrectas
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.linkedTo??'',a.herraje||'ninguno'].join('\x00');
   const groupMap = new Map();
   antenasData.forEach((a, i) => {
     const k = gKey(a);
@@ -8271,6 +8355,15 @@ function _renderAntenasTable() {
       `<select class="ant-sel" onchange="${updAll('tipo',true)};${calcAll()};_renderAntenasTable()">
         ${_ANT_TIPOS.map(t=>`<option${a.tipo===t?' selected':''}>${t}</option>`).join('')}
       </select>`;
+
+    const isRRU_sel = a.tipo === 'RRU';
+    const herrajeSel = !isRRU_sel
+      ? `<select class="ant-sel" style="margin-top:2px;font-size:10px;color:var(--txt-sec)"
+          title="Herraje de montaje"
+          onchange="${indices.map(i=>`antenasData[${i}].herraje=this.value`).join(';')};renderAntenas3D();if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows();}">
+          ${_HERRAJES.map(h=>`<option value="${h.id}"${(a.herraje||'ninguno')===h.id?' selected':''}>${h.label}</option>`).join('')}
+        </select>`
+      : '';
 
     const isRRU      = a.tipo === 'RRU';
     const isLinked   = isRRU && !isGroup && a.linkedTo != null;
@@ -8324,7 +8417,7 @@ function _renderAntenasTable() {
     else if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
     headTr.innerHTML =
       `<td>${descCell}</td>` +
-      `<td>${tipoSel}</td>` +
+      `<td>${tipoSel}${herrajeSel}</td>` +
       `<td>${zCell}</td>` +
       `<td>${azCell}</td>` +
       `<td>${isDish?dimInpG('alto', a.alto, 0.05):dimInpG('alto', a.alto, 0.01)}</td>` +
@@ -8471,11 +8564,17 @@ function _calcEPA(a) {
 function _calcAntennaForces(cfg, windData) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+  // Un ensamble de herraje (mismos az+z+tipo) se cuenta una sola vez aunque haya varias antenas
+  const _herrCounted = new Set();
   return ants.map((a, antIdx) => {
     const z    = +a.z || 0;
     const qz   = calcWindPressure(cfg, windData, z);   // N/m²
     const Gh   = _tiaGh(z, cfg.type);
     const azDeg = +a.azimuth || 0;
+    const herrId  = a.herraje || 'ninguno';
+    const herrKey = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
+    const addHerraje = herrId !== 'ninguno' && !_herrCounted.has(herrKey);
+    if (addHerraje) _herrCounted.add(herrKey);
 
     const forcesByDir = dirs.map(angleDeg => {
       // θ_rel: ángulo relativo viento–antena normalizado a [0,180] (EPA simétrica)
@@ -8494,6 +8593,8 @@ function _calcAntennaForces(cfg, windData) {
         const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
         EPA = (+(a.epa0) || 0) * cos2 + (+(a.epa90) || 0) * sin2;
       }
+      // Herraje: se suma una vez por ensamble (az, z, tipo) para no triplicar la EPA
+      if (addHerraje) EPA += _herrEPAdir(herrId, theta_rel);
 
       const FA_N   = qz * Gh * EPA;                     // N
       const FA_kgf = FA_N / 9.80665;                    // kgf
@@ -8520,7 +8621,7 @@ function _nearestLegNodeIdx(antZ, nodes, legSet) {
 }
 
 function addAntenaRow() {
-  const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null };
+  const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null, herraje: 'ninguno' };
   _calcEPA(a);
   antenasData.push(a);
   _renderAntenasTable();
@@ -8876,9 +8977,86 @@ function _fdActivateRender() {
   }
 }
 
-function toggleAccesoriosPanel(e) {
+function toggleAccesoriosPanel(e) { toggleHerrajesPanel(e); }
+
+function toggleHerrajesPanel(e) {
   e?.stopPropagation();
-  showToast('Panel de Accesorios — próximamente.', 'info');
+  const btn = document.getElementById('side-accesorios-btn');
+  const fl  = document.getElementById('herrajes-flyout');
+  const wasOpen = fl.classList.contains('open');
+  fl.classList.toggle('open', !wasOpen);
+  btn?.classList.toggle('active', !wasOpen);
+  if (!wasOpen) buildHerrajesPanel();
+}
+
+function closeHerrajesPanel() {
+  document.getElementById('herrajes-flyout')?.classList.remove('open');
+  document.getElementById('side-accesorios-btn')?.classList.remove('active');
+}
+
+function _applyHerrajesPanel() {
+  _renderAntenasTable();
+  renderAntenas3D();
+  if (windForcesOn || windForceLabelsOn) { _windForceResults = null; _buildWindForceArrows(); }
+  showToast('Herrajes aplicados. Se guardan automáticamente con el proyecto.', 'ok');
+}
+
+function buildHerrajesPanel() {
+  const body = document.getElementById('herrajes-panel-body');
+  if (!body) return;
+
+  // Agrupar antenas no-RRU por z (mismo nivel comparte un ensamble físico)
+  const byZ = new Map();
+  antenasData.forEach((a, i) => {
+    if (a.tipo === 'RRU') return;
+    const zKey = (+a.z || 0).toFixed(2);
+    if (!byZ.has(zKey)) byZ.set(zKey, []);
+    byZ.get(zKey).push({ a, i });
+  });
+
+  const groups = [...byZ.entries()]
+    .sort((a, b) => +b[0] - +a[0])
+    .map(([zKey, items]) => ({ z: +zKey, items }));
+
+  if (!groups.length) {
+    body.innerHTML = `<div style="color:var(--txt-sec);font-size:12px;padding:12px 0">
+      Sin antenas registradas. Agregue antenas primero.</div>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="font-size:10.5px;color:var(--txt-sec);margin-bottom:10px">
+      Un ensamble de herraje por nivel. La EPA se suma una sola vez al cálculo de viento.
+    </div>
+    ${groups.map(({ z, items }) => {
+      const sharedId = items[0].a.herraje || 'ninguno';
+      const indices  = items.map(x => x.i);
+      const opts = _HERRAJES.map(h =>
+        `<option value="${h.id}"${sharedId === h.id ? ' selected' : ''}>${h.label}</option>`
+      ).join('');
+      const tag  = items.length > 1
+        ? `<span style="font-size:10px;color:var(--cyan);margin-left:4px">(×${items.length} ant.)</span>`
+        : '';
+      const desc = items.map(x => _esc(x.a.desc || '(sin desc.)')).join(', ');
+      const onch = indices.map(i => `antenasData[${i}].herraje=this.value`).join(';');
+      return `<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+          padding:7px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <span style="font-size:12px;font-weight:600">${desc}</span>${tag}
+          <span style="color:var(--txt-sec);font-size:10px;margin-left:6px">z=${z}m</span>
+        </div>
+        <select class="ant-sel" style="font-size:11px;min-width:170px"
+          onchange="${onch}">
+          ${opts}
+        </select>
+      </div>`;
+    }).join('')}
+    <div style="margin-top:14px;text-align:right">
+      <button class="btn" onclick="_applyHerrajesPanel()"
+        style="font-size:12px;padding:5px 16px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer">
+        Aplicar
+      </button>
+    </div>`;
 }
 
 function toggleFeedersPanel(e) {
@@ -8896,12 +9074,19 @@ function toggleFeedersPanel(e) {
   }
   fl.classList.toggle('open', !wasOpen);
   btn?.classList.toggle('active', !wasOpen);
-  if (!wasOpen) _buildFeedersPanel();
+  if (!wasOpen) {
+    _buildFeedersPanel();
+    document.getElementById('fd-plan-win')?.classList.add('open');
+    _fdDrawPlan();
+  } else {
+    closeFdPlanWin();
+  }
 }
 
 function closeFeedersPanel() {
   document.getElementById('feeders-flyout')?.classList.remove('open');
   document.getElementById('side-feeders-btn')?.classList.remove('active');
+  closeFdPlanWin();
 }
 
 function toggleFdPlanWin() {
@@ -8913,6 +9098,19 @@ function toggleFdPlanWin() {
 function closeFdPlanWin() {
   document.getElementById('fd-plan-win')?.classList.remove('open');
   document.getElementById('fd-plan-win-btn')?.classList.remove('active');
+}
+
+function toggleCgoEscalViz() {
+  _cgoEscalVisible = !_cgoEscalVisible;
+  cgoEscalGroup.visible = _cgoEscalVisible;
+  document.getElementById('tab-escaleras')?.classList.toggle('active', _cgoEscalVisible);
+}
+
+let _herrajesVisible = true;
+function toggleHerrajesViz() {
+  _herrajesVisible = !_herrajesVisible;
+  herrajesGroup.visible = _herrajesVisible;
+  document.getElementById('tab-herrajes')?.classList.toggle('active', _herrajesVisible);
 }
 
 // Drag para ventana flotante de vista en planta
@@ -9044,10 +9242,6 @@ function _buildFeedersPanel() {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
       <span class="fd-sec-lbl" style="margin-bottom:0">Cables Coaxiales</span>
       <div style="display:flex;gap:6px">
-        <button class="fd-btn" id="fd-plan-win-btn" onclick="toggleFdPlanWin()" style="gap:4px">
-          <svg viewBox="0 0 14 14" width="11" height="11" style="vertical-align:middle"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" stroke-width="1"/><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1"/></svg>
-          Planta
-        </button>
         <button class="fd-btn" onclick="_fdToggleForm()">+ &nbsp;Agregar</button>
         <button class="fd-btn" onclick="_fdPaqOpen(null)" style="color:var(--cyan);border-color:var(--cyan)">+ &nbsp;Paquete</button>
       </div>
@@ -9130,6 +9324,22 @@ function _buildFeedersPanel() {
         </details>
       </div>
     </div>
+
+    <div class="sep" style="margin:14px 0 10px;"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <span class="fd-sec-lbl" style="margin-bottom:0">Cama Guía de Onda (CGO)</span>
+      <button class="fd-btn" onclick="document.getElementById('cgo-add-form').style.display=document.getElementById('cgo-add-form').style.display==='none'?'flex':'none'">+ &nbsp;Agregar</button>
+    </div>
+    ${_buildCgoHtml()}
+
+    <div class="sep" style="margin:14px 0 10px;"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+      <span class="fd-sec-lbl" style="margin-bottom:0">Escalerilla de Cables</span>
+      <button class="fd-btn" onclick="document.getElementById('esc-add-form').style.display=document.getElementById('esc-add-form').style.display==='none'?'flex':'none'">+ &nbsp;Agregar</button>
+    </div>
+    ${_buildEscalHtml()}
     `;
 
   _fdDrawPlan();
@@ -9248,6 +9458,199 @@ function _fdHexPositions(N, d_max, g = 2) {
     }
   }
   return pts;
+}
+
+// ── CGO (Cama Guía de Onda) ──────────────────────────────────────────────────
+// Perfil fijo: 2 ángulos LI 1½"×3/16" verticales + horizontales cada 600 mm
+// Ancho total B=569 mm · Cd=2.0 (TIA-222-H §2.6.11.2, miembro no circular)
+const _CGO = { B:569, leg:38.1, t:4.76, hSep:600, Cd:2.0 };
+
+function _cgoWeightPerM() {
+  const {leg,t,B,hSep} = _CGO;
+  const A = (2*leg - t)*t*1e-6;                       // m², perfil LI
+  return 7850*(2*A + (1000/hSep)*A*(B/1000));          // 2 rails + horizontales/m
+}
+
+function _cgoEPA(L) {
+  const {leg,B,hSep} = _CGO;
+  const lm=leg/1000, Bm=B/1000, sm=hSep/1000;
+  const Nh = Math.max(1, Math.round(L/sm)+1);          // ángulos horiz. totales
+  return { N: 2*lm*L + Nh*lm*Bm,                      // EPA_N: ala × longitud
+            T: 2*lm*L };                                // EPA_T: solo rails vert.
+}
+
+function _cgoEPAdir(L, towerType, ruta, windDeg) {
+  const {N,T} = _cgoEPA(L);
+  const phi = _fdFaceAngle(ruta, towerType);
+  if (phi===null) return N;
+  let th = ((windDeg - phi) % 360 + 360) % 360;
+  if (th > 180) th = 360 - th;
+  const t = th*Math.PI/180;
+  return N*Math.cos(t)**2 + T*Math.sin(t)**2;
+}
+
+let cgoData = [];
+try{ cgoData = JSON.parse(localStorage.getItem('cgo-data')||'[]'); }catch(e){}
+let _cgoNextId = cgoData.length ? Math.max(...cgoData.map(c=>c.id))+1 : 1;
+function _cgoSave(){ try{ localStorage.setItem('cgo-data',JSON.stringify(cgoData)); }catch(e){} }
+
+function _cgoAdd() {
+  const zi=+(document.getElementById('cgo-zi')?.value)||0;
+  const zf=+(document.getElementById('cgo-zf')?.value)||0;
+  const ruta=document.getElementById('cgo-ruta')?.value||'A';
+  if (zf<=zi){ showToast('Z fin debe ser mayor que Z ini','warn'); return; }
+  cgoData.push({id:_cgoNextId++, zi, zf, ruta});
+  _cgoSave(); _buildFeedersPanel();
+}
+function _cgoDel(id){ cgoData=cgoData.filter(c=>c.id!==id); _cgoSave(); _buildFeedersPanel(); }
+
+function _buildCgoHtml() {
+  const cfg  = getConfig();
+  const tt   = cfg?.type||'triangular';
+  const opts = (tt==='square')?['A','B','C','D']:(tt==='triangular')?['A','B','C']:['EXT'];
+  const fOpts= opts.map(f=>`<option value="${f}">${_FD_FLBL[f]||f}</option>`).join('');
+  const wpm  = _cgoWeightPerM();
+  const defZf= (cfg?.height||30).toFixed(0);
+
+  const rows = cgoData.map(c => {
+    const L=Math.max(0,c.zf-c.zi), w=wpm*L;
+    const {N,T}=_cgoEPA(L);
+    const col=_FD_FC_CSS[c.ruta]||'#aaa';
+    return `<tr>
+      <td class="tc">${(+c.zi).toFixed(1)}</td>
+      <td class="tc">${(+c.zf).toFixed(1)}</td>
+      <td><span class="fd-badge" style="background:${col}22;color:${col}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
+      <td class="tc">${L.toFixed(1)}</td>
+      <td class="tc">${w.toFixed(1)}</td>
+      <td class="tc" style="color:var(--txt-sec)">${N.toFixed(3)}</td>
+      <td class="tc" style="color:var(--txt-sec)">${T.toFixed(3)}</td>
+      <td><button class="fd-btn-del" onclick="_cgoDel(${c.id})" title="Eliminar" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <table class="fd-tbl" style="width:100%;margin-bottom:6px;">
+      <thead><tr>
+        <th class="tc">Z ini</th><th class="tc">Z fin</th><th>Cara</th>
+        <th class="tc">L (m)</th><th class="tc">Peso (kg)</th>
+        <th class="tc">EPA N</th><th class="tc">EPA T</th><th></th>
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="8" class="fd-empty">Sin CGO — usa + Agregar</td></tr>`}</tbody>
+    </table>
+    <div id="cgo-add-form" class="fd-add-form" style="display:none;">
+      <div class="fd-ff"><label class="fd-fl">Z ini (m)</label>
+        <input type="number" id="cgo-zi" value="0" step="0.5" min="0" style="width:66px"></div>
+      <div class="fd-ff"><label class="fd-fl">Z fin (m)</label>
+        <input type="number" id="cgo-zf" value="${defZf}" step="0.5" min="0" style="width:66px"></div>
+      <div class="fd-ff"><label class="fd-fl">Cara</label>
+        <select id="cgo-ruta" style="padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">${fOpts}</select></div>
+      <button class="fd-btn fd-btn-ok" onclick="_cgoAdd()">Guardar</button>
+      <button class="fd-btn" onclick="document.getElementById('cgo-add-form').style.display='none'" style="padding:3px 8px">✕</button>
+    </div>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:4px;">
+      LI 1½"×3/16" · B=569 mm · sep.=600 mm · <b>${wpm.toFixed(2)} kg/m</b> · Cd=${_CGO.Cd}
+    </div>`;
+}
+
+// ── Escalerilla de Cables ─────────────────────────────────────────────────────
+// 2 ángulos LI 2"×1/8" + peldaños redondos sólidos cada 300 mm. B=450 mm · Cd=1.3
+const _ESC = { B:450, leg:50.8, t:3.175, rSep:300, Cd:1.3 };
+const _ESC_RUNGS = [
+  {label:'ø 3/4" (19.1 mm)', d:19.05},
+  {label:'ø 5/8" (15.9 mm)', d:15.88},
+];
+
+function _escWeightPerM(d) {
+  const {leg,t,B,rSep} = _ESC;
+  const Ar=(2*leg-t)*t*1e-6, Ad=Math.PI/4*(d/1000)**2;
+  return 7850*(2*Ar + (1000/rSep)*Ad*(B/1000));
+}
+
+function _escEPA(L, d) {
+  const {leg,B,rSep} = _ESC;
+  const lm=leg/1000, Bm=B/1000, sm=rSep/1000;
+  const Nr = Math.max(1, Math.round(L/sm)+1);
+  return { N: 2*lm*L + Nr*(d/1000)*Bm,                // EPA_N: rails + peldaños
+            T: 2*lm*L };                                // EPA_T: solo rails vert.
+}
+
+function _escEPAdir(L, d, towerType, ruta, windDeg) {
+  const {N,T} = _escEPA(L,d);
+  const phi = _fdFaceAngle(ruta, towerType);
+  if (phi===null) return N;
+  let th = ((windDeg - phi) % 360 + 360) % 360;
+  if (th > 180) th = 360 - th;
+  const t = th*Math.PI/180;
+  return N*Math.cos(t)**2 + T*Math.sin(t)**2;
+}
+
+let escalData = [];
+try{ escalData = JSON.parse(localStorage.getItem('escal-data')||'[]'); }catch(e){}
+let _escalNextId = escalData.length ? Math.max(...escalData.map(c=>c.id))+1 : 1;
+function _escalSave(){ try{ localStorage.setItem('escal-data',JSON.stringify(escalData)); }catch(e){} }
+
+function _escalAdd() {
+  const zi=+(document.getElementById('esc-zi')?.value)||0;
+  const zf=+(document.getElementById('esc-zf')?.value)||0;
+  const ruta=document.getElementById('esc-ruta')?.value||'A';
+  const d=+(document.getElementById('esc-rung')?.value)||19.05;
+  if (zf<=zi){ showToast('Z fin debe ser mayor que Z ini','warn'); return; }
+  escalData.push({id:_escalNextId++, zi, zf, ruta, d});
+  _escalSave(); _buildFeedersPanel();
+}
+function _escalDel(id){ escalData=escalData.filter(c=>c.id!==id); _escalSave(); _buildFeedersPanel(); }
+
+function _buildEscalHtml() {
+  const cfg  = getConfig();
+  const tt   = cfg?.type||'triangular';
+  const opts = (tt==='square')?['A','B','C','D']:(tt==='triangular')?['A','B','C']:['EXT'];
+  const fOpts= opts.map(f=>`<option value="${f}">${_FD_FLBL[f]||f}</option>`).join('');
+  const rOpts= _ESC_RUNGS.map(r=>`<option value="${r.d}">${r.label}</option>`).join('');
+  const defZf= (cfg?.height||30).toFixed(0);
+
+  const rows = escalData.map(c => {
+    const L=Math.max(0,c.zf-c.zi), d=c.d||19.05;
+    const w=_escWeightPerM(d)*L;
+    const {N,T}=_escEPA(L,d);
+    const col=_FD_FC_CSS[c.ruta]||'#aaa';
+    const rLabel=_ESC_RUNGS.find(r=>r.d===d)?.label||`ø ${d}mm`;
+    return `<tr>
+      <td class="tc">${(+c.zi).toFixed(1)}</td>
+      <td class="tc">${(+c.zf).toFixed(1)}</td>
+      <td><span class="fd-badge" style="background:${col}22;color:${col}">${_FD_FLBL[c.ruta]||c.ruta}</span></td>
+      <td class="tc" style="font-size:10px;color:var(--txt-sec)">${rLabel}</td>
+      <td class="tc">${L.toFixed(1)}</td>
+      <td class="tc">${w.toFixed(1)}</td>
+      <td class="tc" style="color:var(--txt-sec)">${N.toFixed(3)}</td>
+      <td class="tc" style="color:var(--txt-sec)">${T.toFixed(3)}</td>
+      <td><button class="fd-btn-del" onclick="_escalDel(${c.id})" title="Eliminar" style="color:#e05555;font-size:15px;font-weight:700;line-height:1">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <table class="fd-tbl" style="width:100%;margin-bottom:6px;">
+      <thead><tr>
+        <th class="tc">Z ini</th><th class="tc">Z fin</th><th>Cara</th>
+        <th class="tc">Peldaño</th><th class="tc">L (m)</th><th class="tc">Peso (kg)</th>
+        <th class="tc">EPA N</th><th class="tc">EPA T</th><th></th>
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="9" class="fd-empty">Sin escalerillas — usa + Agregar</td></tr>`}</tbody>
+    </table>
+    <div id="esc-add-form" class="fd-add-form" style="display:none;">
+      <div class="fd-ff"><label class="fd-fl">Z ini (m)</label>
+        <input type="number" id="esc-zi" value="0" step="0.5" min="0" style="width:66px"></div>
+      <div class="fd-ff"><label class="fd-fl">Z fin (m)</label>
+        <input type="number" id="esc-zf" value="${defZf}" step="0.5" min="0" style="width:66px"></div>
+      <div class="fd-ff"><label class="fd-fl">Cara</label>
+        <select id="esc-ruta" style="padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">${fOpts}</select></div>
+      <div class="fd-ff"><label class="fd-fl">Peldaño</label>
+        <select id="esc-rung" style="padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">${rOpts}</select></div>
+      <button class="fd-btn fd-btn-ok" onclick="_escalAdd()">Guardar</button>
+      <button class="fd-btn" onclick="document.getElementById('esc-add-form').style.display='none'" style="padding:3px 8px">✕</button>
+    </div>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:4px;">
+      LI 2"×1/8" · B=450 mm · sep.=300 mm · Cd=${_ESC.Cd}
+    </div>`;
 }
 
 // ── Paquetes de coaxiales ─────────────────────────────────────────────────────
@@ -9567,11 +9970,42 @@ function _fdDrawPlan() {
     return result;
   }
 
+  // CGO: qué caras tienen CGO → banda visual + offset radial de cables
+  const _planCgoFaces = {};
+  cgoData.forEach(c => { _planCgoFaces[c.ruta] = true; });
+  const _cgoPlanDepth = planStep * 1.2;
+
+  const _planEscalFaces = {};
+  escalData.forEach(c => { _planEscalFaces[c.ruta] = true; });
+  const _escalPlanDepth = planStep * 1.0;
+
+  function drawCGObar(posFn, halfW, startRad=0) {
+    const p0=posFn(-halfW,startRad), p1=posFn(halfW,startRad);
+    const p2=posFn(halfW,startRad+_cgoPlanDepth), p3=posFn(-halfW,startRad+_cgoPlanDepth);
+    ctx.beginPath();
+    ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]);
+    ctx.lineTo(p2[0],p2[1]); ctx.lineTo(p3[0],p3[1]);
+    ctx.closePath();
+    ctx.fillStyle='rgba(74,130,170,0.30)'; ctx.fill();
+    ctx.strokeStyle='#4a8ab0'; ctx.lineWidth=1; ctx.stroke();
+  }
+
+  function drawEscalBar(posFn, halfW, startRad=0) {
+    const p0=posFn(-halfW,startRad), p1=posFn(halfW,startRad);
+    const p2=posFn(halfW,startRad+_escalPlanDepth), p3=posFn(-halfW,startRad+_escalPlanDepth);
+    ctx.beginPath();
+    ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]);
+    ctx.lineTo(p2[0],p2[1]); ctx.lineTo(p3[0],p3[1]);
+    ctx.closePath();
+    ctx.fillStyle='rgba(90,160,90,0.28)'; ctx.fill();
+    ctx.strokeStyle='#5a9a55'; ctx.lineWidth=1; ctx.stroke();
+  }
+
   // drawDots: faceId → lista de instancias con (lat, rad); posFn(lat, rad) → [x,y]
-  const drawDots = (faceId, posFn) => {
+  const drawDots = (faceId, posFn, baseRad=0) => {
     buildFacePlanInsts(faceId).forEach(({ entry, lat, rad }) => {
       const color = _fdDiamCss(entry.diam);
-      const [x, y] = posFn(lat, rad);
+      const [x, y] = posFn(lat, rad + baseRad);
       ctx.beginPath(); ctx.arc(x, y, dr+2, 0, Math.PI*2);
       ctx.fillStyle = color+'20'; ctx.fill();
       ctx.beginPath(); ctx.arc(x, y, dr, 0, Math.PI*2);
@@ -9621,7 +10055,11 @@ function _fdDrawPlan() {
       const edgeX = fx-cx, edgeY = fy-cy, el = Math.sqrt(edgeX*edgeX+edgeY*edgeY)||1;
       const nx = edgeX/el, ny = edgeY/el;
       const tx = -ny, ty = nx;
-      drawDots(face, (lat, rad) => [fx + tx*lat + nx*rad, fy + ty*lat + ny*rad]);
+      const pFn = (lat, rad) => [fx + tx*lat + nx*rad, fy + ty*lat + ny*rad];
+      let _br = 0;
+      if (_planCgoFaces[face])   { drawCGObar(pFn,   hs*0.28, _br); _br += _cgoPlanDepth; }
+      if (_planEscalFaces[face]) { drawEscalBar(pFn, hs*0.28, _br); _br += _escalPlanDepth; }
+      drawDots(face, pFn, _br);
     });
     drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
 
@@ -9642,7 +10080,12 @@ function _fdDrawPlan() {
       C: (lat, rad) => [cx+lat, cy+hs+rad],
       D: (lat, rad) => [cx-hs-rad, cy+lat]
     };
-    ['A','B','C','D'].forEach(f => drawDots(f, sqPos[f]));
+    ['A','B','C','D'].forEach(f => {
+      let _br = 0;
+      if (_planCgoFaces[f])   { drawCGObar(sqPos[f],   hs*0.28, _br); _br += _cgoPlanDepth; }
+      if (_planEscalFaces[f]) { drawEscalBar(sqPos[f], hs*0.28, _br); _br += _escalPlanDepth; }
+      drawDots(f, sqPos[f], _br);
+    });
     drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
   }
 
@@ -9746,7 +10189,12 @@ function _renderFeeders3D() {
   feedersGroup.children.slice().forEach(c => {
     c.geometry?.dispose(); c.material?.dispose(); feedersGroup.remove(c);
   });
-  if (!projectGenerated || feedersData.length === 0) return;
+  cgoEscalGroup.children.slice().forEach(c => {
+    c.geometry?.dispose(); c.material?.dispose(); cgoEscalGroup.remove(c);
+  });
+  if (!projectGenerated) return;
+  cgoEscalGroup.visible = _cgoEscalVisible;
+  if (feedersData.length === 0 && !cgoData.length && !escalData.length) return;
   const cfg = getConfig();
   if (!cfg) return;
 
@@ -9793,6 +10241,11 @@ function _renderFeeders3D() {
   allFaceIds.forEach(id => { byFace[id] = []; });
   allFaceIds.forEach(fid => { byFace[fid] = _fdExpandInstancesForFace(fid); });
 
+  // Offset radial para cables cuando hay CGO o escalerilla en la misma cara
+  const _3dCgoOff = {};
+  cgoData.forEach(c => { _3dCgoOff[c.ruta] = (_3dCgoOff[c.ruta] || 0) + _CGO.leg / 1000; });
+  escalData.forEach(c => { _3dCgoOff[c.ruta] = (_3dCgoOff[c.ruta] || 0) + _ESC.leg / 1000; });
+
   // Face direction vectors: normal and tangent for each face type
   function faceVectors(face, hw) {
     if (towerType === 'triangular') {
@@ -9836,7 +10289,8 @@ function _renderFeeders3D() {
         const baseDist = (towerType === 'triangular' && !isInt)
           ? hw / Math.sqrt(3)
           : hw;
-        const dist = baseDist + r + 0.02 + radOff;
+        const _cgoBase = _3dCgoOff[face] || 0;
+        const dist = baseDist + r + (_cgoBase > 0 ? _cgoBase : 0.02) + radOff;
         const tx = -ny, ty = nx;
         const x = isInt ? latOff * 0.5 : nx * dist + tx * latOff;
         const y = isInt ? 0            : ny * dist + ty * latOff;
@@ -9849,6 +10303,92 @@ function _renderFeeders3D() {
       const mat   = new THREE.MeshBasicMaterial({ color: _fdDiamHex(entry.diam) });
       feedersGroup.add(new THREE.Mesh(geo, mat));
     });
+  });
+
+  // Renderiza un tubo que sigue la pendiente de la cara — misma lógica que mkPt de cables
+  function _mkFacePath(ruta, zi, zf, lat, radOff) {
+    const nSeg = Math.max(8, Math.ceil((zf - zi) * 4));
+    const pts = [];
+    for (let i = 0; i <= nSeg; i++) {
+      const z = zi + (zf - zi) * i / nSeg;
+      const hw = hwAt(z);
+      const bd = (towerType === 'triangular') ? hw / Math.sqrt(3) : hw;
+      const { nx: nx_, ny: ny_ } = faceVectors(ruta, hw);
+      const tx_ = -ny_, ty_ = nx_;
+      pts.push(new THREE.Vector3(nx_*(bd+radOff) + tx_*lat, ny_*(bd+radOff) + ty_*lat, z));
+    }
+    return pts;
+  }
+
+  // Tubo cuadrado (4 lados) para simular perfil plano de ala — añade a cgoEscalGroup global
+  function _addLItube(ruta, zi, zf, lat, radOff, halfSide, mat) {
+    const pts = _mkFacePath(ruta, zi, zf, lat, radOff);
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const geo = new THREE.TubeGeometry(curve, pts.length * 2, halfSide, 4, false);
+    cgoEscalGroup.add(new THREE.Mesh(geo, mat));
+  }
+
+  // Render CGO con perfiles LI reales (2 rieles, horizontales cada hSep)
+  cgoData.forEach(cgo => {
+    const zi = cgo.zi || 0, zf = cgo.zf || 0;
+    if (zf <= zi) return;
+    const legM  = _CGO.leg / 1000;
+    const tM    = _CGO.t   / 1000;
+    const BM    = _CGO.B   / 1000;
+    const hSepM = _CGO.hSep / 1000;
+    const vR    = Math.max(tM * 1.8, 0.006);
+    const hR    = Math.max(tM * 1.4, 0.005);
+    const matLI = new THREE.MeshBasicMaterial({ color: 0x4a7a99 });
+
+    [{ lat: -BM/2, sign: -1 }, { lat: +BM/2, sign: +1 }].forEach(({ lat, sign }) => {
+      _addLItube(cgo.ruta, zi, zf, lat, legM/2, vR, matLI);
+      _addLItube(cgo.ruta, zi, zf, lat - sign*legM/2, tM/2, vR, matLI);
+    });
+
+    const Nh = Math.max(1, Math.floor((zf - zi) / hSepM) + 1);
+    for (let i = 0; i < Nh; i++) {
+      const z = zi + i * hSepM;
+      if (z > zf + 0.01) break;
+      const hw_ = hwAt(z);
+      const bd_ = (towerType === 'triangular') ? hw_/Math.sqrt(3) : hw_;
+      const { nx: nx_, ny: ny_ } = faceVectors(cgo.ruta, hw_);
+      const tx_ = -ny_, ty_ = nx_;
+      const pL = new THREE.Vector3(nx_*bd_ + tx_*(-BM/2), ny_*bd_ + ty_*(-BM/2), z);
+      const pR = new THREE.Vector3(nx_*bd_ + tx_*(+BM/2), ny_*bd_ + ty_*(+BM/2), z);
+      cgoEscalGroup.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(pL, pR), 1, hR, 4, false), matLI));
+    }
+  });
+
+  // Render Escalerilla con perfiles LI + peldaños redondos
+  escalData.forEach(esc => {
+    const zi = esc.zi || 0, zf = esc.zf || 0;
+    if (zf <= zi) return;
+    const legM  = _ESC.leg  / 1000;
+    const tM    = _ESC.t    / 1000;
+    const BM    = _ESC.B    / 1000;
+    const rSepM = _ESC.rSep / 1000;
+    const dRung = (_ESC_RUNGS.find(r => r.label === esc.rung) || _ESC_RUNGS[0]).d / 1000;
+    const vR    = Math.max(tM * 1.8, 0.006);
+    const matLI = new THREE.MeshBasicMaterial({ color: 0x5a9a60 });
+    const matR  = new THREE.MeshBasicMaterial({ color: 0x4a8050 });
+
+    [{ lat: -BM/2, sign: -1 }, { lat: +BM/2, sign: +1 }].forEach(({ lat, sign }) => {
+      _addLItube(esc.ruta, zi, zf, lat, legM/2, vR, matLI);
+      _addLItube(esc.ruta, zi, zf, lat - sign*legM/2, tM/2, vR, matLI);
+    });
+
+    const Nr = Math.max(1, Math.floor((zf - zi) / rSepM) + 1);
+    for (let i = 0; i < Nr; i++) {
+      const z = zi + i * rSepM;
+      if (z > zf + 0.01) break;
+      const hw_ = hwAt(z);
+      const bd_ = (towerType === 'triangular') ? hw_/Math.sqrt(3) : hw_;
+      const { nx: nx_, ny: ny_ } = faceVectors(esc.ruta, hw_);
+      const tx_ = -ny_, ty_ = nx_;
+      const pL = new THREE.Vector3(nx_*bd_ + tx_*(-BM/2), ny_*bd_ + ty_*(-BM/2), z);
+      const pR = new THREE.Vector3(nx_*bd_ + tx_*(+BM/2), ny_*bd_ + ty_*(+BM/2), z);
+      cgoEscalGroup.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(pL, pR), 1, dRung/2, 8, false), matR));
+    }
   });
 }
 
@@ -9896,7 +10436,7 @@ function buildAntenasPanel() {
   const fmtP = v => v != null ? (+v).toFixed(4) : '—';
 
   // Agrupar antenas iguales (mismas propiedades excepto azimuth)
-  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso].join('\x00');
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.herraje||'ninguno'].join('\x00');
   const groupMap = new Map();
   antenasData.forEach((a, i) => {
     const k = gKey(a);
@@ -10002,6 +10542,10 @@ function renderAntenas3D() {
     c.material && c.material.dispose();
     antenasGroup.remove(c);
   });
+  herrajesGroup.children.slice().forEach(c => {
+    c.geometry?.dispose(); c.material?.dispose(); herrajesGroup.remove(c);
+  });
+  herrajesGroup.visible = _herrajesVisible;
   antenasGroup.visible = antenasOn && !windForcesOn;
   const cfg = getConfig();
   // Rango de alturas de la sección aislada (para filtrar qué antenas mostrar)
@@ -10018,7 +10562,8 @@ function renderAntenas3D() {
   // Paneles/dishes: spread lateral normal (60 cm entre aristas).
   // RRU: van detrás de su Panel asociado (mismo az+z, por orden), 5 cm de gap.
   const _perpOff   = new Array(antenasData.length).fill(0);
-  const _rruBehind = new Array(antenasData.length).fill(false); // true = RRU con posición trasera
+  const _rruBehind = new Array(antenasData.length).fill(false);
+  const _renderedRFH = new Set(); // evita duplicar el frame RF_H para el mismo grupo az/z
   {
     const grps = {};
     antenasData.forEach((a, i) => {
@@ -10027,9 +10572,18 @@ function renderAntenas3D() {
       (a.tipo === 'RRU' ? grps[k].rrus : grps[k].panels).push(i);
     });
     Object.values(grps).forEach(({ panels, rrus }) => {
-      // Spread lateral de paneles/dishes (lógica previa)
+      // Spread lateral de paneles/dishes
       const Np = panels.length;
-      if (Np >= 2) {
+      const herr0 = Np ? (antenasData[panels[0]].herraje || 'ninguno') : 'ninguno';
+      if (herr0 === 'RF_H') {
+        // Outer posts at ±0.60m — fixed regardless of antenna width
+        if (Np === 1) {
+          _perpOff[panels[0]] = 0.60;
+        } else {
+          const step = 1.20;
+          panels.forEach((idx, k) => { _perpOff[idx] = ((Np - 1) / 2 - k) * step; });
+        }
+      } else if (Np >= 2) {
         const step = (+antenasData[panels[0]].ancho || 0.25) + 0.60;
         panels.forEach((idx, k) => { _perpOff[idx] = ((Np - 1) / 2 - k) * step; });
       }
@@ -10227,16 +10781,19 @@ function renderAntenas3D() {
       // RRU con _rruBehind: espalda con espalda del panel, 5 cm de separación.
       // radialOffset RRU → su cara frontal queda a 5 cm de la cara trasera del panel.
       const base = cfg.type === 'monopole' ? 0.5 : halfW;
+      const _hasHerr = a.herraje && a.herraje !== 'ninguno';
       const radialOffset = _rruBehind[dataIdx]
-        ? base + 0.55 - E / 2        // cara frontal RRU = base+0.55 (5 cm atrás del panel)
-        : base + 0.60 + E / 2;       // posición normal panel/otros
+        ? base + 0.50 - E / 2        // RRU detrás del poste (cara int. OC4"≈0.54, OC2"≈0.57)
+        : _hasHerr
+          ? base + 0.66 + E / 2      // antena con herraje: frente al poste (cara ext. OC4"≈0.66)
+          : base + 0.60 + E / 2;     // posición normal (sin herraje)
       const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
       const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
       const pz = +a.z || 0;
       const shape = _antenaShape(W, E);
       const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
       geo.translate(0, 0, -H / 2);
-      const panelCol = a.tipo === 'RRU' ? 0xCCCCCC : 0xC8C0B4;
+      const panelCol = a.tipo === 'RRU' ? 0x999999 : 0xC8C0B4;
       const mat   = new THREE.MeshBasicMaterial({ color: panelCol, side: THREE.DoubleSide });
       const mesh  = new THREE.Mesh(geo, mat);
       mesh.position.set(px, py, pz);
@@ -10250,7 +10807,75 @@ function renderAntenas3D() {
       edges.rotation.copy(mesh.rotation);
       antenasGroup.add(edges);
     }
+    // Herraje de montaje (solo antenas no-RRU)
+    if (a.tipo !== 'RRU' && a.herraje && a.herraje !== 'ninguno') {
+      if (a.herraje === 'RF_H') {
+        // RF_H: renderizar UNA sola vez por grupo az/z (evitar duplicados)
+        const rfhKey = `${az.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
+        if (!_renderedRFH.has(rfhKey)) {
+          _renderedRFH.add(rfhKey);
+          _addHerraje3D('RF_H', az, cfg.type === 'monopole' ? 0.5 : halfW, +a.z || 0, 0);
+        }
+      } else {
+        _addHerraje3D(a.herraje, az, cfg.type === 'monopole' ? 0.5 : halfW, +a.z || 0, perp);
+      }
+    }
   });
+}
+
+// Renders the 3D mounting hardware for an antenna. Called from renderAntenas3D.
+// az: azimuth radians; halfW: tower half-width at that z; pz: antenna z (m)
+// perp: lateral offset of the antenna (T direction); 0 for RF_H (rendered once per group)
+function _addHerraje3D(herrId, az, halfW, pz, perp) {
+  if (!herrId || herrId === 'ninguno') return;
+  const sinA = Math.sin(az), cosA = Math.cos(az);
+
+  // pt(rN, lT, dZ): rN = outward from face, lT = lateral (+ = left), dZ = vertical
+  const pt = (rN, lT, dZ) => new THREE.Vector3(
+    sinA * (halfW + rN) + cosA * (lT + perp),
+    cosA * (halfW + rN) - sinA * (lT + perp),
+    pz + dZ
+  );
+
+  const mat = new THREE.MeshBasicMaterial({ color: 0x55BBDD });
+
+  const mkTube = (p1, p2, r) => {
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const L = dir.length(); if (L < 1e-5) return;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 7), mat);
+    m.position.copy(p1.clone().addScaledVector(dir.normalize(), L / 2));
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    herrajesGroup.add(m);
+  };
+
+  if (herrId === 'MW') {
+    // BRAZOS PTR 3" (r=38mm) desde cara de torre hasta el poste a 60cm
+    mkTube(pt(0, 0, +0.72), pt(0.60, 0, +0.72), 0.038);
+    mkTube(pt(0, 0, -0.72), pt(0.60, 0, -0.72), 0.038);
+    // POSTE OC 4" (r=57mm), L=1.50m — a 60cm de la cara de torre
+    mkTube(pt(0.60, 0, -0.75), pt(0.60, 0, +0.75), 0.057);
+
+  } else if (herrId === 'RF_simple') {
+    // BRAZOS PTR 3", L=0.60m
+    mkTube(pt(0, 0, +0.80), pt(0.60, 0, +0.80), 0.038);
+    mkTube(pt(0, 0, -0.80), pt(0.60, 0, -0.80), 0.038);
+    // POSTE OC 2" (r=30mm), L=2.20m — a 60cm de la cara de torre
+    mkTube(pt(0.60, 0, -1.10), pt(0.60, 0, +1.10), 0.030);
+
+  } else if (herrId === 'RF_H') {
+    // BRAZOS PTR 3" desde cara de torre hasta los postes (L=0.60m)
+    mkTube(pt(0, 0, +0.55), pt(0.60, 0, +0.55), 0.038);
+    mkTube(pt(0, 0, -0.55), pt(0.60, 0, -0.55), 0.038);
+    // POSTE CENTRAL OC 2" a 60cm de la torre, en medio de los exteriores (lT=0)
+    mkTube(pt(0.60, 0, -1.0), pt(0.60, 0, +1.0), 0.030);
+    // POSTES EXTERIORES OC 2" (rN=0.60, lT=±0.60) — mismo plano que el central
+    const sT = 0.60;
+    mkTube(pt(0.60, +sT, -1.0), pt(0.60, +sT, +1.0), 0.030);
+    mkTube(pt(0.60, -sT, -1.0), pt(0.60, -sT, +1.0), 0.030);
+    // TRAVESAÑOS LI 3" (r=13mm) en el plano de los postes (rN=0.60)
+    mkTube(pt(0.60, -sT, +0.55), pt(0.60, +sT, +0.55), 0.013);
+    mkTube(pt(0.60, -sT, -0.55), pt(0.60, +sT, -0.55), 0.013);
+  }
 }
 
 function applyAntenas() {
@@ -10308,7 +10933,10 @@ function nuevoProyecto() {
   antenasGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); antenasGroup.remove(c); });
   feedersData = []; antFeeders = {}; _feedersNextId = 1; _feedersOn = false;
   feedersGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); feedersGroup.remove(c); });
-  feedersGroup.visible = true;
+  cgoEscalGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); cgoEscalGroup.remove(c); });
+  herrajesGroup.children.slice().forEach(c => { c.geometry?.dispose(); c.material?.dispose(); herrajesGroup.remove(c); });
+  feedersGroup.visible = true; cgoEscalGroup.visible = true; _cgoEscalVisible = true;
+  herrajesGroup.visible = true; _herrajesVisible = true;
   document.getElementById('tab-cargasviento')?.classList.remove('active');
   document.getElementById('tab-antenas')?.classList.remove('active');
   document.getElementById('tab-feeders')?.classList.remove('active');
@@ -12022,7 +12650,7 @@ function _memChapter6Html(cfg) {
                 </tr>
               </tbody>
              </table>`
-          : noData('Sin coaxiales registrados.');
+          : noData('Sin coaxiales, CGO ni escalerilla registrados.');
 
         return `
           <h3 style="font-size:11px;font-weight:700;color:#1B3A6B;margin:14px 0 6px;">
