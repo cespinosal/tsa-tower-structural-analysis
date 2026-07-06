@@ -10783,9 +10783,9 @@ function renderAntenas3D() {
       const base = cfg.type === 'monopole' ? 0.5 : halfW;
       const _hasHerr = a.herraje && a.herraje !== 'ninguno';
       const radialOffset = _rruBehind[dataIdx]
-        ? base + 0.55 - E / 2        // cara frontal RRU detrás del poste (rN=0.65 → cara int. ~0.59)
+        ? base + 0.50 - E / 2        // RRU detrás del poste (cara int. OC4"≈0.54, OC2"≈0.57)
         : _hasHerr
-          ? base + 0.65 + E / 2      // antena con herraje: frente al poste exterior (rN=0.65)
+          ? base + 0.66 + E / 2      // antena con herraje: frente al poste (cara ext. OC4"≈0.66)
           : base + 0.60 + E / 2;     // posición normal (sin herraje)
       const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
       const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
@@ -10849,32 +10849,32 @@ function _addHerraje3D(herrId, az, halfW, pz, perp) {
   };
 
   if (herrId === 'MW') {
-    // BRAZOS PTR 3" (r=38mm) desde cara de torre (rN=0) hasta el poste (rN=0.65)
-    mkTube(pt(0, 0, +0.72), pt(0.65, 0, +0.72), 0.038);
-    mkTube(pt(0, 0, -0.72), pt(0.65, 0, -0.72), 0.038);
-    // POSTE OC 4" (r=57mm), L=1.50m — en el extremo exterior de los brazos
-    mkTube(pt(0.65, 0, -0.75), pt(0.65, 0, +0.75), 0.057);
+    // BRAZOS PTR 3" (r=38mm) desde cara de torre hasta el poste a 60cm
+    mkTube(pt(0, 0, +0.72), pt(0.60, 0, +0.72), 0.038);
+    mkTube(pt(0, 0, -0.72), pt(0.60, 0, -0.72), 0.038);
+    // POSTE OC 4" (r=57mm), L=1.50m — a 60cm de la cara de torre
+    mkTube(pt(0.60, 0, -0.75), pt(0.60, 0, +0.75), 0.057);
 
   } else if (herrId === 'RF_simple') {
-    // BRAZOS PTR 3" (r=38mm), L=0.65m
-    mkTube(pt(0, 0, +0.80), pt(0.65, 0, +0.80), 0.038);
-    mkTube(pt(0, 0, -0.80), pt(0.65, 0, -0.80), 0.038);
-    // POSTE OC 2" (r=30mm), L=2.20m
-    mkTube(pt(0.65, 0, -1.10), pt(0.65, 0, +1.10), 0.030);
+    // BRAZOS PTR 3", L=0.60m
+    mkTube(pt(0, 0, +0.80), pt(0.60, 0, +0.80), 0.038);
+    mkTube(pt(0, 0, -0.80), pt(0.60, 0, -0.80), 0.038);
+    // POSTE OC 2" (r=30mm), L=2.20m — a 60cm de la cara de torre
+    mkTube(pt(0.60, 0, -1.10), pt(0.60, 0, +1.10), 0.030);
 
   } else if (herrId === 'RF_H') {
-    // POSTE CENTRAL OC 2" (r=30mm) anclado en la cara de torre
-    mkTube(pt(0, 0, -1.0), pt(0, 0, +1.0), 0.030);
-    // BRAZOS PTR 3" desde poste central hacia exterior (N), L=0.65m
-    mkTube(pt(0, 0, +0.55), pt(0.65, 0, +0.55), 0.038);
-    mkTube(pt(0, 0, -0.55), pt(0.65, 0, -0.55), 0.038);
-    // POSTES EXTERIORES OC 2" donde montan las antenas (rN=0.65, lT=±0.60)
+    // BRAZOS PTR 3" desde cara de torre hasta los postes (L=0.60m)
+    mkTube(pt(0, 0, +0.55), pt(0.60, 0, +0.55), 0.038);
+    mkTube(pt(0, 0, -0.55), pt(0.60, 0, -0.55), 0.038);
+    // POSTE CENTRAL OC 2" a 60cm de la torre, en medio de los exteriores (lT=0)
+    mkTube(pt(0.60, 0, -1.0), pt(0.60, 0, +1.0), 0.030);
+    // POSTES EXTERIORES OC 2" (rN=0.60, lT=±0.60) — mismo plano que el central
     const sT = 0.60;
-    mkTube(pt(0.65, +sT, -1.0), pt(0.65, +sT, +1.0), 0.030);
-    mkTube(pt(0.65, -sT, -1.0), pt(0.65, -sT, +1.0), 0.030);
-    // TRAVESAÑOS LI 3" (r=13mm) conectando postes exteriores en el nivel de los brazos
-    mkTube(pt(0.65, -sT, +0.55), pt(0.65, +sT, +0.55), 0.013);
-    mkTube(pt(0.65, -sT, -0.55), pt(0.65, +sT, -0.55), 0.013);
+    mkTube(pt(0.60, +sT, -1.0), pt(0.60, +sT, +1.0), 0.030);
+    mkTube(pt(0.60, -sT, -1.0), pt(0.60, -sT, +1.0), 0.030);
+    // TRAVESAÑOS LI 3" (r=13mm) en el plano de los postes (rN=0.60)
+    mkTube(pt(0.60, -sT, +0.55), pt(0.60, +sT, +0.55), 0.013);
+    mkTube(pt(0.60, -sT, -0.55), pt(0.60, +sT, -0.55), 0.013);
   }
 }
 
