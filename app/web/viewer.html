@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -3231,7 +3231,9 @@ function genGuyed(cfg) {
     : defaultAnchors);
   const ancIdsAll = anchorDefsAll.map(a => {
     const rad = (a.azimut + 270) * Math.PI/180;
-    return addNode(nodes, a.radio*Math.cos(rad), a.radio*Math.sin(rad), a.elev);
+    const idx = addNode(nodes, a.radio*Math.cos(rad), a.radio*Math.sin(rad), a.elev);
+    nodes[idx].isAnchor = true;
+    return idx;
   });
   const nearestLeg = azimutUser => {
     const target = (azimutUser + 270 + 360) % 360;
@@ -3281,6 +3283,33 @@ function genGuyed(cfg) {
         const rad = bisDeg * Math.PI/180;   // mismo sistema de ángulos internos que ANG
         return addNode(nodes, vertexR*Math.cos(rad), vertexR*Math.sin(rad), zLvl);
       });
+      // GUYS PRIMERO — los cables de retenida se generan ANTES que los miembros del
+      // estabilizador (stabarms, puntals, tensors). Así, al activar/desactivar puntal
+      // o tensor DESPUÉS de haber configurado las retenidas, los índices de los guys en
+      // el arreglo `members` no se desplazan y los memberOverrides del usuario siguen
+      // apuntando a los mismos cables. Si se generaran después de los stabarms/tensors,
+      // cada toggle de puntal/tensor desplazaría 6+ posiciones todos los guys y los
+      // overrides se aplicarían a miembros de tipo incorrecto.
+      const deletedSet = new Set(cd.deletedGuyCables || []);
+      useNodes.forEach(ai => {
+        const aid = ancIdsAll[ai];
+        if (aid == null) return;
+        const k = nearestLeg(anchorDefsAll[ai].azimut);
+        // ni = nodo en la base (anclaje), nj = nodo en la torre/estabilizador — convención
+        // pedida explícitamente por el usuario (nodo inicial=base, nodo final=torre).
+        // anchorIdx = índice en guyAnchorData/cd.nodes — permite borrar esta retenida
+        // puntual desde la tabla (delGuyMember) sin tener que abrir el sub-modal de Nodos.
+        if (!deletedSet.has(`gy_${g}_${ai}_0`))
+          members.push({ni:aid, nj:vIds[k],       type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_0`});
+        if (!deletedSet.has(`gy_${g}_${ai}_1`))
+          members.push({ni:aid, nj:vIds[(k+2)%3], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_1`});
+        // Retenida media — cable ADICIONAL del mismo anclaje directo al montante (no a
+        // un vértice), entre las dos anteriores — solo disponible con Triángulo
+        // Estabilizador activo (de ahí que con ambos un nivel llegue a 9 retenidas:
+        // 3 anclajes × (2 a vértices + 1 al montante)).
+        if (cd.retenidaMedia && !deletedSet.has(`gy_${g}_${ai}_2`))
+          members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_2`});
+      });
       for (let k = 0; k < 3; k++) {
         members.push({ni:lnodes[gLv][k], nj:vIds[k],       type:'stabarm', guyLevel:g});
         members.push({ni:lnodes[gLv][k], nj:vIds[(k+2)%3], type:'stabarm', guyLevel:g});
@@ -3291,15 +3320,24 @@ function genGuyed(cfg) {
       // (altura positiva), Puntal siempre hacia abajo (negativa) — forzado al nodo de
       // bahía real más cercano a la altura pedida por el usuario (los niveles no son
       // uniformes entre tramos, así que no se puede usar una distancia fija).
+      // reqAbsH es la ALTURA MÍNIMA — el nivel debe estar al menos esa distancia por
+      // encima (dir>0, tensor) o por debajo (dir<0, puntal) del nivel del estabilizador.
+      // Entre los niveles válidos se elige el más cercano al mínimo (no el primero
+      // encontrado), para minimizar la longitud del miembro. Si reqAbsH>0 y el mejor
+      // nivel está más de max(reqAbsH*5, 10) m por encima del mínimo, se devuelve -1
+      // para evitar tensores/puntales desproporcionados; cuando reqAbsH=0 no hay límite.
       const _nearestLevel = (reqAbsH, dir) => {
         let best = -1, bestDiff = Infinity;
+        const maxAllowed = reqAbsH > 0 ? Math.max(reqAbsH * 5, 10) : Infinity;
         for (let lv = 0; lv < levelHeights.length; lv++) {
           const rel = levelHeights[lv] - levelHeights[gLv];
-          if (dir > 0 ? rel <= 0 : rel >= 0) continue;
-          const diff = Math.abs(Math.abs(rel) - reqAbsH);
+          const absRel = dir > 0 ? rel : -rel;
+          if (absRel <= 0) continue;                      // lado incorrecto
+          if (reqAbsH > 0 && absRel < reqAbsH) continue;  // no llega al mínimo
+          const diff = absRel - reqAbsH;                  // siempre >= 0
           if (diff < bestDiff) { bestDiff = diff; best = lv; }
         }
-        return best;
+        return (best >= 0 && bestDiff <= maxAllowed) ? best : -1;
       };
       if (cd.estabPuntalOn) {
         const lv = _nearestLevel(Math.abs(+cd.estabPuntalAltura) || 0, -1);
@@ -3329,28 +3367,12 @@ function genGuyed(cfg) {
           }
         }
       }
-      useNodes.forEach(ai => {
-        const aid = ancIdsAll[ai];
-        if (aid == null) return;
-        const k = nearestLeg(anchorDefsAll[ai].azimut);
-        // ni = nodo en la base (anclaje), nj = nodo en la torre/estabilizador — convención
-        // pedida explícitamente por el usuario (nodo inicial=base, nodo final=torre).
-        // anchorIdx = índice en guyAnchorData/cd.nodes — permite borrar esta retenida
-        // puntual desde la tabla (delGuyMember) sin tener que abrir el sub-modal de Nodos.
-        members.push({ni:aid, nj:vIds[k],       type:'guy', guyLevel:g, anchorIdx:ai});   // vértice derecho
-        members.push({ni:aid, nj:vIds[(k+2)%3], type:'guy', guyLevel:g, anchorIdx:ai});   // vértice izquierdo
-        // Retenida media — cable ADICIONAL del mismo anclaje directo al montante (no a
-        // un vértice), entre las dos anteriores — solo disponible con Triángulo
-        // Estabilizador activo (de ahí que con ambos un nivel llegue a 9 retenidas:
-        // 3 anclajes × (2 a vértices + 1 al montante)).
-        if (cd.retenidaMedia) members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai});
-      });
     } else {
       useNodes.forEach(ai => {
         const aid = ancIdsAll[ai];
         if (aid == null) return;
         const k = nearestLeg(anchorDefsAll[ai].azimut);
-        members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai});
+        members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_0`});
       });
     }
   }
@@ -4477,7 +4499,7 @@ function _buildWindForceArrows() {
     _calcAntennaForces(cfg, windData).forEach(af => {
       const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
       if (!fd || fd.FA_kgf < 0.001) return;
-      const nIdx = _nearestLegNodeIdx(af.z, _towerData.nodes, legSet);
+      const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, _towerData.nodes, legSet);
       if (nIdx == null) return;
       if (!antByNode.has(nIdx)) antByNode.set(nIdx, { nIdx, F_kgf: 0, descs: [] });
       const e = antByNode.get(nIdx);
@@ -4505,7 +4527,11 @@ function toggleWindForces() {
     document.getElementById('rpanel-antenas').classList.remove('visible');
     if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
   }
-  antenasGroup.visible = antenasOn && !windForcesOn;
+  // Ocultar/restaurar herrajes, CGO, escalerillas y coaxiales junto con las fuerzas de viento
+  herrajesGroup.visible = _herrajesVisible && !windForcesOn;
+  cgoEscalGroup.visible = _cgoEscalVisible && !windForcesOn;
+  feedersGroup.visible  = _feedersOn       && !windForcesOn;
+  antenasGroup.visible  = antenasOn        && !windForcesOn;
   if (windForcesOn && !_windForceResults) _buildWindForceArrows();
   else if (!windForcesOn && !windForceLabelsOn) { _windForceResults = null; _clearWindForceArrows(); }
   else _redrawWindForceArrows();
@@ -7069,8 +7095,22 @@ function _applyNodeOverrides(nodes) {
 // reaplica en cada regeneración, no a prueba de cambios estructurales (bahías, tipo).
 let memberOverrides = {};
 function _applyMemberOverrides(members) {
-  Object.keys(memberOverrides).forEach(idx => {
-    const m = members[+idx], ov = memberOverrides[idx];
+  // Claves string (_id estable) — buscar por m._id, siempre seguro.
+  // Claves numéricas (legado) — solo aplicar a miembros estructurales (sin guyLevel).
+  // Los miembros de anillo (guys, stabarms, puntals, tensors) tienen guyLevel; sus
+  // índices numéricos son inestables al cambiar el orden de generación o al activar/
+  // desactivar puntal/tensor. Overrides de retenidas usan claves _id a partir de ahora.
+  const byId = {};
+  members.forEach(m => { if (m._id) byId[m._id] = m; });
+  Object.keys(memberOverrides).forEach(key => {
+    const ov = memberOverrides[key];
+    let m;
+    if (isNaN(+key)) {
+      m = byId[key];    // clave _id estable
+    } else {
+      m = members[+key];
+      if (m && m.guyLevel != null) return;  // ring member con clave numérica: índice no confiable
+    }
     if (m && ov) { if (ov.ni != null) m.ni = ov.ni; if (ov.nj != null) m.nj = ov.nj; }
   });
 }
@@ -8277,10 +8317,10 @@ const _ANT_TIPOS = ['Panel', 'Parabólica sin radomo', 'Parabólica con radomo',
 // ── Herrajes de montaje ──────────────────────────────────────────────────────
 // EPA calculada según geometría de perfiles (PTR/OC/LI). Pendiente: escudamiento.
 const _HERRAJES = [
-  { id: 'ninguno',   label: 'Sin herraje',               EPA_N: 0,     EPA_T: 0 },
-  { id: 'MW',        label: 'Herraje MW',                EPA_N: 0.206, EPA_T: 0.404 },
-  { id: 'RF_H',      label: 'Herraje RF Bandera H',      EPA_N: 0.727, EPA_T: 0.632 },
-  { id: 'RF_simple', label: 'Herraje RF Bandera Simple', EPA_N: 0.159, EPA_T: 0.342 },
+  { id: 'ninguno',   label: 'Sin herraje',               EPA_N: 0,     EPA_T: 0,     peso: 0     },
+  { id: 'MW',        label: 'Herraje MW',                EPA_N: 0.206, EPA_T: 0.404, peso: 39.25 },
+  { id: 'RF_H',      label: 'Herraje RF Bandera H',      EPA_N: 0.727, EPA_T: 0.632, peso: 71.08 },
+  { id: 'RF_simple', label: 'Herraje RF Bandera Simple', EPA_N: 0.159, EPA_T: 0.342, peso: 25.42 },
 ];
 
 function _herrEPAdir(herrId, thetaRel) {
@@ -8417,7 +8457,7 @@ function _renderAntenasTable() {
     else if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
     headTr.innerHTML =
       `<td>${descCell}</td>` +
-      `<td>${tipoSel}${herrajeSel}</td>` +
+      `<td>${tipoSel}</td>` +
       `<td>${zCell}</td>` +
       `<td>${azCell}</td>` +
       `<td>${isDish?dimInpG('alto', a.alto, 0.05):dimInpG('alto', a.alto, 0.01)}</td>` +
@@ -8561,7 +8601,7 @@ function _calcEPA(a) {
 // Calcula fuerzas de viento en antenas según TIA-222-H §2.6.11.2 (paneles) y Anexo C (microondas).
 // Devuelve un array con una entrada por antena; cada entrada incluye fuerzas por dirección de viento
 // ya descompuestas en el sistema global de STAAD (FX = TSA X, FZ = -TSA Y).
-function _calcAntennaForces(cfg, windData) {
+function _calcAntennaForces(cfg, windData, {includeHerraje = true} = {}) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   // Un ensamble de herraje (mismos az+z+tipo) se cuenta una sola vez aunque haya varias antenas
@@ -8573,7 +8613,7 @@ function _calcAntennaForces(cfg, windData) {
     const azDeg = +a.azimuth || 0;
     const herrId  = a.herraje || 'ninguno';
     const herrKey = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
-    const addHerraje = herrId !== 'ninguno' && !_herrCounted.has(herrKey);
+    const addHerraje = includeHerraje && herrId !== 'ninguno' && !_herrCounted.has(herrKey);
     if (addHerraje) _herrCounted.add(herrKey);
 
     const forcesByDir = dirs.map(angleDeg => {
@@ -8611,6 +8651,36 @@ function _calcAntennaForces(cfg, windData) {
   });
 }
 
+// Fuerzas de viento de herrajes (EPA_herraje × qz × Gh), deduplicadas por (az, z, tipo).
+// Se llama desde _doExportSTAAD para emitir herrajes como sección separada en STAAD.
+function _calcHerrajeWindForces(cfg, windData) {
+  const ants = Array.isArray(antenasData) ? antenasData : [];
+  const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+  const seen = new Set();
+  const result = [];
+  ants.forEach(a => {
+    const herrId = a.herraje || 'ninguno';
+    if (herrId === 'ninguno') return;
+    const z = +a.z || 0;
+    const azDeg = +a.azimuth || 0;
+    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const qz = calcWindPressure(cfg, windData, z);
+    const Gh = _tiaGh(z, cfg.type);
+    const forcesByDir = dirs.map(angleDeg => {
+      let theta_rel = ((angleDeg - azDeg) % 360 + 360) % 360;
+      if (theta_rel > 180) theta_rel = 360 - theta_rel;
+      const EPA = _herrEPAdir(herrId, theta_rel);
+      const FA_kgf = qz * Gh * EPA / 9.80665;
+      const wRad = angleDeg * Math.PI / 180;
+      return { angleDeg, FA_kgf, fx_staad: FA_kgf * Math.sin(wRad), fz_staad: -FA_kgf * Math.cos(wRad) };
+    });
+    result.push({ herrId, z, azimuth: azDeg, forcesByDir });
+  });
+  return result;
+}
+
 // Encuentra el nodo de pierna (leg) más cercano en Z=antZ dentro de un array de nodos.
 // legSet: Set de índices de nodos pierna; si null, usa todos los nodos.
 function _nearestLegNodeIdx(antZ, nodes, legSet) {
@@ -8618,6 +8688,31 @@ function _nearestLegNodeIdx(antZ, nodes, legSet) {
   const check = i => { const d = Math.abs(nodes[i].z - antZ); if (d < bestDist) { bestDist = d; bestIdx = i; } };
   if (legSet) legSet.forEach(check); else nodes.forEach((_, i) => check(i));
   return bestIdx;
+}
+// Igual que _nearestLegNodeIdx pero, cuando hay varios nodos al mismo Z (piernas del mismo nivel),
+// desempata eligiendo el que más se alinea con el azimut de la antena.
+function _nearestLegNodeByAz(antZ, antAzDeg, nodes, legSet) {
+  let bestDz = Infinity;
+  const cands = [];
+  const visit = i => {
+    const dz = Math.abs(nodes[i].z - antZ);
+    if (dz < bestDz - 0.001) { bestDz = dz; cands.length = 0; cands.push(i); }
+    else if (dz <= bestDz + 0.001) cands.push(i);
+  };
+  if (legSet) legSet.forEach(visit); else nodes.forEach((_, i) => visit(i));
+  if (!cands.length) return null;
+  if (cands.length === 1) return cands[0];
+  // Desempate: nodo cuya dirección XY desde el centro de la torre se acerca más al azimut
+  const azRad = ((antAzDeg ?? 0)) * Math.PI / 180;
+  const ux = Math.sin(azRad), uy = Math.cos(azRad);
+  let best = cands[0], bestDot = -Infinity;
+  for (const i of cands) {
+    const nx = nodes[i].x, ny = nodes[i].y;
+    const r = Math.hypot(nx, ny);
+    const dot = r > 1e-6 ? (nx * ux + ny * uy) / r : 0;
+    if (dot > bestDot) { bestDot = dot; best = i; }
+  }
+  return best;
 }
 
 function addAntenaRow() {
@@ -13937,6 +14032,7 @@ function _staadNodeRenumber(nodes, members) {
   const guyNodeIds = new Set();
   members.forEach(m => { if (m.type === 'guy') { guyNodeIds.add(m.ni); guyNodeIds.add(m.nj); } });
   const anchorSet = new Set([...guyNodeIds].filter(id => !structuralNodeIds.has(id) && !estabNodeIds.has(id)));
+  nodes.forEach((n, i) => { if (n.isAnchor) anchorSet.add(i); });
   const order = nodes.map((_, i) => i).sort((a, b) => {
     const pa = anchorSet.has(a) ? 0 : 1, pb = anchorSet.has(b) ? 0 : 1;
     if (pa !== pb) return pa - pb;
@@ -14234,7 +14330,8 @@ function setMemberNodeOverride(memberIdx, which, value) {
     renderTablaBarras(); renderTablaRetenidas();
     return;
   }
-  memberOverrides[memberIdx] = { ...(memberOverrides[memberIdx] || {}), [which]: origIdx };
+  const overrideKey = m._id != null ? m._id : memberIdx;
+  memberOverrides[overrideKey] = { ...(memberOverrides[overrideKey] || {}), [which]: origIdx };
   _unsavedChanges = true;
   refresh();
   renderTablaBarras();
@@ -14364,8 +14461,15 @@ function delGuyMember(memberIdx) {
   const m = _towerData.members[memberIdx];
   if (!m || m.type !== 'guy' || m.anchorIdx == null) return;
   const cd = guyCableData[(m.guyLevel ?? 1) - 1];
-  if (!cd || !Array.isArray(cd.nodes)) return;
-  cd.nodes = cd.nodes.filter(x => x !== m.anchorIdx);
+  if (!cd) return;
+  if (cd.triangulo && m._id) {
+    // Triangulo: marcar solo este cable como eliminado; el ancla permanece
+    if (!Array.isArray(cd.deletedGuyCables)) cd.deletedGuyCables = [];
+    if (!cd.deletedGuyCables.includes(m._id)) cd.deletedGuyCables.push(m._id);
+  } else {
+    if (!Array.isArray(cd.nodes)) return;
+    cd.nodes = cd.nodes.filter(x => x !== m.anchorIdx);
+  }
   _unsavedChanges = true;
   refresh();
   renderTablaRetenidas();
@@ -14570,6 +14674,22 @@ function exportSTAAD() {
   }
   _checkProfilesAndExportSTAAD();
 }
+function _checkAntPesoAndExportSTAAD() {
+  const sinPeso = (antenasData || []).filter(a => a.tipo !== 'RRU' && !(+a.peso > 0));
+  if (sinPeso.length) {
+    document.getElementById('export-warning-message').textContent =
+      'Las siguientes antenas no tienen peso asignado y no se incluirán en las cargas FY del STAAD:';
+    document.getElementById('export-warning-count').innerHTML =
+      sinPeso.map(a => `• ${a.desc || '(sin desc.)'} z=${a.z}m az=${a.azimuth}°`).join('<br>');
+    document.getElementById('export-warning-confirm-btn').style.display = '';
+    document.getElementById('export-warning-cancel-btn').textContent = 'Cancelar';
+    document.getElementById('export-warning-overlay').classList.add('open');
+    _exportConfirmStep = _doExportSTAAD;
+    return;
+  }
+  _doExportSTAAD();
+}
+
 function _checkProfilesAndExportSTAAD() {
   document.getElementById('export-warning-confirm-btn').style.display = '';
   document.getElementById('export-warning-cancel-btn').textContent = 'Cancelar';
@@ -14584,10 +14704,10 @@ function _checkProfilesAndExportSTAAD() {
     document.getElementById('export-warning-count').innerHTML = lines;
     document.getElementById('export-warning-overlay').classList.add('open');
     _startExportBlink(all);
-    _exportConfirmStep = _doExportSTAAD;
+    _exportConfirmStep = _checkAntPesoAndExportSTAAD;
     return;
   }
-  _doExportSTAAD();
+  _checkAntPesoAndExportSTAAD();
 }
 
 // ── Numeración EXCLUSIVA del export STAAD — miles por sección (2026-06-24, ver memoria
@@ -14798,6 +14918,7 @@ async function _doExportSTAAD() {
   out += `* ---------------------------------------------------------\n`;
   out += `START JOB INFORMATION\n`;
   out += `ENGINEER DATE ${_staadDate(cfg.fechaCreacion)}\n`;
+  out += `JOB CLIENT ${_staadUpper(cfg.cliente)}\n`;
   out += `ENGINEER NAME ${_staadUpper(cfg.ingResponsable)}\n`;
   out += `END JOB INFORMATION\n`;
   out += `INPUT WIDTH 79\n`;
@@ -15127,8 +15248,8 @@ async function _doExportSTAAD() {
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `***** ESTADOS DE CARGA *****\n`;
   out += `*//////////////////////////////////////////////////////////////////\n`;
-  out += `*\n*PESO PROPIO\n*\n`;
-  out += `LOAD 1 PP\n`;
+  out += `*\n*PESO PROPIO ESTRUCTURAL\n*\n`;
+  out += `LOAD 1 D\n`;
   out += `SELFWEIGHT Y -1.05 LIST ALL\n`;
 
   // Pre-calcular nodos de piernas y elevación media por sección (misma lógica que JOINT groups)
@@ -15149,15 +15270,58 @@ async function _doExportSTAAD() {
 
   const _wlDirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
 
-  // Pre-calcular fuerzas en antenas (una sola vez para todas las direcciones)
+  // Pre-calcular fuerzas en antenas (sin EPA de herraje) y herrajes (separado)
   const _stAntLegSet = new Set();
   members.forEach(m => { if (m.type === 'leg') { _stAntLegSet.add(m.ni); _stAntLegSet.add(m.nj); } });
-  const _stAntForces = _calcAntennaForces(cfg, windData);
+  const _stAntForces    = _calcAntennaForces(cfg, windData, {includeHerraje: false});
+  const _stHerrajeForces = _calcHerrajeWindForces(cfg, windData);
 
-  _wlDirs.forEach((angleDeg, di) => {
-    const loadName = angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`;
+  // Pesos de equipos — LOAD 2 DG (solo si hay pesos asignados)
+  const _antConPeso = (antenasData || []).filter(a => (+a.peso || 0) > 0.001);
+  const _herrPesoSet = new Set();
+  const _herrPesoEntries = [];
+  (antenasData || []).forEach(a => {
+    const h = _HERRAJES.find(x => x.id === (a.herraje || 'ninguno'));
+    if (!h || !h.peso) return;
+    const key = `${(+a.azimuth || 0).toFixed(1)}_${(+a.z || 0).toFixed(2)}_${h.id}`;
+    if (_herrPesoSet.has(key)) return;
+    _herrPesoSet.add(key);
+    const nIdx = _nearestLegNodeByAz(+a.z || 0, +a.azimuth || 0, nodes, _stAntLegSet);
+    if (nIdx == null) return;
+    const stId = nodeNewId[nIdx];
+    if (!stId) return;
+    _herrPesoEntries.push({ stId, peso: h.peso, herrId: h.id, z: +a.z || 0, az: a.azimuth || 0 });
+  });
+  const hasDG = _antConPeso.length > 0 || _herrPesoEntries.length > 0;
+  const windBase = hasDG ? 3 : 2;
+  if (hasDG) {
+    out += `*\n*PESO PROPIO DE EQUIPOS\n*\n`;
+    out += `LOAD 2 DG\n`;
+    out += `JOINT LOAD\n`;
+    if (_antConPeso.length) {
+      out += `*\n* ANTENAS\n*\n`;
+      _antConPeso.forEach((a, idx) => {
+        const nIdx = _nearestLegNodeByAz(+a.z || 0, +a.azimuth || 0, nodes, _stAntLegSet);
+        if (nIdx == null) return;
+        const stId = nodeNewId[nIdx];
+        if (!stId) return;
+        out += `*ANT${idx + 1} Z=${(+a.z || 0).toFixed(1)}M AZ=${a.azimuth || 0}\n`;
+        out += `${stId} FY -${(+a.peso).toFixed(2)}\n`;
+      });
+    }
+    if (_herrPesoEntries.length) {
+      out += `*\n* HERRAJES\n*\n`;
+      _herrPesoEntries.forEach(e => {
+        out += `*HERRAJE ${e.herrId} Z=${e.z.toFixed(1)}M AZ=${e.az}\n`;
+        out += `${e.stId} FY -${e.peso.toFixed(2)}\n`;
+      });
+    }
+  }
+
+  // Emite el contenido de un caso de carga de viento (diseño o servicio)
+  const _emitWindLoad = (loadNum, loadName, angleDeg) => {
     out += `*\n*${loadName}\n*\n`;
-    out += `LOAD ${2 + di} ${loadName}\n`;
+    out += `LOAD ${loadNum} ${loadName}\n`;
     out += `JOINT LOAD\n`;
     const thetaRad = angleDeg * Math.PI / 180;
     const cosTh = Math.cos(thetaRad), sinTh = Math.sin(thetaRad);
@@ -15165,21 +15329,20 @@ async function _doExportSTAAD() {
       if (!nNodes) return;
       const f = calcSectionWindForce(cfg, windData, i, zMid, fw, angleDeg);
       if (!f || !f.F_kgf) return;
-      const fpn = f.F_kgf / nNodes;   // fuerza por nodo = total / nodos del grupo
-      const fx = fpn * sinTh;          // componente STAAD X (= TSA X)
-      const fz = -(fpn * cosTh);       // componente STAAD Z (= -TSA Y), normal = negativo
+      const fpn = f.F_kgf / nNodes;
+      const fx = fpn * sinTh;
+      const fz = -(fpn * cosTh);
       let line = `_SEC${i+1}_VIENTO`;
       if (Math.abs(fx) > 0.001) line += ` FX ${fx.toFixed(2)}`;
       if (Math.abs(fz) > 0.001) line += ` FZ ${fz.toFixed(2)}`;
       if (line !== `_SEC${i+1}_VIENTO`) out += `${line}\n`;
     });
-    // Fuerzas en antenas — comentario en línea propia antes de cada carga
     if (_stAntForces.length > 0) {
       out += `*\n*ANTENAS\n*\n`;
-      _stAntForces.forEach((af, li) => {
+      _stAntForces.forEach(af => {
         const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
-        const nIdx = _nearestLegNodeIdx(af.z, nodes, _stAntLegSet);
+        const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, nodes, _stAntLegSet);
         if (nIdx == null) return;
         const stId = nodeNewId[nIdx];
         if (!stId) return;
@@ -15190,6 +15353,73 @@ async function _doExportSTAAD() {
         if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
+    if (_stHerrajeForces.length > 0) {
+      out += `*\n*HERRAJES\n*\n`;
+      _stHerrajeForces.forEach(hf => {
+        const fd = hf.forcesByDir.find(f => f.angleDeg === angleDeg);
+        if (!fd || fd.FA_kgf < 0.001) return;
+        const nIdx = _nearestLegNodeByAz(hf.z, hf.azimuth, nodes, _stAntLegSet);
+        if (nIdx == null) return;
+        const stId = nodeNewId[nIdx];
+        if (!stId) return;
+        let line = `${stId}`;
+        if (Math.abs(fd.fx_staad) > 0.001) line += ` FX ${fd.fx_staad.toFixed(2)}`;
+        if (Math.abs(fd.fz_staad) > 0.001) line += ` FZ ${fd.fz_staad.toFixed(2)}`;
+        const label = `* HERRAJE ${hf.herrId} Z=${hf.z.toFixed(1)}M AZ=${hf.azimuth}`;
+        if (line !== `${stId}`) out += `${label}\n${line}\n`;
+      });
+    }
+  };
+
+  const N = _wlDirs.length;
+
+  // Cargas de diseño (LOAD windBase … windBase+N-1)
+  _wlDirs.forEach((angleDeg, di) => {
+    const name = angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`;
+    _emitWindLoad(windBase + di, name, angleDeg);
+  });
+
+  // Cargas de servicio (LOAD windBase+N … windBase+2N-1) — mismas fuerzas, título SERVICIO
+  _wlDirs.forEach((angleDeg, di) => {
+    const name = (angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`) + ' SERVICIO';
+    _emitWindLoad(windBase + N + di, name, angleDeg);
+  });
+
+  // Combinaciones de carga TIA-222-H
+  const firstComb = windBase + 2 * N;
+  out += `*//////////////////////////////////////////////////////////////////\n`;
+  out += `***** COMBINACIONES DE CARGA *****\n`;
+  out += `*//////////////////////////////////////////////////////////////////\n`;
+  out += `*\n`;
+  out += `* COMBINACIONES DE DISENO\n`;
+  out += `*\n`;
+
+  // 1.2D + 1.0DG + 1.0W{dir}
+  _wlDirs.forEach((angleDeg, di) => {
+    const cName = hasDG ? `1.2D+1.0DG+1.0W${angleDeg}` : `1.2D+1.0W${angleDeg}`;
+    out += `LOAD COMB ${firstComb + di} ${cName}\n`;
+    if (hasDG) out += `1 1.2 2 1.0 ${windBase + di} 1.0\n`;
+    else        out += `1 1.2 ${windBase + di} 1.0\n`;
+  });
+
+  // 0.9D + 1.0DG + 1.0W{dir}
+  _wlDirs.forEach((angleDeg, di) => {
+    const cName = hasDG ? `0.9D+1.0DG+1.0W${angleDeg}` : `0.9D+1.0W${angleDeg}`;
+    out += `LOAD COMB ${firstComb + N + di} ${cName}\n`;
+    if (hasDG) out += `1 0.9 2 1.0 ${windBase + di} 1.0\n`;
+    else        out += `1 0.9 ${windBase + di} 1.0\n`;
+  });
+
+  out += `*\n`;
+  out += `* COMBINACIONES DE SERVICIO\n`;
+  out += `*\n`;
+
+  // 1.0D + 1.0DG + 1.0WS{dir}  (WS = carga de servicio)
+  _wlDirs.forEach((angleDeg, di) => {
+    const cName = hasDG ? `1.0D+1.0DG+1.0WS${angleDeg}` : `1.0D+1.0WS${angleDeg}`;
+    out += `LOAD COMB ${firstComb + 2 * N + di} ${cName}\n`;
+    if (hasDG) out += `1 1.0 2 1.0 ${windBase + N + di} 1.0\n`;
+    else        out += `1 1.0 ${windBase + N + di} 1.0\n`;
   });
 
   out += `FINISH\n`;
@@ -15197,6 +15427,34 @@ async function _doExportSTAAD() {
   // Todo el archivo en mayúsculas — convención STAAD, pedido explícito del usuario
   // (2026-06-24). Va al final, sobre el texto ya armado, para no tener que mayuscular
   // cada campo individualmente en cada línea.
+  // Wrap a 79 caracteres: continuación con - en líneas de datos, * en comentarios
+  out = out.split('\n').map(line => {
+    if (line.length <= 79) return line;
+    if (line.startsWith('*')) {
+      const parts = [];
+      let rem = line;
+      while (rem.length > 79) {
+        let cut = 79;
+        while (cut > 1 && rem[cut] !== ' ') cut--;
+        if (cut <= 1) cut = 79;
+        parts.push(rem.slice(0, cut));
+        rem = '* ' + rem.slice(cut).trimStart();
+      }
+      parts.push(rem);
+      return parts.join('\n');
+    }
+    const parts = [];
+    let rem = line;
+    while (rem.length > 79) {
+      let cut = 78;
+      while (cut > 0 && rem[cut] !== ' ') cut--;
+      if (cut === 0) cut = 78;
+      parts.push(rem.slice(0, cut) + '-');
+      rem = rem.slice(cut).trimStart();
+    }
+    parts.push(rem);
+    return parts.join('\n');
+  }).join('\n');
   out = out.toUpperCase();
 
   await _saveExportFile(`${title}.std`, out, 'text/plain', 'STAAD Input File', ['.std']);
@@ -15347,7 +15605,7 @@ async function triggerSaveForClose() {
 const EXAMPLE_PROJECTS = {
   MONOPOLO: {"type": "monopole", "baseW": 1.2, "topW": 0.8, "height": 30, "nInc": 4, "nStr": 2, "nsec": 6, "shaftW": 1, "guyLevels": 3, "guyHeights": [], "guyCableData": [], "guyAnchorData": [], "guyPivot": false, "location": null, "assetName": "", "siteName": "", "pais": "", "ingResponsable": "", "fechaCreacion": "2026-06-20", "secData": [{"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.6, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.4, "monoFy": "A36"}]},
   AUTOSOPORTADA_4P: {"type":"square","baseW":2,"topW":2,"height":30,"alturaInclinada":0,"nInc":0,"nStr":5,"nsec":5,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"434353","cliente":"AT&T","pais":"Paraguay","ingResponsable":"","revision":"01","fechaCreacion":"2026-06-19","secData":[{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":45,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":135,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":225,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":315,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36}]},
-  AUTOSOPORTADA_3P: {"type":"triangular","baseW":8.9,"topW":1.85,"height":72,"alturaInclinada":60,"nInc":10,"nStr":2,"nsec":12,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"Prueba","cliente":"AT\u0026T","pais":"México","ingResponsable":"Juan Espinosa","revision":"01","fechaCreacion":"2026-06-29","secData":[{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[{"version":"V1.0","descripcion":"Publicación Inicial","autor":"Juan Espinosa","fecha":"2026-06-20","locked":true},{"version":"V1.01","descripcion":"Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.","autor":"Juan Espinosa","fecha":"2026-06-28","locked":true}],"comentariosData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0.3,"antenasData":[{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":0,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":120,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":240,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032},{"desc":"Sin Radomo","tipo":"Parabólica sin radomo","z":55,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":10.962,"epa60":7.3086,"epa90":2.4302},{"desc":"Con Radomo","tipo":"Parabólica con radomo","z":50,"azimuth":120,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":6.1023,"epa60":4.5381,"epa90":2.872},{"desc":"Cilindrica","tipo":"Parabólica cilíndrica","z":45,"azimuth":240,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":8.9184,"epa60":5.5888,"epa90":4.4179},{"desc":"Rejilla","tipo":"Parabólica grid","z":40,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":3.7831,"epa60":2.5504,"epa90":1.712},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.83,"epa60":0.6035,"epa90":0.528},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.83,"epa60":0.6035,"epa90":0.528},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.83,"epa60":0.6035,"epa90":0.528},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":0,"epa0":0.12,"epa60":0.068,"epa90":0.0507},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":0,"epa0":0.12,"epa60":0.068,"epa90":0.0507},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":0,"epa0":0.12,"epa60":0.068,"epa90":0.0507},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":0,"epa0":0.12,"epa60":0.0549,"epa90":0.0332}],"feedersData":[{"id":1,"tipo":"1/2\"","diam":12.7,"n":7,"ruta":"A","zi":2,"zf":72},{"id":2,"tipo":"1/2\"","diam":12.7,"n":6,"ruta":"A","zi":2,"zf":72},{"id":3,"tipo":"7/8\"","diam":22.2,"n":6,"ruta":"B","zi":2,"zf":72},{"id":4,"tipo":"1-1/4\"","diam":32,"n":5,"ruta":"C","zi":2,"zf":72},{"id":5,"tipo":"1-5/8\"","diam":41.3,"n":1,"ruta":"A","zi":2,"zf":72}],"antFeeders":{"0":[],"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[],"8":[],"9":[],"10":[],"11":[],"12":[]},"m4":false,"altConst":0,"altReduccion":0},
+  AUTOSOPORTADA_3P: {"type":"triangular","baseW":8.9,"topW":1.85,"height":72,"alturaInclinada":60,"nInc":10,"nStr":2,"nsec":12,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"Prueba","cliente":"AT\u0026T","pais":"México","ingResponsable":"Juan Espinosa","revision":"01","fechaCreacion":"2026-06-29","secData":[{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[{"version":"V1.0","descripcion":"Publicación Inicial","autor":"Juan Espinosa","fecha":"2026-06-20","locked":true},{"version":"V1.01","descripcion":"Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.","autor":"Juan Espinosa","fecha":"2026-06-28","locked":true}],"comentariosData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0.3,"antenasData":[{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":0,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":1,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":120,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":2,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":240,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":3,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":4,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":5,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":6,"herraje":"RF_H"},{"desc":"Sin Radomo","tipo":"Parabólica sin radomo","z":55,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":10.962,"epa60":7.3086,"epa90":2.4302,"id":7,"herraje":"MW"},{"desc":"Con Radomo","tipo":"Parabólica con radomo","z":50,"azimuth":120,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":6.1023,"epa60":4.5381,"epa90":2.872,"id":8,"herraje":"MW"},{"desc":"Cilindrica","tipo":"Parabólica cilíndrica","z":45,"azimuth":240,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":8.9184,"epa60":5.5888,"epa90":4.4179,"id":9,"herraje":"MW"},{"desc":"Rejilla","tipo":"Parabólica grid","z":40,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":3.7831,"epa60":2.5504,"epa90":1.712,"id":10,"herraje":"MW"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":11,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":12,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":13,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":14,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":15,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":16,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":17},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":18},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":19},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":20},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":21},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":22},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":23},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":24},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":25}],"feedersData":[{"id":6,"type":"paquete","ruta":"A","zi":0,"zf":70,"n":12,"columnas":[[{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7}],[{"tipo":"5/16\"","diam":8},{"tipo":"5/16\"","diam":8},{"tipo":"5/16\"","diam":8}],[{"tipo":"5/8\"","diam":22},{"tipo":"5/8\"","diam":22},{"tipo":"5/8\"","diam":22}],[{"tipo":"5/8\"","diam":22},{"tipo":"1/4\"","diam":8.8},{"tipo":"1/4\"","diam":8.8}]],"cluster":false},{"id":7,"type":"paquete","ruta":"B","zi":0,"zf":70,"n":7,"columnas":[[{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7}]],"cluster":true}],"antFeeders":{"0":[],"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[],"8":[],"9":[],"10":[],"11":[],"12":[],"13":[],"14":[],"15":[],"16":[],"17":[],"18":[],"19":[],"20":[],"21":[],"22":[],"23":[],"24":[]},"m4":false,"altConst":0,"altReduccion":0},
   ARRIOSTRADA: {"type":"guyed","baseW":4,"topW":2,"height":120,"alturaInclinada":0,"nInc":0,"nStr":21,"nsec":21,"shaftW":1.5,"guyShape":"triangular","guyLevels":6,"guyHeights":[18,36,54,72,90,108],"guyCableData":[{"diam":"3/16\" (1 x 7 EHS)","diamData":{"name":"3/16","forma":"1 x 7","calidad":"EHS","peso":0.1086,"area":0.1386,"rotura":1.81,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/16\" (1 x 7 EHS)","diamData":{"name":"5/16","forma":"1 x 7","calidad":"EHS","peso":0.3051,"area":0.3849,"rotura":5.08,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"1/2\" (1 x 7 HS)","diamData":{"name":"1/2","forma":"1 x 7","calidad":"HS","peso":0.7694,"area":0.9853,"rotura":8.53,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 7 HS)","diamData":{"name":"5/8","forma":"1 x 7","calidad":"HS","peso":1.2099,"area":1.5395,"rotura":13.43,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 19 EHS)","diamData":{"name":"5/8","forma":"1 x 19","calidad":"EHS","peso":1.2203,"area":1.5043,"rotura":18.23,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"9/16\" (1 x 19 HS)","diamData":{"name":"9/16","forma":"1 x 19","calidad":"HS","peso":0.948,"area":1.2185,"rotura":10.93,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"}],"guyAnchorData":[{"elev":0,"radio":40,"azimut":0},{"elev":0,"radio":40,"azimut":120},{"elev":0,"radio":40,"azimut":240},{"elev":0,"radio":70,"azimut":0},{"elev":0,"radio":70,"azimut":120},{"elev":0,"radio":70,"azimut":240}],"guyPivot":true,"location":{"lat":19.710469100246826,"lng":-99.06828045845033},"assetNumber":"159047","assetName":"rew","cliente":"AT&T","pais":"","ingResponsable":"rwrefa","revision":"01","fechaCreacion":"2026-06-20","secData":[{"diag":"X","bays":2,"M":"L4X4X1/4","MCal":"A36","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":2.4,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":3.6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072}]},
 };
 function loadExampleProject(key, displayName) {
