@@ -3310,6 +3310,13 @@ function genGuyed(cfg) {
         if (cd.retenidaMedia && !deletedSet.has(`gy_${g}_${ai}_2`))
           members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_2`});
       });
+      (cd.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
+        if (deletedSet.has(_id)) return;
+        const aid = ancIdsAll[ai];
+        if (aid == null) return;
+        const k = nearestLeg(anchorDefsAll[ai].azimut);
+        members.push({ni: aid, nj: vIds[k], type:'guy', guyLevel:g, anchorIdx:ai, _id});
+      });
       for (let k = 0; k < 3; k++) {
         members.push({ni:lnodes[gLv][k], nj:vIds[k],       type:'stabarm', guyLevel:g});
         members.push({ni:lnodes[gLv][k], nj:vIds[(k+2)%3], type:'stabarm', guyLevel:g});
@@ -3373,6 +3380,12 @@ function genGuyed(cfg) {
         if (aid == null) return;
         const k = nearestLeg(anchorDefsAll[ai].azimut);
         members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_0`});
+      });
+      (cd.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
+        const aid = ancIdsAll[ai];
+        if (aid == null) return;
+        const k = nearestLeg(anchorDefsAll[ai].azimut);
+        members.push({ni: aid, nj: lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id});
       });
     }
   }
@@ -7816,7 +7829,9 @@ function openRetenidasModal() {
       diamData:   hasValidDiam ? prevCable[i].diamData : null,
       tensionPct: prevCable[i]?.tensionPct ?? 10,
       conexion:   prevCable[i]?.conexion ?? 'Antorchada',
-      nodes:      prevCable[i]?.nodes ?? _anchorRingIndices(1),
+      nodes:           prevCable[i]?.nodes ?? _anchorRingIndices(1),
+      deletedGuyCables: prevCable[i]?.deletedGuyCables ?? [],
+      addedCables:      prevCable[i]?.addedCables ?? [],
       triangulo:  prevCable[i]?.triangulo ?? false,
       retenidaMedia: prevCable[i]?.retenidaMedia ?? false,
       brazoLen:   prevCable[i]?.brazoLen ?? 1.5,
@@ -7868,7 +7883,7 @@ function renderRetTable() {
         <td><select style="width:150px;" onchange="guyCableData[${i}].conexion = this.value">${conexionOpts}</select></td>
         <td><div class="ret-cable-cell" onclick="openNodesModal(${i})">${nodesLbl}</div></td>
         <td style="text-align:center;"><input type="checkbox" ${c.triangulo?'checked':''}
-          onchange="guyCableData[${i}].triangulo = this.checked; if (!this.checked) guyCableData[${i}].retenidaMedia = false; renderRetTable();"></td>
+          onchange="guyCableData[${i}].triangulo = this.checked; if (!this.checked) { guyCableData[${i}].retenidaMedia = false; guyCableData[${i}].estabPuntalOn = false; guyCableData[${i}].estabTensorOn = false; } renderRetTable();"></td>
         <td style="text-align:center;"><input type="checkbox" ${c.retenidaMedia?'checked':''} ${c.triangulo?'':'disabled'}
           title="${c.triangulo?'':'Solo disponible con Triángulo Estabilizador activo'}"
           onchange="guyCableData[${i}].retenidaMedia = this.checked; renderRetTable();"></td>
@@ -14459,17 +14474,31 @@ function toggleTablaRetenidasLock() {
 // generada antes de este campo, proyecto viejo) se deshabilita el botón.
 function delGuyMember(memberIdx) {
   const m = _towerData.members[memberIdx];
-  if (!m || m.type !== 'guy' || m.anchorIdx == null) return;
+  if (!m || m.type !== 'guy') return;
   const cd = guyCableData[(m.guyLevel ?? 1) - 1];
   if (!cd) return;
-  if (cd.triangulo && m._id) {
-    // Triangulo: marcar solo este cable como eliminado; el ancla permanece
+  if (m._id && m._id.startsWith('gy_add_')) {
+    // Cable agregado manualmente: eliminarlo de addedCables
+    cd.addedCables = (cd.addedCables || []).filter(x => x._id !== m._id);
+  } else if (cd.triangulo && m._id) {
+    // Cable por defecto en triangulo: marcar como eliminado
     if (!Array.isArray(cd.deletedGuyCables)) cd.deletedGuyCables = [];
     if (!cd.deletedGuyCables.includes(m._id)) cd.deletedGuyCables.push(m._id);
   } else {
-    if (!Array.isArray(cd.nodes)) return;
+    // Modo simple: eliminar el ancla completa del nivel
+    if (m.anchorIdx == null || !Array.isArray(cd.nodes)) return;
     cd.nodes = cd.nodes.filter(x => x !== m.anchorIdx);
   }
+  _unsavedChanges = true;
+  refresh();
+  renderTablaRetenidas();
+}
+function addGuyMember(levelIdx) {
+  const cd = guyCableData[levelIdx];
+  if (!cd) return;
+  const ai = Array.isArray(cd.nodes) && cd.nodes.length > 0 ? cd.nodes[0] : 0;
+  if (!Array.isArray(cd.addedCables)) cd.addedCables = [];
+  cd.addedCables.push({_id: 'gy_add_' + levelIdx + '_' + Date.now(), anchorIdx: ai});
   _unsavedChanges = true;
   refresh();
   renderTablaRetenidas();
@@ -14506,6 +14535,16 @@ function _tablaRetenidasRows(unlocked) {
 function renderTablaRetenidas() {
   if (!_towerData || !document.getElementById('tabla-retenidas-body')) return;
   const rows = _tablaRetenidasRows(tablaRetenidasUnlocked);
+  const lvlOpts = guyCableData.map((c, i) =>
+    `<option value="${i}">Nivel ${i+1} (${guyHeights[i] ?? '?'} m)</option>`).join('');
+  const addBtn = tablaRetenidasUnlocked && guyCableData.length > 0 ? `
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 2px 2px;">
+      ${guyCableData.length > 1
+        ? `<select id="add-ret-lvl-sel" style="font-size:11px;padding:2px 4px;">${lvlOpts}</select>`
+        : ''}
+      <button class="btn-add-row" style="font-size:11px;"
+        onclick="addGuyMember(${guyCableData.length > 1 ? '+document.getElementById(\'add-ret-lvl-sel\').value' : '0'})">+ Agregar retenida</button>
+    </div>` : '';
   document.getElementById('tabla-retenidas-body').innerHTML = `
     <table class="ret-table db-table">
       <colgroup>
@@ -14514,7 +14553,7 @@ function renderTablaRetenidas() {
       </colgroup>
       <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Long. (m)</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>${addBtn}`;
 }
 
 // ── Tabla Apoyos — derivada de _computeSupportNodes(), mismo criterio que SUPPORTS en
