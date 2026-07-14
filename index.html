@@ -4417,7 +4417,7 @@ function _redrawWindForceArrows() {
   const _secFilter = r => r.isAntenna || aislarTramoSec === null || r.sec === aislarTramoSec + 1;
   _windForceResults.forEach(r => {
     if (!windForcesOn || !(r.F_kgf > 0) || !_secFilter(r)) return;
-    const n = _towerData.nodes[r.nodeIdx];
+    const n = r.pos || _towerData.nodes[r.nodeIdx];
     const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
     const len = lenPx * wupp;
     const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
@@ -4437,7 +4437,7 @@ function _redrawWindForceArrows() {
         if (!(r.F_kgf > 0) || !_secFilter(r)) return;
         if (r.isAntenna && !_wfLabelEquipos) return;
         if (!r.isAntenna && !_wfLabelTorre) return;
-        const n = _towerData.nodes[r.nodeIdx];
+        const n = r.pos || _towerData.nodes[r.nodeIdx];
         const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
         const len = lenPx * wupp;
         const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
@@ -4459,7 +4459,7 @@ function _redrawWindForceArrows() {
       const bySec = {};
       _windForceResults.forEach(r => {
         if (!(r.F_kgf > 0) || !_secFilter(r)) return;
-        const n = _towerData.nodes[r.nodeIdx];
+        const n = r.pos || _towerData.nodes[r.nodeIdx];
         if (r.isAntenna) {
           if (!_wfLabelEquipos) return;
           // Etiqueta individual por antena en vistas 2D
@@ -6481,9 +6481,12 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   }
 
   // TIA-222-H §2.6.11.3 — fuerzas de viento en retenidas (guy cables)
-  // FG = Cd · d · LG · Gh · qz · sin²(θg), aplicadas en el nodo final (m.nj)
+  // FG = Cd · d · LG · Gh · qz · sin²(θg). Repartida en N_GUY_SAMPLES puntos a lo
+  // largo de todo el cable (no en un único nodo puntual) — pedido explícito del
+  // usuario (2026-07-14), para que la vista 3D la muestre como fuerza distribuida.
   if (cfg.type === 'guyed') {
     const Cd = 1.2, Gh = 0.85;
+    const N_GUY_SAMPLES = 6;
     members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
@@ -6502,7 +6505,20 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
       const zMid = (na.z + nb.z) / 2;
       const qz = calcWindPressure(cfg, windData, zMid);
       const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
-      if (FG_kgf > 0) results.push({ sec: guyLevel, nodeIdx: m.nj, z: nb.z, F_kgf: FG_kgf, dir, isGuy: true });
+      if (FG_kgf > 0) {
+        const Fk = FG_kgf / N_GUY_SAMPLES;
+        for (let k = 0; k < N_GUY_SAMPLES; k++) {
+          const t = (k + 0.5) / N_GUY_SAMPLES;
+          results.push({
+            sec: guyLevel,
+            pos: { x: na.x + dx * t, y: na.y + dy * t, z: na.z + dz * t },
+            z: na.z + dz * t,
+            F_kgf: Fk,
+            dir,
+            isGuy: true,
+          });
+        }
+      }
     });
   }
 
