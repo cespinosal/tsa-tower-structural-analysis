@@ -15287,9 +15287,21 @@ async function _doExportSTAAD() {
   out += `*//////////////////////////////////////////////////////////////////\n`;
   out += `***** ESTADOS DE CARGA *****\n`;
   out += `*//////////////////////////////////////////////////////////////////\n`;
+  // Torres arriostradas (con retenidas/CABLE): cada caso de carga primario
+  // termina con PERFORM CABLE ANALYSIS + CHANGE (reanálisis no lineal de
+  // retenidas) — pedido explícito del usuario (2026-07-14). Sin cables no
+  // aplica (torre autosoportada/monopolo).
+  const _appendCableAnalysisChange = () => {
+    if (cableIds.length) {
+      out += `PERFORM CABLE ANALYSIS BASIC STEPS 10 PRINT STATICS CHECK\n`;
+      out += `CHANGE\n`;
+    }
+  };
+
   out += `*\n*PESO PROPIO ESTRUCTURAL\n*\n`;
   out += `LOAD 1 D\n`;
   out += `SELFWEIGHT Y -1.05 LIST ALL\n`;
+  _appendCableAnalysisChange();
 
   // Pre-calcular nodos de piernas y elevación media por sección (misma lógica que JOINT groups)
   const _wlLegSet = new Set();
@@ -15355,6 +15367,7 @@ async function _doExportSTAAD() {
         out += `${e.stId} FY -${e.peso.toFixed(2)}\n`;
       });
     }
+    _appendCableAnalysisChange();
   }
 
   // Emite el contenido de un caso de carga de viento (diseño o servicio)
@@ -15408,6 +15421,7 @@ async function _doExportSTAAD() {
         if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
+    _appendCableAnalysisChange();
   };
 
   const N = _wlDirs.length;
@@ -15433,20 +15447,35 @@ async function _doExportSTAAD() {
   out += `* COMBINACIONES DE DISENO\n`;
   out += `*\n`;
 
+  // Torres arriostradas (con retenidas/CABLE): cada combinación se define como
+  // caso de carga primario con REPEAT LOAD + PERFORM CABLE ANALYSIS (reanálisis
+  // no lineal de retenidas) en vez de LOAD COMB — pedido explícito del usuario
+  // (2026-07-14). Sin cables, se mantiene el LOAD COMB lineal de siempre.
+  const _emitCombo = (id, name, factorLine) => {
+    if (cableIds.length) {
+      out += `LOAD ${id} ${name}\n`;
+      out += `REPEAT LOAD\n`;
+      out += `${factorLine}\n`;
+      out += `PERFORM CABLE ANALYSIS BASIC STEPS 10 PRINT STATICS CHECK\n`;
+      out += `CHANGE\n`;
+    } else {
+      out += `LOAD COMB ${id} ${name}\n`;
+      out += `${factorLine}\n`;
+    }
+  };
+
   // 1.2D + 1.0DG + 1.0W{dir}
   _wlDirs.forEach((angleDeg, di) => {
     const cName = hasDG ? `1.2D+1.0DG+1.0W${angleDeg}` : `1.2D+1.0W${angleDeg}`;
-    out += `LOAD COMB ${firstComb + di} ${cName}\n`;
-    if (hasDG) out += `1 1.2 2 1.0 ${windBase + di} 1.0\n`;
-    else        out += `1 1.2 ${windBase + di} 1.0\n`;
+    const factorLine = hasDG ? `1 1.2 2 1.0 ${windBase + di} 1.0` : `1 1.2 ${windBase + di} 1.0`;
+    _emitCombo(firstComb + di, cName, factorLine);
   });
 
   // 0.9D + 1.0DG + 1.0W{dir}
   _wlDirs.forEach((angleDeg, di) => {
     const cName = hasDG ? `0.9D+1.0DG+1.0W${angleDeg}` : `0.9D+1.0W${angleDeg}`;
-    out += `LOAD COMB ${firstComb + N + di} ${cName}\n`;
-    if (hasDG) out += `1 0.9 2 1.0 ${windBase + di} 1.0\n`;
-    else        out += `1 0.9 ${windBase + di} 1.0\n`;
+    const factorLine = hasDG ? `1 0.9 2 1.0 ${windBase + di} 1.0` : `1 0.9 ${windBase + di} 1.0`;
+    _emitCombo(firstComb + N + di, cName, factorLine);
   });
 
   out += `*\n`;
@@ -15456,9 +15485,8 @@ async function _doExportSTAAD() {
   // 1.0D + 1.0DG + 1.0WS{dir}  (WS = carga de servicio)
   _wlDirs.forEach((angleDeg, di) => {
     const cName = hasDG ? `1.0D+1.0DG+1.0WS${angleDeg}` : `1.0D+1.0WS${angleDeg}`;
-    out += `LOAD COMB ${firstComb + 2 * N + di} ${cName}\n`;
-    if (hasDG) out += `1 1.0 2 1.0 ${windBase + N + di} 1.0\n`;
-    else        out += `1 1.0 ${windBase + N + di} 1.0\n`;
+    const factorLine = hasDG ? `1 1.0 2 1.0 ${windBase + N + di} 1.0` : `1 1.0 ${windBase + N + di} 1.0`;
+    _emitCombo(firstComb + 2 * N + di, cName, factorLine);
   });
 
   out += `FINISH\n`;
