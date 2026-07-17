@@ -8644,7 +8644,7 @@ function _updateAntAddAngles() {
   box.innerHTML = '';
   const tipo = document.getElementById('ttype')?.value || '';
   const sqDef  = [45, 135, 225, 315];
-  const triDef = [0, 120, 180];
+  const triDef = [0, 120, 240];
   for (let i = 0; i < n; i++) {
     const defAz = (i < prev.length) ? prev[i]
       : tipo === 'square'     ? (sqDef[i]  ?? Math.round(45  + (360/n)*i))
@@ -9164,10 +9164,11 @@ function _fdDiamHex(diam) { return parseInt(_fdDiamCss(diam).slice(1), 16); }
 function _fdFaces(type) {
   if (type === 'monopole')
     return [{id:'EXT',lbl:'Externa'},{id:'INT',lbl:'Interna'}];
-  if (type === 'triangular' || (type === 'guyed' && (getConfig()?.guyShape || 'triangular') !== 'square'))
-    return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'INT',lbl:'Interna'}];
-  // square y square-guyed
-  return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'D',lbl:'Cara D'},{id:'INT',lbl:'Interna'}];
+  const cfg = getConfig();
+  const eff = type === 'guyed' ? ((cfg?.guyShape||'triangular') === 'square' ? 'square' : 'triangular') : type;
+  if (eff === 'square')
+    return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'D',lbl:'Cara D'},{id:'INT',lbl:'Interna'}];
+  return [{id:'A',lbl:'Cara A'},{id:'B',lbl:'Cara B'},{id:'C',lbl:'Cara C'},{id:'INT',lbl:'Interna'}];
 }
 
 function toggleFeedersTab() {
@@ -9349,14 +9350,6 @@ function toggleHerrajesViz() {
 function _buildFeedersPanel() {
   const body = document.getElementById('feeders-panel-body');
   if (!body) return;
-
-  // Migración: torres arriostradas antes guardaban ruta='EXT'; convertir a 'A'
-  const _migCfg = getConfig();
-  if (_migCfg?.type === 'guyed') {
-    feedersData.forEach(e => { if (e.ruta === 'EXT') e.ruta = 'A'; });
-    cgoData.forEach(c => { if (c.ruta === 'EXT') c.ruta = 'A'; });
-    escalData.forEach(c => { if (c.ruta === 'EXT') c.ruta = 'A'; });
-  }
 
   const tblRows = [...feedersData].sort((a,b) => +a.zi - +b.zi).map(c => {
     if (c.type === 'paquete') {
@@ -9751,8 +9744,8 @@ function _cgoOpenAddForm() {
 function _buildCgoHtml() {
   const cfg  = getConfig();
   const tt   = cfg?.type||'triangular';
-  const isGuyedSq = tt==='guyed' && (cfg?.guyShape||'triangular')==='square';
-  const opts = (tt==='square'||isGuyedSq)?['A','B','C','D']:(tt==='monopole')?['EXT']:['A','B','C'];
+  const eff  = tt==='guyed' ? ((cfg?.guyShape||'triangular')==='square'?'square':'triangular') : tt;
+  const opts = eff==='square'?['A','B','C','D']:eff==='monopole'?['EXT']:['A','B','C'];
   const fOpts= opts.map(f=>`<option value="${f}">${_FD_FLBL[f]||f}</option>`).join('');
   const wpm  = _cgoWeightPerM();
   const defZf= (cfg?.height||30).toFixed(0);
@@ -9890,8 +9883,8 @@ function _escalOpenAddForm() {
 function _buildEscalHtml() {
   const cfg  = getConfig();
   const tt   = cfg?.type||'triangular';
-  const isGuyedSq = tt==='guyed' && (cfg?.guyShape||'triangular')==='square';
-  const opts = (tt==='square'||isGuyedSq)?['A','B','C','D']:(tt==='monopole')?['EXT']:['A','B','C'];
+  const eff  = tt==='guyed' ? ((cfg?.guyShape||'triangular')==='square'?'square':'triangular') : tt;
+  const opts = eff==='square'?['A','B','C','D']:eff==='monopole'?['EXT']:['A','B','C'];
   const fOpts= opts.map(f=>`<option value="${f}">${_FD_FLBL[f]||f}</option>`).join('');
   const rOpts= _ESC_RUNGS.map(r=>`<option value="${r.d}">${r.label}</option>`).join('');
   const defZf= (cfg?.height||30).toFixed(0);
@@ -10189,8 +10182,12 @@ function _fdDrawPlan() {
   const r_mono = Math.round(W * 0.33);
   const LO_base = Math.round(W * 0.072);  // label offset
   const _cfg      = getConfig() || {};
-  const towerType = _cfg.type || 'square';
+  const _rawType  = _cfg.type || 'square';
   const guyShape  = _cfg.guyShape || 'triangular';
+  // Torres arriostradas usan el mismo código de planta que autosoportadas del mismo shape
+  const towerType = _rawType === 'guyed'
+    ? (guyShape === 'square' ? 'square' : 'triangular')
+    : _rawType;
 
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = '#0A1628'; ctx.fillRect(0,0,W,H);
@@ -10326,52 +10323,6 @@ function _fdDrawPlan() {
     ctx.fillText('INT',cx,cy+r_mono+LO);
     drawDots('EXT', (lat, rad) => [cx+lat, cy-r_mono-rad]);
     drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
-
-  } else if (towerType === 'guyed') {
-    // Arriostrada: triangular (3 patas) o cuadrada (4 patas) según guyShape
-    const isGuySquare = guyShape === 'square';
-    const nGuyLegs = isGuySquare ? 4 : 3;
-    const gAngles  = isGuySquare
-      ? [225,315,45,135].map(d => d*Math.PI/180)
-      : [270,30,150].map(d => d*Math.PI/180);
-    const tr = hs + 2;
-    const gPts = gAngles.map(a => [cx + tr*Math.cos(a), cy + tr*Math.sin(a)]);
-
-    // Contorno del polígono
-    ctx.beginPath(); ctx.moveTo(gPts[0][0], gPts[0][1]);
-    gPts.forEach(([x,y]) => ctx.lineTo(x,y)); ctx.closePath();
-    ctx.fillStyle = '#0D1E35'; ctx.fill();
-    ctx.strokeStyle = '#2a4a70'; ctx.lineWidth = 1.5; ctx.stroke();
-    gPts.forEach(([x,y]) => {
-      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y);
-      ctx.strokeStyle = '#172a45'; ctx.lineWidth = .8; ctx.stroke();
-    });
-
-    // Caras y etiquetas: igual que autosoportada del mismo shape
-    const gFaceIds = isGuySquare ? ['A','B','C','D'] : ['A','B','C'];
-    const gFaceMids = gPts.map(([x,y], i) => {
-      const [nx2,ny2] = gPts[(i+1)%nGuyLegs];
-      return [(x+nx2)/2, (y+ny2)/2];
-    });
-    // Etiquetas de cara
-    gFaceMids.forEach(([fx,fy], fi) => {
-      const dx = fx-cx, dy = fy-cy, d = Math.sqrt(dx*dx+dy*dy)||1;
-      ctx.fillStyle = '#2a4a70';
-      ctx.fillText(gFaceIds[fi], fx+dx/d*LO, fy+dy/d*LO);
-    });
-    ctx.fillText('INT', cx, cy+LO*0.4);
-    // Cables, CGO y escalerilla por cara
-    gFaceMids.forEach(([fx,fy], fi) => {
-      const face = gFaceIds[fi];
-      const edgeX = fx-cx, edgeY = fy-cy, eLen = Math.sqrt(edgeX*edgeX+edgeY*edgeY)||1;
-      const nx = edgeX/eLen, ny = edgeY/eLen, tx = -ny, ty = nx;
-      const pFn = (lat, rad) => [fx + tx*lat + nx*rad, fy + ty*lat + ny*rad];
-      let _br = 0;
-      if (_planCgoFaces[face])   { drawCGObar(pFn,   hs*0.28, _br); _br += _cgoPlanDepth; }
-      if (_planEscalFaces[face]) { drawEscalBar(pFn, hs*0.28, _br); _br += _escalPlanDepth; }
-      drawDots(face, pFn, _br);
-    });
-    drawDots('INT', (lat, rad) => [cx + lat*0.4, cy]);
 
   } else if (towerType === 'triangular') {
     const tr = hs + 2;
@@ -10572,6 +10523,12 @@ function _renderFeeders3D() {
 
   // hwAt: sigue la cara real de la torre
   function hwAt(z) {
+    // Arriostrada: ancho constante = shaftW (salvo tramo pivote en la base)
+    if (cfg.type === 'guyed') {
+      const pivotH = cfg.guyPivot ? (+(cfg.secData||[])[0]?.h || 6) : 0;
+      const sw = cfg.shaftW || 1;
+      return (pivotH > 0 && z < pivotH ? sw * z / pivotH : sw) / 2;
+    }
     let t;
     if (cfg.m4 && _fdM4zEnd > _fdM4zStart) {
       if (z <= _fdM4zStart)       t = 0;
@@ -10583,7 +10540,12 @@ function _renderFeeders3D() {
     return ((1-t)*(cfg.baseW||4) + t*(cfg.topW||2)) / 2;
   }
 
-  const towerType = cfg.type || 'square';
+  const _rawTT   = cfg.type || 'square';
+  const _guyShape = cfg.guyShape || 'triangular';
+  // Torres arriostradas usan los mismos vectores de cara que autosoportadas del mismo shape
+  const towerType = _rawTT === 'guyed'
+    ? (_guyShape === 'square' ? 'square' : 'triangular')
+    : _rawTT;
 
   // Group all cable instances by face for unified lateral distribution
   const allFaceIds = _fdFaces(towerType).map(f=>f.id);
@@ -10605,7 +10567,7 @@ function _renderFeeders3D() {
       const ang = angles[face] ?? 0;
       return { nx: Math.cos(ang), ny: Math.sin(ang) };
     }
-    if (towerType === 'monopole' || towerType === 'guyed') {
+    if (towerType === 'monopole') {
       // EXT = front face (y+), INT = center
       return face === 'EXT' ? { nx: 0, ny: 1 } : { nx: 0, ny: 0 };
     }
