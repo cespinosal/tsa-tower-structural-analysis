@@ -7669,22 +7669,16 @@ function getConfig() {
     document.getElementById('nStr').value = nStr;   // mantener sincronizado
     alturaInclinada = 0;
   } else if (tipo === 'monopole') {
-    alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
-    if (alturaInclinada > 0) {
-      // Igual que torres convencionales: nInc se calcula desde alturaInclinada
-      nInc = 0; let cumH = 0;
-      for (let i = 0; i < secData.length; i++) {
-        if (cumH < alturaInclinada - 0.001) nInc++;
-        cumH += +secData[i]?.h || 0;
-      }
-      nStr = Math.max(0, secData.length - nInc);
-      document.getElementById('nInc').value = nInc;
-      document.getElementById('nStr').value = nStr;
-    } else {
-      // Escalonado (sin tramos inclinados): nInc=0 fijo
-      nInc = Math.max(0, +document.getElementById('nInc').value || 0);
-      nStr = Math.max(0, +document.getElementById('nStr').value || 0);
-    }
+    // nInc/nStr son el conteo FIJO de tramos definido al crear el monopolo (Cónico/
+    // Escalonado/Combinado) — a diferencia de las torres convencionales, NO se derivan de
+    // "alturaInclinada" (ese campo es genérico a otros tipos y puede quedar desincronizado
+    // de los tramos reales, causando que el cono "se coma" tramos rectos ya asignados).
+    nInc = Math.max(0, +document.getElementById('nInc').value || 0);
+    nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+    // alturaInclinada es informativa/derivada: suma real de las alturas de los nInc tramos
+    // inclinados (usada por genMonopole/genMixed como zInc del ahusado).
+    alturaInclinada = 0;
+    for (let i = 0; i < nInc; i++) alturaInclinada += +secData[i]?.h || 0;
   } else {
     alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
     nInc = 0; let cumH = 0;
@@ -8085,10 +8079,14 @@ function _drawMonopolePreview3D(svgEl, cfg) {
   const yBase = yTop + monoH;
   const ell   = 0.13;
 
-  // Diámetro real de cada sección (para escalonado/combinado)
+  // Diámetro real de cada sección recta (para escalonado/combinado). En combinado el cono
+  // ya terminó en topD al final del último tramo inclinado — los tramos rectos son
+  // constantes en topD por defecto (no continúan el ahusado); en escalonado (nInc=0) se
+  // interpola base→tope a través de los nStr tramos, como antes.
   const dOf = i => {
     const v = monoAperturas[i];
-    return v != null ? v : +(baseD + (topD - baseD) * (nInc + i + 1) / nTot).toFixed(2);
+    if (v != null) return v;
+    return nInc > 0 ? topD : +(baseD + (topD - baseD) * (i + 1) / nTot).toFixed(2);
   };
 
   // Profile: [{yScr, rpx}] de base a tope — incluye puntos duplicados para escalones
@@ -8116,8 +8114,9 @@ function _drawMonopolePreview3D(svgEl, cfg) {
     }
   } else { // combinado
     for (let i = 0; i <= nInc; i++) {
-      const t = i / nTot;
-      prof.push({yScr: yOf(t), rpx: (baseD + (topD - baseD) * i / nTot) / 2 * rScale});
+      const tY = i / nTot;                 // posición vertical: reparto uniforme entre nTot tramos
+      const tR = i / nInc;                 // ahusado: SOLO a través de los nInc tramos inclinados
+      prof.push({yScr: yOf(tY), rpx: (baseD + (topD - baseD) * tR) / 2 * rScale});
     }
     for (let i = 0; i < nStr; i++) {
       const tTop = (nInc + i + 1) / nTot;
@@ -8364,15 +8363,24 @@ function buildMonoAperturasList() {
   const baseW = +document.getElementById('s-baseW')?.value || 4;
   const topW  = +document.getElementById('s-topW')?.value  || 2;
   const prev = monoAperturas.slice();
-  // Diámetro por defecto: interpolación lineal del ahusado global (base→tope)
-  const dDefault = i => +(baseW + (topW - baseW) * (nInc + i + 1) / (nInc + nRectos)).toFixed(2);
+  // Diámetro inicial (en la base) de cada tramo recto. En "Combinado" (nInc>0) la parte
+  // cónica ya termina en topW al final del último tramo inclinado — los tramos rectos que
+  // siguen NO continúan el ahusado, son de diámetro constante (por defecto, topW), editable
+  // por el usuario si quiere reducir en algún tramo (ver ejemplo embebido MONOPOLO).
+  // En "Escalonado" (nInc=0) no hay cono separado: se interpola base→tope a través de
+  // los nRectos tramos, como antes.
+  const dDefault = i => nInc > 0
+    ? +topW.toFixed(2)
+    : +(baseW + (topW - baseW) * i / nRectos).toFixed(2);
   monoAperturas = Array.from({length: nRectos}, (_, i) =>
     (prev[i] !== undefined && prev[i] !== null) ? prev[i] : dDefault(i));
   // Layout vertical: una fila por tramo con etiqueta "Tramo N" a la izquierda
   let html = '<div style="display:flex;flex-direction:column;gap:4px;">';
-  // Tramos inclinados (Combinado): no editables, en gris
+  // Tramos inclinados (Combinado): no editables, en gris — diámetro inicial (base) de cada
+  // tramo, interpolado SOLO a través de los nInc tramos inclinados (topW se alcanza justo
+  // al final del último tramo inclinado, no se reparte entre los tramos rectos).
   for (let i = 0; i < nInc; i++) {
-    const dInc = +(baseW + (topW - baseW) * (i+1)/(nInc + nRectos)).toFixed(2);
+    const dInc = +(baseW + (topW - baseW) * i/nInc).toFixed(2);
     html += `
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="min-width:58px;font-size:11px;color:var(--muted,#888);">Tramo ${i+1}</span>
@@ -8968,6 +8976,14 @@ function generateTowerFromSetup() {
     if (_monoTipoVal === 'escalonado') {
       const r = document.getElementById('row-altInc-main');
       if (r) r.style.display = 'none';
+    } else {
+      // Reflejar la altura inclinada REAL (suma de las alturas de los nInc tramos ya
+      // creados) — no el valor genérico heredado de s-altInc, que no guarda relación
+      // con los tramos de este monopolo.
+      let cumH = 0;
+      for (let i = 0; i < rectoStart; i++) cumH += +secData[i]?.h || 0;
+      const aiEl = document.getElementById('alturaInclinada');
+      if (aiEl) aiEl.value = +cumH.toFixed(2);
     }
     refresh();
   }
@@ -16744,6 +16760,20 @@ function insertSeccion(i) {
     return;
   }
   secData.splice(i + 1, 0, copy);
+  // Monopolo: nInc/nStr son conteos fijos (ver getConfig()) — al insertar un tramo hay que
+  // incrementar el conteo correspondiente, si no el nuevo tramo queda fuera de nTot y no se dibuja.
+  // Duplicar el ÚLTIMO tramo inclinado (i === oldNInc-1) cuenta como tramo RECTO: el nuevo
+  // tramo queda justo en/sobre el límite del cono (altura inclinada), así que debe quedar
+  // con diámetro editable en el sec-modal en vez de seguir ahusándose.
+  if (getConfig().type === 'monopole') {
+    const oldNInc = +document.getElementById('nInc').value || 0;
+    if (i < oldNInc - 1) {
+      document.getElementById('nInc').value = oldNInc + 1;
+    } else {
+      const strEl = document.getElementById('nStr');
+      strEl.value = (+strEl.value || 0) + 1;
+    }
+  }
   buildSectionRows(secData.length);
   refresh();
   refitView();
@@ -17460,13 +17490,16 @@ function openSecModal(idx) {
   // sin borde/radio inferior para que se vea como una sola caja junto con el renglón de calidad.
   const profAttrs = field => `readonly onclick="openProfilePicker('${field}')"
     style="cursor:pointer;border-bottom:none;border-radius:4px 4px 0 0;"`;
-  // Diámetro ahusado calculado (tramos inclinados) — usando alturas reales acumuladas
-  const monoApCalc = (() => {
+  // Diámetro ahusado calculado (tramos inclinados) — diámetros INICIAL (en la base del tramo)
+  // y FINAL (en su tope), usando alturas reales acumuladas. Es solo referencia visual; el
+  // cálculo estructural exportado a STAAD sigue usando el promedio start/end por sub-segmento.
+  const _monoDiamAt = z => {
     const zInc = secData.slice(0, nInc).reduce((a,d) => a + (+d.h||0), 0);
-    const z    = secData.slice(0, idx+1).reduce((a,d) => a + (+d.h||0), 0);
     const t    = zInc > 0 ? Math.min(z/zInc, 1) : 1;
     return (cfg.baseW + (cfg.topW-cfg.baseW)*t).toFixed(2);
-  })();
+  };
+  const monoApCalc      = _monoDiamAt(secData.slice(0, idx).reduce((a,d) => a + (+d.h||0), 0));
+  const monoApCalcFinal = _monoDiamAt(secData.slice(0, idx+1).reduce((a,d) => a + (+d.h||0), 0));
 
   document.getElementById('sec-modal-body').innerHTML = `
     <div class="sm-card">
@@ -17523,15 +17556,24 @@ function openSecModal(idx) {
               <input class="sm-inp" id="mt-monoThk" type="text" placeholder="ej. 6.35"
                 value="${s.monoThk==='-'?'':s.monoThk??''}" oninput="buildSecModalPreview()">
             </div>
+            ${idx < nInc ? `
+            <div class="sm-field" style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+              <label class="sm-lbl">DIÁMETRO INICIAL DEL TRAMO (m)</label>
+              <input class="sm-inp" id="mt-monoAp" type="text" disabled
+                style="color:var(--txt-sec);"
+                value="${monoApCalc} m (referencia — calculado)">
+            </div>
+            <div class="sm-field" style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+              <label class="sm-lbl">DIÁMETRO FINAL DEL TRAMO (m)</label>
+              <input class="sm-inp" id="mt-monoApFinal" type="text" disabled
+                style="color:var(--txt-sec);"
+                value="${monoApCalcFinal} m (referencia — calculado)">
+            </div>` : `
             <div class="sm-field" style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
               <label class="sm-lbl">DIÁMETRO DEL TRAMO (m) — solo tramos rectos</label>
-              ${idx < nInc
-                ? `<input class="sm-inp" id="mt-monoAp" type="text" disabled
-                     style="color:var(--txt-sec);"
-                     value="${monoApCalc} m (Se calcula automáticamente)">`
-                : `<input class="sm-inp" id="mt-monoAp" type="number" min="0.1" step="0.1"
-                     value="${s.monoAp ?? ''}" placeholder="usa el ahusado general">`}
-            </div>
+              <input class="sm-inp" id="mt-monoAp" type="number" min="0.1" step="0.1"
+                value="${s.monoAp ?? ''}" placeholder="usa el ahusado general">
+            </div>`}
             <div class="sm-field" style="border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
               <label class="sm-lbl">CALIDAD DE ACERO (Fy)</label>
               <select class="sm-inp" id="mt-monoFy">${steelGradeOptions(s.monoFy)}</select>
@@ -17938,7 +17980,9 @@ function applySecModal() {
   // la zona inclinada pero su altura lo hace terminar después de ella, se recorta para
   // que quepa exacto hasta la altura inclinada (no se permite mezclar ambos comportamientos
   // dentro del mismo tramo).
-  { const altH = +document.getElementById('alturaInclinada')?.value || 0;
+  // Monopolo: nInc/nStr son conteos fijos de tramos (no derivados de "alturaInclinada",
+  // que es un campo genérico de torres convencionales) — este recorte no aplica ahí.
+  { const altH = isMonoModal ? 0 : (+document.getElementById('alturaInclinada')?.value || 0);
     if (altH > 0) {
       let cumH = 0;
       for (let i = 0; i < modalIdx; i++) cumH += +secData[i]?.h || 0;
