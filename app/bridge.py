@@ -114,11 +114,11 @@ class Bridge(QObject):
         path, _ = QFileDialog.getSaveFileName(
             None, "Guardar proyecto",
             str(Path(DEFAULT_PROJECT_DIR) / suggested_name),
-            "TSA Project (*.TSA *.tsa)")
+            "TSA Project (*.tsa)")
         if not path:
             return json.dumps({"cancelled": True})
         if not path.lower().endswith(".tsa"):
-            path += ".TSA"
+            path += ".tsa"
         try:
             Path(path).write_text(json_str, encoding="utf-8")
             return json.dumps({"cancelled": False, "path": path, "filename": Path(path).name})
@@ -137,7 +137,7 @@ class Bridge(QObject):
     def openProjectDialog(self) -> str:
         path, _ = QFileDialog.getOpenFileName(
             None, "Abrir proyecto", DEFAULT_PROJECT_DIR,
-            "TSA Project (*.TSA *.tsa *.json)")
+            "TSA Project (*.tsa)")
         if not path:
             return json.dumps({"cancelled": True})
         try:

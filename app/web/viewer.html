@@ -1581,7 +1581,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
 <!-- ══════════════ TAB BAR ══════════════════════════════════════ -->
 <div class="tabbar">
-  <button class="tab active" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
+  <button class="tab active" id="tab-info" onclick="switchTab(this, 'info')">⬡ &nbsp;FEM</button>
 
   <button class="tab" id="tab-cargasviento" onclick="toggleWindForces()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;margin-right:4px"><path d="M9.59 4.59A2 2 0 1 1 11 8H2"/><path d="M12.59 11.59A2 2 0 1 1 14 15H2"/><path d="M17.73 7.73A2.5 2.5 0 1 1 19.5 12H2"/></svg>Cargas de Viento</button>
   <button class="tab" id="tab-antenas" onclick="toggleAntenasTab()">📡 &nbsp;Antenas</button>
@@ -1988,11 +1988,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
           <input class="tf-input" type="number" id="s-nStr" value="2" min="0" max="40" oninput="buildSetupPreview()"></div>
         <input type="hidden" id="s-nInc" value="0">
         <div class="tf-row" id="s-row-monoTramos" style="display:none;"><span class="tf-lbl">NÚMERO DE TRAMOS</span>
-          <input class="tf-input" type="number" id="s-monoTramos" value="6" min="1" max="40" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramos" value="" placeholder="-" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosInc" style="display:none;"><span class="tf-lbl">TRAMOS INCLINADOS</span>
-          <input class="tf-input" type="number" id="s-monoTramosInc" value="4" min="1" max="40" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramosInc" value="" placeholder="-" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoTramosRec" style="display:none;"><span class="tf-lbl">TRAMOS RECTOS</span>
-          <input class="tf-input" type="number" id="s-monoTramosRec" value="2" min="1" max="40" oninput="buildMonoAperturasList()"></div>
+          <input class="tf-input" type="number" id="s-monoTramosRec" value="" placeholder="-" min="1" max="40" oninput="buildMonoAperturasList()"></div>
         <div class="tf-row" id="s-row-monoAperturas" style="display:none;"><span class="tf-lbl">DIÁMETRO DE CADA TRAMO RECTO (m)</span>
           <div id="s-monoAperturas-list" style="display:flex;flex-direction:column;gap:4px;"></div></div>
         <div class="tf-row" id="s-row-guyShape"><span class="tf-lbl">FORMA DEL MÁSTIL</span>
@@ -2207,7 +2207,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   </div>
 
   <!-- File input oculto para Abrir proyecto -->
-  <input type="file" id="file-input" accept=".TSA,.tsa,.json" style="display:none" onchange="loadProject(this)">
+  <input type="file" id="file-input" accept=".tsa" style="display:none" onchange="loadProject(this)">
 
   <!-- 3-D Viewer -->
   <div id="viewer-wrap">
@@ -2995,10 +2995,47 @@ if (typeof qt !== 'undefined' && qt.webChannelTransport && typeof QWebChannel !=
 // ══════════════════════════════════════════════════════════════════
 //  TOWER GENERATOR
 // ══════════════════════════════════════════════════════════════════
+// Monopolo para el VISOR: eje central (1 nodo/límite, 1 barra/tramo) + monoProf para 3D.
+// genMonopole() sigue existiendo para exportación STAAD; aquí solo se toma su monoProf.
+function _genMonopoleForDisplay(cfg) {
+  const {nodes, members} = initBuffers();
+  // Blindar contra nInc/nStr desincronizados (ej. al borrar un tramo sin actualizar el campo oculto)
+  const nTot = Math.min(cfg.nInc + cfg.nStr, secData.length);
+  if (nTot === 0) return {nodes, members, monoProf: []};
+
+  const secH  = sec => +secData[sec]?.h || 6;
+  const r0 = cfg.baseW / 2, r1 = cfg.topW / 2;
+  const zInc  = cfg.alturaInclinada > 0 ? cfg.alturaInclinada
+    : (cfg.nInc > 0 ? Array.from({length: cfg.nInc}, (_, i) => secH(i)).reduce((a,b)=>a+b,0) : 0);
+  const taperR = z => { const t = zInc > 0 ? Math.min(z / zInc, 1) : 1; return r0 + (r1 - r0) * t; };
+
+  // monoProf para render 3D sólido (CylinderGeometry en renderTower).
+  // Cada sección inicia con un punto propio (mismo z que fin de la anterior, h=0 → skip)
+  // para que p0.sec siempre corresponda a la sección correcta y el color sea el correcto.
+  const monoProf = [];
+  let z = 0, prev = addNode(nodes, 0, 0, 0);
+  for (let sec = 0; sec < nTot; sec++) {
+    const sides  = Math.max(3, secData[sec]?.monoSides || 12);
+    const bays   = Math.max(1, secData[sec]?.bays || 1);
+    const hBay   = secH(sec) / bays;
+    const isInc  = sec < cfg.nInc;
+    const apFijo = secData[sec]?.monoAp;
+    const rConst = (!isInc && apFijo != null) ? apFijo / 2 : null;
+    const radAt  = zz => rConst != null ? rConst : taperR(zz);
+    // Punto de inicio de la sección con el sec correcto — garantiza color por tramo
+    monoProf.push({z, r: radAt(z), sides, sec});
+    for (let b = 0; b < bays; b++) { z += hBay; monoProf.push({z, r: radAt(z), sides, sec}); }
+    const cur = addNode(nodes, 0, 0, z);
+    members.push({ni: prev, nj: cur, type: 'leg', sec});
+    prev = cur;
+  }
+  return {nodes, members, monoProf, structNodes: nodes.length};
+}
+
 function generateTower(cfg) {
   return cfg.type === 'square'   ? genSquare(cfg)
        : cfg.type === 'guyed'    ? genGuyed(cfg)
-       : cfg.type === 'monopole' ? genMonopole(cfg)
+       : cfg.type === 'monopole' ? _genMonopoleForDisplay(cfg)
        :                           genTriangular(cfg);
 }
 
@@ -3044,7 +3081,14 @@ function genMonopole(cfg) {
       members.push({ni: outerRing[j], nj: innerRing[j], type: 'monothk', sec});
   };
 
+  const monoProf = []; // [{z, r, sides, sec}] — perfil para visor 3D sólido
   let z = 0, prevRing = null, prevSides = null, prevR = null;
+  {
+    // Punto inicial en z=0: radio real de la sección 0 (no taperR que da r1 cuando nInc=0)
+    const sec0ap = secData[0]?.monoAp;
+    const rInit  = (0 >= cfg.nInc && sec0ap != null) ? sec0ap/2 : r0;
+    monoProf.push({z: 0, r: rInit, sides: Math.max(3, secData[0]?.monoSides || 12), sec: 0});
+  }
   for (let sec = 0; sec < nTot; sec++) {
     const sides = Math.max(3, secData[sec]?.monoSides || 12);
     const bays  = Math.max(1, secData[sec]?.bays || 1);
@@ -3061,6 +3105,12 @@ function genMonopole(cfg) {
     // (ej. Escalonado pasando de un diámetro a otro), se acepta el mismo salto geométrico
     // que con un cambio de lados: anillo nuevo, sin piernas cruzando el escalón.
     const rStart = radiusAt(z);
+    // Escalón: radio cambia entre secciones → duplicar z con el nuevo radio para que el
+    // CylinderGeometry de esta sección arranque recto (no se rellena el escalón, solo se evita el ahusado falso)
+    const lastP = monoProf[monoProf.length - 1];
+    if (lastP && Math.abs(lastP.z - z) < 1e-6 && Math.abs(lastP.r - rStart) > 1e-6) {
+      monoProf.push({z, r: rStart, sides, sec});
+    }
     let curRing;
     if (prevRing && prevSides === sides && prevR != null && Math.abs(prevR - rStart) < 1e-6) {
       curRing = prevRing;
@@ -3082,12 +3132,13 @@ function genMonopole(cfg) {
         members.push({ni: curRing[j], nj: nextRing[j], type: 'leg', sec});
       closeRing(nextRing, sides, sec, 'monothk');
       addThicknessRing(nextRing, z, sides, r, sec);
+      monoProf.push({z, r, sides, sec}); // punto del perfil para visor sólido
       curRing = nextRing;
       prevR = r;
     }
     prevRing = curRing; prevSides = sides;
   }
-  return {nodes, members};
+  return {nodes, members, monoProf};
 }
 
 // Eje del monopolo — SOLO para exportación/análisis (no para el visor 3D): 1 nodo por
@@ -4441,6 +4492,7 @@ function _worldUnitsPerPixel() {
   return 2 * Math.tan(vFov / 2) * dist / h;
 }
 let _windForceResults = null;
+let _monoSecW = {};   // sec (1-based) → w kgf/m calculado al punto medio (tabla)
 let _selectedWindAngle = 0;   // ángulo activo en el panel y en las flechas 3D
 let _windForceLastWupp = null;
 let _wfLabelTorre   = true;   // sub-opción cascada: etiquetas de la torre
@@ -4456,135 +4508,240 @@ function _redrawWindForceArrows() {
   if (!windForcesOn && !windForceLabelsOn) return;
   const wupp = _worldUnitsPerPixel();
   _windForceLastWupp = wupp;
-  const maxF = Math.max(...(_windForceResults.map(r => r.F_kgf)), 1e-6);
   const maxLenPx = 55, minLenPx = 9;
-  // ── Flechas: una por nodo de pierna ──────────────────────────────
-  // r.sec es 1-based; aislarTramoSec es 0-based → comparar con +1
   const _secFilter = r => r.isAntenna || aislarTramoSec === null || r.sec === aislarTramoSec + 1;
+  // maxF para cargas puntuales (celosía/antenas); maxW para cargas lineales (monopolo).
+  const maxF = Math.max(..._windForceResults.filter(r => !r.isLinear).map(r => r.F_kgf), 1e-6);
+  // maxW usa valores del punto medio (tabla) cuando disponibles; fallback a nodos
+  const _monoWVals = Object.values(_monoSecW);
+  const maxW = _monoWVals.length
+    ? Math.max(..._monoWVals, 1e-6)
+    : Math.max(..._windForceResults.filter(r => r.isLinear).map(r => r.F_per_m || 0), 1e-6);
+
+  // ── Pre-agrupar resultados ────────────────────────────────────────────
+  const udlBySec = {};   // secciones con carga distribuida (monopolo)
+  const ptResults = [];  // cargas puntuales (celosía + antenas)
   _windForceResults.forEach(r => {
-    if (!windForcesOn || !(r.F_kgf > 0) || !_secFilter(r)) return;
-    const n = r.pos || _towerData.nodes[r.nodeIdx];
-    const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
-    const len = lenPx * wupp;
-    const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
-    const tip = new THREE.Vector3(n.x, n.y, n.z);
-    const origin = tip.clone().sub(dir3.clone().multiplyScalar(len));
-    const col = r.isAntenna ? 0xFF8800 : C_WINDFORCE(r.sec);
-    const arrow = new THREE.ArrowHelper(dir3, origin, len, col, len * 0.3, len * 0.16);
-    windForcesGroup.add(arrow);
-  });
-  // ── Labels ───────────────────────────────────────────────────────
-  // 3D: uno por nodo (comportamiento original).
-  // 2D (Planta/Alzados): uno por sección en el centroide — evita duplicados de proyección.
-  if (windForceLabelsOn) {
-    if (_currentViewKey === '3d') {
-      // Un label por nodo
-      _windForceResults.forEach(r => {
-        if (!(r.F_kgf > 0) || !_secFilter(r)) return;
-        if (r.isAntenna && !_wfLabelEquipos) return;
-        if (!r.isAntenna && !_wfLabelTorre) return;
-        const n = r.pos || _towerData.nodes[r.nodeIdx];
-        const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
-        const len = lenPx * wupp;
-        const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
-        const tip = new THREE.Vector3(n.x, n.y, n.z);
-        const origin = tip.clone().sub(dir3.clone().multiplyScalar(len));
-        const div = document.createElement('div');
-        div.className = 'wind-force-label';
-        div.style.color = r.isAntenna ? '#FF8800' : C_WINDFORCE_HEX(r.sec);
-        div.textContent = r.isAntenna
-          ? `${r.desc} ${r.F_kgf.toFixed(1)} kgf`
-          : `${r.F_kgf.toFixed(1)} kgf`;
-        const obj = new THREE.CSS2DObject(div);
-        obj.position.copy(origin).sub(dir3.clone().multiplyScalar(len * 0.15));
-        windForcesGroup.add(obj);
-      });
+    if (!(r.F_kgf > 0) || !_secFilter(r)) return;
+    if (r.isLinear) {
+      if (!udlBySec[r.sec]) udlBySec[r.sec] = { wSumW: 0, dzSum: 0, count: 0, positions: [], dir: r.dir };
+      udlBySec[r.sec].wSumW += r.F_per_m * r.dz;
+      udlBySec[r.sec].dzSum += r.dz;
+      udlBySec[r.sec].count++;
+      udlBySec[r.sec].positions.push(r.pos);
     } else {
-      // Un label por sección en el centroide (vistas 2D)
-      // Antenas: siempre un label individual (no se agrupan por sección)
-      const bySec = {};
-      _windForceResults.forEach(r => {
-        if (!(r.F_kgf > 0) || !_secFilter(r)) return;
-        const n = r.pos || _towerData.nodes[r.nodeIdx];
-        if (r.isAntenna) {
-          if (!_wfLabelEquipos) return;
-          // Etiqueta individual por antena en vistas 2D
-          const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
-          const len = lenPx * wupp;
-          const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
-          const div = document.createElement('div');
-          div.className = 'wind-force-label';
-          div.style.color = '#FF8800';
-          div.textContent = `${r.desc} ${r.F_kgf.toFixed(1)} kgf`;
-          const obj = new THREE.CSS2DObject(div);
-          obj.position.set(n.x, n.y, n.z).sub(dir3.clone().multiplyScalar(len * 1.3));
-          windForcesGroup.add(obj);
-          return;
-        }
-        if (!_wfLabelTorre) return;
-        if (!bySec[r.sec]) bySec[r.sec] = { total: 0, cx: 0, cy: 0, cz: 0, count: 0, dir: r.dir };
-        bySec[r.sec].total += r.F_kgf;
-        bySec[r.sec].cx += n.x; bySec[r.sec].cy += n.y; bySec[r.sec].cz += n.z;
-        bySec[r.sec].count++;
+      ptResults.push(r);
+    }
+  });
+
+  if (windForcesOn) {
+    // ── Carga Uniformemente Distribuida: monopolo ─────────────────────
+    Object.entries(udlBySec).forEach(([secStr, s]) => {
+      const sec   = +secStr;
+      const wAvg  = _monoSecW[sec] ?? s.wSumW / s.dzSum;
+      const lenPx = Math.max(minLenPx, maxLenPx * (wAvg / maxW));
+      const len   = lenPx * wupp;
+      const dir3  = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
+      const col   = C_WINDFORCE(sec);
+      // Flechas: cola en barlovento, punta (cono) en la cara −r del fuste
+      const headLen = len * 0.30;
+      const surfPts = s.positions.map(p => new THREE.Vector3(p.x, p.y, p.z));
+      const tailPts = surfPts.map(sp => sp.clone().sub(dir3.clone().multiplyScalar(len)));
+      // Espina vertical en las colas (barlovento)
+      if (tailPts.length >= 2) {
+        const geo = new THREE.BufferGeometry().setFromPoints(tailPts);
+        windForcesGroup.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: col })));
+      }
+      surfPts.forEach((sp, idx) => {
+        windForcesGroup.add(new THREE.ArrowHelper(dir3, tailPts[idx], len, col, headLen, len * 0.16));
       });
-      Object.entries(bySec).forEach(([sec, s]) => {
-        const secIdx = +sec;
-        const cx = s.cx / s.count, cy = s.cy / s.count, cz = s.cz / s.count;
-        const lenPx = Math.max(minLenPx, maxLenPx * (s.total / s.count / maxF));
-        const len = lenPx * wupp;
+    });
+
+    // ── Cargas puntuales: celosía y antenas ──────────────────────────
+    ptResults.forEach(r => {
+      const n      = r.pos || _towerData.nodes[r.nodeIdx];
+      const lenPx  = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
+      const len    = lenPx * wupp;
+      const dir3   = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
+      const surf   = new THREE.Vector3(n.x, n.y, n.z);  // cara −r (barlovento)
+      const origin = surf.clone().sub(dir3.clone().multiplyScalar(len));
+      const col    = r.isAntenna ? 0xFF8800 : C_WINDFORCE(r.sec);
+      windForcesGroup.add(new THREE.ArrowHelper(dir3, origin, len, col, len * 0.35, len * 0.20));
+    });
+  }
+
+  // ── Labels ───────────────────────────────────────────────────────────
+  if (!windForceLabelsOn) return;
+  if (_currentViewKey === '3d') {
+    // UDL: una etiqueta por sección (kgf/m) en el centroide
+    if (_wfLabelTorre) {
+      Object.entries(udlBySec).forEach(([secStr, s]) => {
+        if (!(s.wSumW > 0)) return;
+        const sec  = +secStr;
+        const wAvg = _monoSecW[sec] ?? s.wSumW / s.dzSum;
+        const lenPx = Math.max(minLenPx, maxLenPx * (wAvg / maxW));
+        const len  = lenPx * wupp;
         const dir3 = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
+        const cx = s.positions.reduce((a, p) => a + p.x, 0) / s.count;
+        const cy = s.positions.reduce((a, p) => a + p.y, 0) / s.count;
+        const cz = s.positions.reduce((a, p) => a + p.z, 0) / s.count;
         const div = document.createElement('div');
         div.className = 'wind-force-label';
-        div.style.color = C_WINDFORCE_HEX(secIdx);
-        div.textContent = s.total.toFixed(1) + ' kgf';
+        div.style.color = C_WINDFORCE_HEX(sec);
+        div.textContent = `${wAvg.toFixed(2)} kgf/m`;
         const obj = new THREE.CSS2DObject(div);
+        // Label en la cola (barlovento), separado del extremo de la flecha
         obj.position.set(cx, cy, cz).sub(dir3.clone().multiplyScalar(len * 1.3));
         windForcesGroup.add(obj);
       });
     }
+    // Puntuales: un label por resultado
+    ptResults.forEach(r => {
+      if (r.isAntenna && !_wfLabelEquipos) return;
+      if (!r.isAntenna && !_wfLabelTorre) return;
+      const n     = r.pos || _towerData.nodes[r.nodeIdx];
+      const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
+      const len   = lenPx * wupp;
+      const dir3  = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
+      const div = document.createElement('div');
+      div.className = 'wind-force-label';
+      div.style.color = r.isAntenna ? '#FF8800' : C_WINDFORCE_HEX(r.sec);
+      div.textContent = r.isAntenna ? `${r.desc} ${r.F_kgf.toFixed(1)} kgf` : `${r.F_kgf.toFixed(1)} kgf`;
+      const obj = new THREE.CSS2DObject(div);
+      // Label en la cola de la flecha (barlovento, fuera del fuste)
+      obj.position.set(n.x, n.y, n.z).sub(dir3.clone().multiplyScalar(len * 1.3));
+      windForcesGroup.add(obj);
+    });
+  } else {
+    // Vistas 2D: UDL agrupado por sección (kgf/m), antenas individuales
+    const bySec2D = {};
+    _windForceResults.forEach(r => {
+      if (!(r.F_kgf > 0) || !_secFilter(r)) return;
+      const n = r.pos || _towerData.nodes[r.nodeIdx];
+      if (r.isAntenna) {
+        if (!_wfLabelEquipos) return;
+        const lenPx = Math.max(minLenPx, maxLenPx * (r.F_kgf / maxF));
+        const len = lenPx * wupp;
+        const dir3 = new THREE.Vector3(r.dir.x, r.dir.y, 0).normalize();
+        const div = document.createElement('div');
+        div.className = 'wind-force-label';
+        div.style.color = '#FF8800';
+        div.textContent = `${r.desc} ${r.F_kgf.toFixed(1)} kgf`;
+        const obj = new THREE.CSS2DObject(div);
+        obj.position.set(n.x, n.y, n.z).sub(dir3.clone().multiplyScalar(len * 1.3));
+        windForcesGroup.add(obj);
+        return;
+      }
+      if (!_wfLabelTorre) return;
+      const key = r.isLinear ? `L_${r.sec}` : `N_${r.sec ?? r.nodeIdx}`;
+      if (!bySec2D[key]) bySec2D[key] = {
+        total: 0, wSumW: 0, dzSum: 0, cx: 0, cy: 0, cz: 0, count: 0, dir: r.dir,
+        isLinear: !!r.isLinear, sec: r.sec,
+      };
+      const e = bySec2D[key];
+      e.total += r.F_kgf;
+      if (r.isLinear) { e.wSumW += r.F_per_m * r.dz; e.dzSum += r.dz; }
+      e.cx += n.x; e.cy += n.y; e.cz += n.z; e.count++;
+    });
+    Object.values(bySec2D).forEach(s => {
+      const wAvg   = s.isLinear ? (_monoSecW[s.sec] ?? s.wSumW / s.dzSum) : 0;
+      const refVal = s.isLinear ? wAvg / maxW : s.total / s.count / maxF;
+      const lenPx  = Math.max(minLenPx, maxLenPx * refVal);
+      const len    = lenPx * wupp;
+      const dir3   = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
+      const cx = s.cx / s.count, cy = s.cy / s.count, cz = s.cz / s.count;
+      const div = document.createElement('div');
+      div.className = 'wind-force-label';
+      div.style.color = s.isLinear ? C_WINDFORCE_HEX(s.sec) : C_WINDFORCE_HEX(s.sec);
+      div.textContent = s.isLinear ? `${wAvg.toFixed(2)} kgf/m` : `${s.total.toFixed(2)} kgf`;
+      const obj = new THREE.CSS2DObject(div);
+      // Label en la cola de la flecha (barlovento)
+      obj.position.set(cx, cy, cz).sub(dir3.clone().multiplyScalar(len * 1.3));
+      windForcesGroup.add(obj);
+    });
   }
 }
 function _buildWindForceArrows() {
   if (!_towerData || !projectGenerated) { _windForceResults = null; _clearWindForceArrows(); return; }
-  _windForceResults = computeNodalWindForces(getConfig(), windData, _selectedWindAngle);
-  // Agregar fuerzas de antenas al mismo array de resultados
+  const cfg = getConfig();
+  _windForceResults = cfg.type === 'monopole'
+    ? computeNodalWindForces_Monopole(cfg, windData, _selectedWindAngle)
+    : computeNodalWindForces(cfg, windData, _selectedWindAngle);
+  // Agregar fuerzas de antenas/equipos como cargas puntuales
   if (Array.isArray(antenasData) && antenasData.length) {
-    const cfg = getConfig();
-    const legSet = new Set();
-    _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
-    const wRad = _selectedWindAngle * Math.PI / 180;
+    const wRad  = _selectedWindAngle * Math.PI / 180;
     const dirXY = { x: Math.sin(wRad), y: Math.cos(wRad) };
-    const antByNode = new Map();
-    _calcAntennaForces(cfg, windData).forEach(af => {
-      const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
-      if (!fd || fd.FA_kgf < 0.001) return;
-      const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, _towerData.nodes, legSet);
-      if (nIdx == null) return;
-      if (!antByNode.has(nIdx)) antByNode.set(nIdx, { nIdx, F_kgf: 0, descs: [] });
-      const e = antByNode.get(nIdx);
-      e.F_kgf += fd.FA_kgf;
-      if (!e.descs.includes(af.desc)) e.descs.push(af.desc);
-    });
-    antByNode.forEach(entry => {
-      _windForceResults.push({
-        nodeIdx: entry.nIdx, z: _towerData.nodes[entry.nIdx].z,
-        F_kgf: entry.F_kgf, dir: dirXY,
-        sec: null, isAntenna: true,
-        desc: entry.descs.join(' + '),
+    const antForces = _calcAntennaForces(cfg, windData);
+    if (cfg.type === 'monopole') {
+      // Monopolo: posición puntual en la superficie a la z exacta de la antena
+      const nInc = cfg.nInc || 0;
+      const zIncTot = cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+        : Array.from({length: Math.min(nInc, secData.length)}, (_, j) => +secData[j]?.h||0).reduce((a,b)=>a+b,0);
+      const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
+      const taperR = zT => { const t = zIncTot > 0 ? Math.min(zT / zIncTot, 1) : 1; return r0 + (r1-r0)*t; };
+      antForces.forEach(af => {
+        const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
+        if (!fd || fd.FA_kgf < 0.001) return;
+        // Radio del monopolo a la altura de la antena
+        let rAtZ = r1, cumZ = dadoHeight, cumZT = 0;
+        for (let i = 0; i < secData.length; i++) {
+          const h = +secData[i]?.h || 0;
+          if (af.z <= cumZ + h + 1e-6 || i === secData.length - 1) {
+            const isInc = i < nInc;
+            rAtZ = (!isInc && secData[i]?.monoAp != null) ? secData[i].monoAp / 2 : taperR(cumZT + h / 2);
+            break;
+          }
+          cumZ += h; cumZT += h;
+        }
+        _windForceResults.push({
+          pos: { x: -Math.sin(wRad) * rAtZ, y: -Math.cos(wRad) * rAtZ, z: af.z },
+          z: af.z, F_kgf: fd.FA_kgf, dir: dirXY,
+          sec: null, isAntenna: true, desc: af.desc,
+        });
       });
-    });
+    } else {
+      // Celosía: agrupar por nodo de pierna más cercano (comportamiento original)
+      const legSet = new Set();
+      _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
+      const antByNode = new Map();
+      antForces.forEach(af => {
+        const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
+        if (!fd || fd.FA_kgf < 0.001) return;
+        const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, _towerData.nodes, legSet);
+        if (nIdx == null) return;
+        if (!antByNode.has(nIdx)) antByNode.set(nIdx, { nIdx, F_kgf: 0, descs: [] });
+        const e = antByNode.get(nIdx);
+        e.F_kgf += fd.FA_kgf;
+        if (!e.descs.includes(af.desc)) e.descs.push(af.desc);
+      });
+      antByNode.forEach(entry => {
+        _windForceResults.push({
+          nodeIdx: entry.nIdx, z: _towerData.nodes[entry.nIdx].z,
+          F_kgf: entry.F_kgf, dir: dirXY,
+          sec: null, isAntenna: true, desc: entry.descs.join(' + '),
+        });
+      });
+    }
   }
   _redrawWindForceArrows();
 }
 function toggleWindForces() {
   windForcesOn = !windForcesOn;
-  document.getElementById('tab-cargasviento').classList.toggle('active', windForcesOn);
-  // Exclusión mutua con Antenas: al activar viento, apagar antenas
-  if (windForcesOn && antenasOn) {
-    antenasOn = false;
-    document.getElementById('tab-antenas').classList.remove('active');
-    document.getElementById('rpanel-antenas').classList.remove('visible');
-    if (projectGenerated) document.getElementById('rpanel-info').classList.add('visible');
+  if (windForcesOn) {
+    closeMemberInfo();
+    if (antenasOn) {
+      antenasOn = false;
+      document.getElementById('rpanel-antenas').classList.remove('visible');
+    }
+    switchTab(document.getElementById('tab-cargasviento'), 'viento');
+  } else {
+    document.getElementById('tab-cargasviento').classList.remove('active');
+    document.getElementById('rpanel-viento').classList.remove('visible');
+    document.getElementById('rpanel').classList.remove('wide');
+    if (projectGenerated) {
+      document.getElementById('rpanel-info').classList.add('visible');
+      document.getElementById('tab-info').classList.add('active');
+    }
   }
   // Ocultar/restaurar herrajes, CGO, escalerillas y coaxiales junto con las fuerzas de viento
   herrajesGroup.visible = _herrajesVisible && !windForcesOn;
@@ -4896,8 +5053,11 @@ function renderTower(data) {
   // rompería la correspondencia con las filas de las tablas (data-idx).
   data.members.forEach((m, i) => { m._idx = i; });
   const membersToDraw = aislarTramoSec !== null ? data.members.filter(m => m.sec === aislarTramoSec) : data.members;
+  const _isSolidMono = !!(data.monoProf && data.monoProf.length > 1);
   const batches = {};
   membersToDraw.forEach(m => {
+    // Monopolo sólido: piernas y anillos se reemplazan por CylinderGeometry — no usar batches
+    if (_isSolidMono && (m.type === 'leg' || m.type === 'monothk' || m.type === 'horizontal')) return;
     const alternate = (m.type==='leg' || m.type==='diagonal' || m.type==='horizontal') && m.sec!=null;
     const isSecondary = (m.type==='diagonal' || m.type==='horizontal') && m.principal===false;
     const key = alternate ? `${m.type}_${m.sec%2}${isSecondary?'_s':''}`
@@ -4976,6 +5136,38 @@ function renderTower(data) {
       towerGroup.add(mesh);
     }
   });
+
+  // Monopolo sólido: CylinderGeometry por bahía — reemplaza las barras individuales por cara
+  if (_isSolidMono) {
+    const prof = data.monoProf;
+    const _qMono = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+    for (let i = 0; i + 1 < prof.length; i++) {
+      const p0 = prof[i], p1 = prof[i + 1];
+      const h = p1.z - p0.z;
+      if (h < 1e-6) continue;
+      if (aislarTramoSec !== null && p0.sec !== aislarTramoSec) continue;
+      const sides = Math.max(3, p0.sides || 12);
+      const color = (p0.sec ?? 0) % 2 === 0 ? 0xCC1111 : 0xFFFFFF;
+      const geo   = new THREE.CylinderGeometry(p1.r, p0.r, h, sides, 1);
+      const mat   = new THREE.MeshStandardMaterial({
+        color, metalness: 0.55, roughness: 0.35,
+        emissive: color, emissiveIntensity: 0.8, flatShading: true});
+      const mesh  = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, 0, p0.z + h / 2);
+      mesh.quaternion.copy(_qMono);
+      mesh.frustumCulled = false;
+      towerGroup.add(mesh);
+      // Aristas de las caras (threshold 8° para mostrar bordes del polígono)
+      const edGeo = new THREE.EdgesGeometry(geo, 8);
+      const edMat = new THREE.LineBasicMaterial({color: 0x5BAAFF, opacity: 0.65, transparent: true});
+      const edges = new THREE.LineSegments(edGeo, edMat);
+      edges.position.set(0, 0, p0.z + h / 2);
+      edges.quaternion.copy(_qMono);
+      edges.frustumCulled = false;
+      towerGroup.add(edges);
+    }
+  }
 
   // Nodos de intersección (puntos auxiliares de los patrones de celosía)
   const sn = data.structNodes ?? data.nodes.length;
@@ -6640,6 +6832,98 @@ function switchTab(tabEl, view) {
 // Tabla qz/Kz/Kzt por sección, evaluados en la elevación ACUMULADA al centro de cada
 // sección (simplificación — no es el punto exacto que usaría un cálculo de fuerzas por
 // panel, pero da una lectura clara y rápida de cómo varía la presión con la altura).
+// Cf para estructuras tubulares — ANSI/TIA-222-H Tablas 2-8a (con herrajes lineales)
+// y 2-8b (sin herrajes lineales). C = √(Kzt·Kz·Ke)·V[mph]·D[ft] (mph·ft).
+// Los coeficientes de las fórmulas transicionales están calibrados en mph·ft.
+function _tia222h_Cf_monopole(C_mph_ft, nSides, withLinear) {
+  const sub  = C_mph_ft < 39;
+  const sup  = C_mph_ft > 78;
+  const col  = (nSides === 0 || nSides >= 24) ? 'round'
+             : nSides >= 18 ? 18
+             : nSides >= 16 ? 16
+             : nSides >= 12 ? 12 : 8;
+  if (withLinear) {                               // Tabla 2-8a
+    if (col === 'round') {
+      if (sub) return 1.2; if (sup) return 0.60;
+      return Math.min(1.2, Math.max(0.60, 46.8 / C_mph_ft));
+    } else if (col === 18) {
+      if (sub) return 1.2; if (sup) return 0.73;
+      return Math.min(1.2, Math.max(0.73, 16.6 / Math.pow(C_mph_ft, 0.717)));
+    } else if (col === 16) {
+      if (sub) return 1.2; if (sup) return 0.75;
+      return Math.min(1.2, Math.max(0.75, 14.4 / Math.pow(C_mph_ft, 0.678)));
+    } else if (col === 12) {
+      if (sub) return 1.2; if (sup) return 0.95;
+      return Math.min(1.2, Math.max(0.95, 4.12 / Math.pow(C_mph_ft, 0.337)));
+    } else { return 1.2; }                        // 8-sided: constante
+  } else {                                        // Tabla 2-8b (sin herrajes lineales)
+    if (col === 'round') {
+      if (sub) return 1.1; if (sup) return 0.45;
+      return Math.min(1.1, Math.max(0.45, 124 / Math.pow(C_mph_ft, 1.29)));
+    } else if (col === 18) {
+      if (sub) return 1.1; if (sup) return 0.63;
+      return Math.min(1.1, Math.max(0.63, 20.9 / Math.pow(C_mph_ft, 0.804)));
+    } else if (col === 16) {
+      if (sub) return 1.1; if (sup) return 0.65;
+      return Math.min(1.1, Math.max(0.65, 17.7 / Math.pow(C_mph_ft, 0.759)));
+    } else if (col === 12) {
+      if (sub) return 1.2; if (sup) return 0.85;
+      return Math.min(1.2, Math.max(0.85, 7.43 / Math.pow(C_mph_ft, 0.498)));
+    } else { return 1.2; }
+  }
+}
+
+// Fuerzas distribuidas en monopolo — ANSI/TIA-222-H §2.6.11.2 + Tablas 2-8a/2-8b.
+// (EPA)s = Cf·Ap, F = qz·Gh·(EPA)s por subsegmento de Δz=1m.
+// Cf varía por sección (nLados, régimen de flujo C = √(Kzt·Kz·Ke)·V·D).
+function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
+  if (cfg.type !== 'monopole' || !projectGenerated) return [];
+  const Gh    = _tiaGh(cfg.height, 'monopole');
+  const Ke    = _tiaKe(windData.asnm);
+  const V_mph = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;   // km/h → mph
+  const dir   = _windDirFromAngle(angleDeg || 0);
+  const wRad  = (angleDeg || 0) * Math.PI / 180;
+  const nInc  = cfg.nInc || 0;
+  const zIncTot = cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+    : Array.from({length: Math.min(nInc, secData.length)}, (_, j) => +secData[j]?.h||0).reduce((a,b)=>a+b,0);
+  const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
+  const taperR = z => { const t = zIncTot > 0 ? Math.min(z / zIncTot, 1) : 1; return r0 + (r1 - r0) * t; };
+  const results = [];
+  let zBase = dadoHeight, zTower = 0;
+  for (let i = 0; i < secData.length; i++) {
+    const s      = secData[i];
+    const h      = +s?.h || 0;
+    if (h <= 0) { zBase += h; zTower += h; continue; }
+    const nSub   = Math.max(1, Math.round(h));
+    const dz     = h / nSub;
+    const isInc  = i < nInc;
+    const nSides = +s?.monoSides || 12;
+    // k va de 0 a nSub inclusive → los extremos caen exactamente en los nodos
+    // de sección. Longitud tributaria: dz/2 en extremos, dz en interiores.
+    for (let k = 0; k <= nSub; k++) {
+      const zT     = zTower + k * dz;
+      const z      = zBase  + k * dz;
+      const rMid   = (!isInc && s.monoAp != null) ? s.monoAp / 2 : taperR(zT);
+      const D      = 2 * rMid;
+      const D_ft   = D * 3.28084;
+      const Kz     = _tiaKz(z, windData.catExposicion);
+      const Kzt    = _tiaKzt(z, windData);
+      const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
+      const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+      const qz     = calcWindPressure(cfg, windData, z);
+      const w_Nm   = Cf * qz * Gh * D;
+      const dzTrib = (k === 0 || k === nSub) ? dz / 2 : dz;
+      results.push({
+        pos: { x: -Math.sin(wRad) * rMid, y: -Math.cos(wRad) * rMid, z },
+        z, F_kgf: w_Nm * dzTrib / 9.80665, F_per_m: w_Nm / 9.80665,
+        dz: dzTrib, dir, sec: i + 1, isLinear: true,
+      });
+    }
+    zBase += h; zTower += h;
+  }
+  return results;
+}
+
 function _renderWindAngleTable(cfg, rows) {
   const container = document.getElementById('wind-force-table-container');
   if (!container) return;
@@ -6665,6 +6949,65 @@ function _renderWindAngleTable(cfg, rows) {
       </tbody>
     </table>`;
 }
+function _renderWindAngleTable_Monopole(cfg) {
+  const container = document.getElementById('wind-force-table-container');
+  if (!container) return;
+  if (!projectGenerated) { container.innerHTML = ''; return; }
+  const Gh     = _tiaGh(cfg.height, 'monopole');
+  const Ke     = _tiaKe(windData.asnm);
+  const V_mph  = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;
+  const nInc   = cfg.nInc || 0;
+  const zIncTot = cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+    : Array.from({length: Math.min(nInc, secData.length)}, (_, j) => +secData[j]?.h||0).reduce((a,b)=>a+b,0);
+  const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
+  const taperR = zT => { const t = zIncTot > 0 ? Math.min(zT / zIncTot, 1) : 1; return r0 + (r1 - r0) * t; };
+  _monoSecW = {};
+  let zBase = dadoHeight, zTower = 0;
+  let total = 0;
+  const rowsHtml = [];
+  for (let i = 0; i < secData.length; i++) {
+    const s      = secData[i];
+    const h      = +s?.h || 0;
+    const isInc  = i < nInc;
+    const nSides = +s?.monoSides || 12;
+    const zMidT  = zTower + h / 2;
+    const zMid   = zBase  + h / 2;
+    const rMid   = (!isInc && s.monoAp != null) ? s.monoAp / 2 : taperR(zMidT);
+    const D      = 2 * rMid;
+    const D_ft   = D * 3.28084;
+    const Kz     = _tiaKz(zMid, windData.catExposicion);
+    const Kzt    = _tiaKzt(zMid, windData);
+    const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
+    const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+    const qz     = calcWindPressure(cfg, windData, zMid);
+    const w      = Cf * qz * Gh * D / 9.80665;
+    _monoSecW[i + 1] = w;
+    const F      = w * h;
+    total       += F;
+    const colLabel = (nSides >= 24 || nSides === 0) ? 'Rd' : `${nSides}L`;
+    rowsHtml.push(`<tr>
+      <td>${i + 1}</td><td>${zMid.toFixed(1)}</td><td>${D.toFixed(3)}</td>
+      <td>${colLabel}</td><td>${C_us.toFixed(1)}</td><td>${Cf.toFixed(3)}</td>
+      <td>${(qz / 9.80665).toFixed(2)}</td><td>${w.toFixed(2)}</td><td>${F.toFixed(2)}</td>
+    </tr>`);
+    zBase += h; zTower += h;
+  }
+  container.innerHTML = `
+    <table class="ret-table wind-table-center">
+      <thead><tr>
+        <th>Sec.</th><th>z (m)</th><th>D (m)</th><th>Secc.</th>
+        <th>C (mph·ft)</th><th>Cf</th><th>qz (kg/m²)</th><th>w (kgf/m)</th><th>F (kgf)</th>
+      </tr></thead>
+      <tbody>
+        ${rowsHtml.join('')}
+        <tr style="font-weight:700;border-top:2px solid var(--border);">
+          <td colspan="8" style="text-align:right;">TOTAL</td>
+          <td>${total.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
 function _renderAntennaForceTable(cfg) {
   const container = document.getElementById('antenna-force-table-container');
   if (!container) return;
@@ -6897,7 +7240,8 @@ function _onWindAngleSelect(val) {
     rows.push({ sec: i + 1, z, faceWidth: _faceWidthAt(cfg, zBaseTower + h / 2) });
     zBase += h; zBaseTower += h;
   }
-  _renderWindAngleTable(cfg, rows);
+  if (cfg.type === 'monopole') _renderWindAngleTable_Monopole(cfg);
+  else _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
   _renderFeederForceTable(cfg);
   // Actualizar flechas 3D con el nuevo ángulo
@@ -7000,8 +7344,9 @@ function buildCargasVientoPanel() {
     </div>
     <div id="wind-force-table-container"></div>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
-      FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.
-      Df/Dr según Tabla 2-7. Rr provisional = 1.0.
+      ${cfg.type === 'monopole'
+        ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(cfg.height,'monopole').toFixed(2)}.`
+        : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr provisional = 1.0.`}
     </div>
     <div class="sep" style="margin:12px 0;"></div>
     <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN ANTENAS</div>
@@ -7020,7 +7365,8 @@ function buildCargasVientoPanel() {
   // Inicializar ángulo seleccionado al primero de la lista si aún no está en las opciones
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   if (!dirs.includes(_selectedWindAngle)) _selectedWindAngle = dirs[0];
-  _renderWindAngleTable(cfg, rows);
+  if (cfg.type === 'monopole') _renderWindAngleTable_Monopole(cfg);
+  else _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
   _renderFeederForceTable(cfg);
 }
@@ -7323,9 +7669,22 @@ function getConfig() {
     document.getElementById('nStr').value = nStr;   // mantener sincronizado
     alturaInclinada = 0;
   } else if (tipo === 'monopole') {
-    nInc = Math.max(0, +document.getElementById('nInc').value || 0);
-    nStr = Math.max(0, +document.getElementById('nStr').value || 0);
-    alturaInclinada = 0;
+    alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
+    if (alturaInclinada > 0) {
+      // Igual que torres convencionales: nInc se calcula desde alturaInclinada
+      nInc = 0; let cumH = 0;
+      for (let i = 0; i < secData.length; i++) {
+        if (cumH < alturaInclinada - 0.001) nInc++;
+        cumH += +secData[i]?.h || 0;
+      }
+      nStr = Math.max(0, secData.length - nInc);
+      document.getElementById('nInc').value = nInc;
+      document.getElementById('nStr').value = nStr;
+    } else {
+      // Escalonado (sin tramos inclinados): nInc=0 fijo
+      nInc = Math.max(0, +document.getElementById('nInc').value || 0);
+      nStr = Math.max(0, +document.getElementById('nStr').value || 0);
+    }
   } else {
     alturaInclinada = +document.getElementById('alturaInclinada').value || 0;
     nInc = 0; let cumH = 0;
@@ -7385,8 +7744,43 @@ function refresh() {
     // nodeOverrides/memberOverrides ahora se aplican DENTRO de renderTower(), después del
     // corte de cruces — ver comentario ahí (los índices de la tabla son POST-corte).
     renderTower(data);
+    _refreshSectionWeightCells();
   }
   scheduleHistoryPush();
+}
+
+function _refreshSectionWeightCells() {
+  const cfg = getConfig();
+  const cards = document.querySelectorAll('#sec-container .sec-card');
+  if (!cards.length) return;
+  const _monoZIncTot = cfg.type === 'monopole'
+    ? (cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+        : Array.from({length: Math.min(cfg.nInc||0, secData.length)}, (_, j) => +secData[j]?.h||0).reduce((a,b)=>a+b,0))
+    : 0;
+  const _secWeights = cfg.type !== 'monopole' ? _reportSectionWeights() : null;
+  let _cumH = 0;
+  cards.forEach((card, i) => {
+    const s = secData[i];
+    if (!s) return;
+    let pesoLbl = '—';
+    if (cfg.type === 'monopole') {
+      const thk = s.monoThk && s.monoThk !== '-' ? +s.monoThk / 1000 : null;
+      if (thk && (+s.h || 0) > 0) {
+        const sides2 = +s.monoSides || 12;
+        const rAvg = _monopoleSectionRadius(cfg, i, _cumH, _cumH + (+s.h||0), _monoZIncTot);
+        const perim = sides2 >= 24 ? 2*Math.PI*rAvg : sides2 * 2 * rAvg * Math.sin(Math.PI/sides2);
+        pesoLbl = `${Math.round(perim * thk * (+s.h||0) * 7850)} kg`;
+      }
+    } else {
+      const w = _secWeights[i];
+      if (w != null) pesoLbl = `${Math.round(w)} kg`;
+    }
+    _cumH += +s.h || 0;
+    const pesoEl = [...card.querySelectorAll('.sec-row-code')]
+      .find(el => el.textContent.trim() === 'Peso:')
+      ?.nextElementSibling;
+    if (pesoEl) pesoEl.textContent = pesoLbl;
+  });
 }
 
 // ── Deshacer / Rehacer ────────────────────────────────────────────────
@@ -7520,6 +7914,7 @@ function onTypeChange() {
   document.getElementById('topW').step  = v === 'monopole' ? '0.1' : '0.5';
   document.getElementById('geom-sect-title').textContent = v === 'monopole' ? 'GEOMETRÍA DEL MONOPOLO' : 'GEOMETRÍA DE LA TORRE';
   document.getElementById('detalle-sect-title').textContent = v === 'monopole' ? 'DETALLE POR TRAMO' : 'DETALLE POR SECCIÓN';
+  document.getElementById('wfl-btn-torre').textContent = v === 'monopole' ? 'Monopolo' : 'Torre';
   document.getElementById('guyed-params').classList.toggle('show', isGuyed);
   const setDisp = (id, show) => document.getElementById(id).style.display = show ? '' : 'none';
   setDisp('dim-hdr-base', !isGuyed);
@@ -7647,21 +8042,157 @@ function buildSetupPreview() {
   const svgEl = document.getElementById('tf-preview-svg');
   if (!svgEl) return;
   const tipo = document.getElementById('s-tipo')?.value;
+  // Monopolo: preview 3D de una sola barra con caras y ahusado — sin generar la estructura
+  if (tipo === 'monopole') { _drawMonopolePreview3D(svgEl, _buildPreviewCfg(tipo)); return; }
   const cfg = _buildPreviewCfg(tipo);
   const savedSecData = secData;
   try {
     secData = _buildPreviewSecData(cfg, tipo);
     let data;
     try {
-      data = tipo === 'square'    ? genSquare(cfg)
-           : tipo === 'guyed'     ? genGuyed(cfg)
-           : tipo === 'monopole'  ? genMonopole(cfg)
-           :                        genTriangular(cfg);
+      data = tipo === 'square' ? genSquare(cfg)
+           : tipo === 'guyed'  ? genGuyed(cfg)
+           :                     genTriangular(cfg);
     } catch { svgEl.innerHTML = ''; return; }
     _drawSetupFrontView(svgEl, data);
   } finally {
     secData = savedSecData;
   }
+}
+
+function _drawMonopolePreview3D(svgEl, cfg) {
+  const sidesVal = document.getElementById('s-monoForma')?.value || '12';
+  const sides    = +sidesVal || 12;
+  const formaLbl = sidesVal === '24' ? 'Redondo' : `${sides} Caras`;
+  const baseD    = Math.max(0.1, +(cfg.baseW || 4));
+  const topD     = Math.max(0.1, +(cfg.topW  || 2));
+  const monoTipo = document.getElementById('s-monoTipo')?.value || 'conico';
+  const tipoLbl  = monoTipo === 'conico' ? 'Tronco-Cónico' : monoTipo === 'escalonado' ? 'Escalonado' : 'Combinado';
+
+  // Número de tramos por tipo
+  const nInc = monoTipo === 'combinado' ? _monoNInc()
+             : monoTipo === 'conico'    ? Math.max(1, +document.getElementById('s-monoTramos')?.value || 1)
+             : 0;
+  const nStr = monoTipo === 'combinado' ? Math.max(1, +document.getElementById('s-monoTramosRec')?.value || 1)
+             : monoTipo === 'escalonado' ? Math.max(1, +document.getElementById('s-monoTramos')?.value || 1)
+             : 0;
+  const nTot = Math.max(1, nInc + nStr);
+
+  const W = 200, H = 278, cx = W / 2;
+  // 3/4 de H para el monopolo; margen proporcional arriba y el resto abajo para la etiqueta
+  const monoH = Math.round(H * 3 / 4);
+  const yTop  = Math.round((H - monoH) / 2);
+  const yBase = yTop + monoH;
+  const ell   = 0.13;
+
+  // Diámetro real de cada sección (para escalonado/combinado)
+  const dOf = i => {
+    const v = monoAperturas[i];
+    return v != null ? v : +(baseD + (topD - baseD) * (nInc + i + 1) / nTot).toFixed(2);
+  };
+
+  // Profile: [{yScr, rpx}] de base a tope — incluye puntos duplicados para escalones
+  const yOf = t => yBase + (yTop - yBase) * t;
+  const maxR      = Math.max(baseD, topD, ...monoAperturas.filter(v => v != null)) / 2 || 1;
+  const totalH    = Math.max(1, +(cfg.height || document.getElementById('s-height')?.value || 30));
+  // Escala uniforme: mismo px/m para alto y para ancho → proporción real de la torre
+  const scaleH    = monoH / totalH;              // px por metro de altura
+  const scaleWmax = (W / 2 - 14) / maxR;         // máximo permitido por el ancho del panel
+  const rScale    = Math.min(scaleH, scaleWmax);  // usa el mismo factor que la altura salvo que no quepa
+
+  const prof = [];  // {yScr, rpx}
+  if (monoTipo === 'conico') {
+    for (let i = 0; i <= nInc; i++) {
+      const t   = i / nInc;
+      prof.push({yScr: yOf(t), rpx: (baseD + (topD - baseD) * t) / 2 * rScale});
+    }
+  } else if (monoTipo === 'escalonado') {
+    prof.push({yScr: yOf(0), rpx: dOf(0) / 2 * rScale});
+    for (let i = 0; i < nStr; i++) {
+      const tTop = (i + 1) / nStr;
+      const rpx  = dOf(i) / 2 * rScale;
+      prof.push({yScr: yOf(tTop), rpx});                            // tope de sección i
+      if (i < nStr - 1) prof.push({yScr: yOf(tTop), rpx: dOf(i+1) / 2 * rScale}); // escalón
+    }
+  } else { // combinado
+    for (let i = 0; i <= nInc; i++) {
+      const t = i / nTot;
+      prof.push({yScr: yOf(t), rpx: (baseD + (topD - baseD) * i / nTot) / 2 * rScale});
+    }
+    for (let i = 0; i < nStr; i++) {
+      const tTop = (nInc + i + 1) / nTot;
+      const rpx  = dOf(i) / 2 * rScale;
+      prof.push({yScr: yOf(tTop), rpx});
+      if (i < nStr - 1) prof.push({yScr: yOf(tTop), rpx: dOf(i+1) / 2 * rScale});
+    }
+  }
+
+  // Dibuja polígono elipsoidal en yScr con radio rpx
+  const polyPts = (rpx, yScr) => Array.from({length: sides}, (_, k) => {
+    const a = (2 * Math.PI * k / sides) - Math.PI / 2;
+    return {x: cx + rpx * Math.cos(a), y: yScr + rpx * ell * Math.sin(a)};
+  });
+  const p2s = pts => pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // (arco trasero de base se dibuja dentro del loop de perímetros abajo)
+
+  // Caras entre niveles del perfil
+  for (let pi = 0; pi + 1 < prof.length; pi++) {
+    const p0 = prof[pi], p1 = prof[pi + 1];
+    if (Math.abs(p0.yScr - p1.yScr) < 0.5) continue; // escalón horizontal — skip
+    const bPts = polyPts(p0.rpx, p0.yScr);
+    const tPts = polyPts(p1.rpx, p1.yScr);
+    for (let i = 0; i < sides; i++) {
+      const j  = (i + 1) % sides;
+      const am = (2 * Math.PI * (i + 0.5) / sides) - Math.PI / 2;
+      if (Math.sin(am) < -0.15) continue;
+      const t = (Math.cos(am) + 1) / 2;
+      const r = Math.round(12 + t * 28), g = Math.round(30 + t * 52), b = Math.round(58 + t * 84);
+      svg += `<polygon points="${bPts[i].x.toFixed(1)},${bPts[i].y.toFixed(1)} ${bPts[j].x.toFixed(1)},${bPts[j].y.toFixed(1)} ${tPts[j].x.toFixed(1)},${tPts[j].y.toFixed(1)} ${tPts[i].x.toFixed(1)},${tPts[i].y.toFixed(1)}"
+        fill="rgb(${r},${g},${b})" stroke="rgba(59,143,239,${(0.3+t*0.4).toFixed(2)})" stroke-width="0.5"/>`;
+    }
+  }
+
+  // Tapa superior
+  const tPtsTop = polyPts(prof[prof.length - 1].rpx, prof[prof.length - 1].yScr);
+  svg += `<polygon points="${p2s(tPtsTop)}" fill="#18395A" stroke="#3B8FEF" stroke-width="0.9"/>`;
+
+  // Perímetros en cada nivel: énfasis con trazo grueso y color brillante
+  // Los niveles de escalón (dos entradas con mismo yScr) se dibujan una sola vez
+  const drawnY = new Set();
+  for (const lv of prof) {
+    const yk = lv.yScr.toFixed(1);
+    if (drawnY.has(yk)) continue;
+    drawnY.add(yk);
+    const lvPts  = polyPts(lv.rpx, lv.yScr);
+    // Arco trasero (punteado sutil)
+    const backLv = [lvPts[0], ...lvPts.filter((_, k) => Math.sin((2*Math.PI*k/sides) - Math.PI/2) < 0), lvPts[sides-1]];
+    if (backLv.length > 2)
+      svg += `<polyline points="${p2s(backLv)}" fill="none" stroke="#2A4A65" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+    // Arco frontal prominente
+    const front = lvPts.filter((_, k) => Math.sin((2*Math.PI*k/sides) - Math.PI/2) >= -0.15);
+    if (front.length > 1)
+      svg += `<polyline points="${p2s(front)}" fill="none" stroke="#5BAAFF" stroke-width="1.4"/>`;
+  }
+
+  // Aristas de silueta por segmento (no diagonales cruzando escalones)
+  const iL = Math.round(sides * 3/4) % sides, iR = Math.round(sides / 4) % sides;
+  for (let pi = 0; pi + 1 < prof.length; pi++) {
+    const p0 = prof[pi], p1 = prof[pi + 1];
+    if (Math.abs(p0.yScr - p1.yScr) < 0.5) continue; // escalón horizontal — skip
+    const pts0 = polyPts(p0.rpx, p0.yScr), pts1 = polyPts(p1.rpx, p1.yScr);
+    svg += `<line x1="${pts0[iL].x.toFixed(1)}" y1="${pts0[iL].y.toFixed(1)}" x2="${pts1[iL].x.toFixed(1)}" y2="${pts1[iL].y.toFixed(1)}" stroke="#3B8FEF" stroke-width="1.2"/>`;
+    svg += `<line x1="${pts0[iR].x.toFixed(1)}" y1="${pts0[iR].y.toFixed(1)}" x2="${pts1[iR].x.toFixed(1)}" y2="${pts1[iR].y.toFixed(1)}" stroke="#3B8FEF" stroke-width="1.2"/>`;
+  }
+
+  // Etiqueta
+  const nTrLbl = nTot === 1 ? '1 Tramo' : `${nTot} Tramos`;
+  svg += `<text x="${cx}" y="${H - 14}" text-anchor="middle" font-size="8.5" fill="#5E85A2" font-family="'Segoe UI',sans-serif">${formaLbl} · ${nTrLbl} · ${tipoLbl} · Ø${baseD.toFixed(2)}→${topD.toFixed(2)} m</text>`;
+
+  svg += '</svg>';
+  svgEl.innerHTML = svg;
 }
 
 function _buildPreviewCfg(tipo) {
@@ -7817,35 +8348,49 @@ function _monoNInc() {
 function buildMonoAperturasList() {
   const tipo = document.getElementById('s-monoTipo')?.value;
   if (tipo !== 'escalonado' && tipo !== 'combinado') return;
+  const list = document.getElementById('s-monoAperturas-list');
+  if (!list) return;
   const nInc = tipo === 'combinado' ? _monoNInc() : 0;
-  const nRectos = tipo === 'combinado'
-    ? Math.max(1, +document.getElementById('s-monoTramosRec')?.value || 2)
-    : Math.max(1, +document.getElementById('s-monoTramos')?.value || 6);
+  const nRectosRaw = tipo === 'combinado'
+    ? +document.getElementById('s-monoTramosRec')?.value
+    : +document.getElementById('s-monoTramos')?.value;
+  // Sin número de tramos aún: limpiar lista y no activar diámetros
+  if (!nRectosRaw || nRectosRaw < 1) {
+    monoAperturas = [];
+    list.innerHTML = '';
+    return;
+  }
+  const nRectos = Math.min(40, Math.max(1, nRectosRaw));
   const baseW = +document.getElementById('s-baseW')?.value || 4;
   const topW  = +document.getElementById('s-topW')?.value  || 2;
   const prev = monoAperturas.slice();
-  monoAperturas = Array.from({length: nRectos}, (_,i) =>
-    prev[i] ?? +(baseW + (topW-baseW) * (nRectos>1 ? i/(nRectos-1) : 1)).toFixed(2));
-  const list = document.getElementById('s-monoAperturas-list');
-  if (!list) return;
-  // Tramos inclinados (Combinado): se muestran en gris, calculados solos por el ahusado
-  // Diámetro Inicial→Final (no editables) — solo para que se vea la numeración completa.
-  let html = '';
+  // Diámetro por defecto: interpolación lineal del ahusado global (base→tope)
+  const dDefault = i => +(baseW + (topW - baseW) * (nInc + i + 1) / (nInc + nRectos)).toFixed(2);
+  monoAperturas = Array.from({length: nRectos}, (_, i) =>
+    (prev[i] !== undefined && prev[i] !== null) ? prev[i] : dDefault(i));
+  // Layout vertical: una fila por tramo con etiqueta "Tramo N" a la izquierda
+  let html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+  // Tramos inclinados (Combinado): no editables, en gris
   for (let i = 0; i < nInc; i++) {
-    const dInc = baseW + (topW - baseW) * (i+1)/nInc;
+    const dInc = +(baseW + (topW - baseW) * (i+1)/(nInc + nRectos)).toFixed(2);
     html += `
-    <div style="display:flex;align-items:center;gap:6px;">
-      <span class="tf-lbl" style="width:62px;flex-shrink:0;">Tramo ${i+1}</span>
-      <input class="tf-input" type="number" value="${dInc.toFixed(2)}" disabled
-        style="opacity:.5;" title="Tramo inclinado — diámetro calculado por el ahusado, no editable">
-    </div>`;
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="min-width:58px;font-size:11px;color:var(--muted,#888);">Tramo ${i+1}</span>
+        <input class="tf-input" type="number" value="${dInc}" disabled
+          style="flex:1;opacity:.5;" title="Tramo inclinado — calculado por ahusado">
+      </div>`;
   }
-  html += monoAperturas.map((val,i) => `
-    <div style="display:flex;align-items:center;gap:6px;">
-      <span class="tf-lbl" style="width:62px;flex-shrink:0;">Tramo ${nInc+i+1}</span>
-      <input class="tf-input" type="number" min="0.1" value="${val}"
-        oninput="monoAperturas[${i}] = +this.value || 0; buildSetupPreview();">
-    </div>`).join('');
+  // Tramos rectos: todos con diámetro interpolado por defecto, editable
+  monoAperturas.forEach((val, i) => {
+    html += `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="min-width:58px;font-size:11px;color:var(--tf-label,#8BAFC8);">Tramo ${nInc+i+1}</span>
+        <input class="tf-input" type="number" min="0.1" style="flex:1;"
+          value="${val !== null ? val : dDefault(i)}"
+          oninput="monoAperturas[${i}] = this.value !== '' ? +this.value : null; buildSetupPreview();">
+      </div>`;
+  });
+  html += '</div>';
   list.innerHTML = html;
   buildSetupPreview();
 }
@@ -8338,15 +8883,32 @@ function generateTowerFromSetup() {
   let monoTipo = null;
   if (tipo === 'monopole') {
     monoTipo = document.getElementById('s-monoTipo').value;
+    const _setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value) el.value = val; };
     if (monoTipo === 'conico') {
-      const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 6);
+      const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 1);
+      _setIfEmpty('s-monoTramos', nTramos);
       document.getElementById('nInc').value = nTramos; document.getElementById('nStr').value = 0;
     } else if (monoTipo === 'escalonado') {
-      const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 6);
+      const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 1);
+      _setIfEmpty('s-monoTramos', nTramos);
       document.getElementById('nInc').value = 0; document.getElementById('nStr').value = nTramos;
     } else /* combinado */ {
-      document.getElementById('nInc').value = Math.max(1, +document.getElementById('s-monoTramosInc').value || 4);
-      document.getElementById('nStr').value = Math.max(1, +document.getElementById('s-monoTramosRec').value || 2);
+      const nInc = Math.max(1, +document.getElementById('s-monoTramosInc').value || 4);
+      const nStr = Math.max(1, +document.getElementById('s-monoTramosRec').value || 2);
+      _setIfEmpty('s-monoTramosInc', nInc);
+      _setIfEmpty('s-monoTramosRec', nStr);
+      document.getElementById('nInc').value = nInc; document.getElementById('nStr').value = nStr;
+    }
+    // Asegurar que monoAperturas tenga valores interpolados para todos los tramos rectos
+    buildMonoAperturasList();
+    // Escalonado: no tiene tramos inclinados — ocultar alturaInclinada en panel principal
+    const _rowAI = document.getElementById('row-altInc-main');
+    const _elAI  = document.getElementById('alturaInclinada');
+    if (monoTipo === 'escalonado') {
+      if (_rowAI) _rowAI.style.display = 'none';
+      if (_elAI)  _elAI.value = 0;
+    } else {
+      if (_rowAI) _rowAI.style.display = '';
     }
   }
 
@@ -8374,11 +8936,21 @@ function generateTowerFromSetup() {
     buildSectionRows(secData.length);
   } else {
     // Nueva torre: sección inicial según alturaInclinada.
-    const altInc = +document.getElementById('alturaInclinada').value || 0;
-    document.getElementById('nInc').value = altInc > 0 ? 1 : 0;
-    document.getElementById('nStr').value = altInc > 0 ? 0 : 1;
-    onSecChange();
-    if (secData[0]) { secData[0].h = 6; buildSectionRows(secData.length); }
+    // Monopolos omiten este bloque — nInc/nStr ya fueron fijados por el bloque monoTipo.
+    if (tipo !== 'monopole') {
+      const altInc = +document.getElementById('alturaInclinada').value || 0;
+      document.getElementById('nInc').value = altInc > 0 ? 1 : 0;
+      document.getElementById('nStr').value = altInc > 0 ? 0 : 1;
+      onSecChange();
+      if (secData[0]) { secData[0].h = 6; buildSectionRows(secData.length); }
+    } else {
+      // Monopolo: crear exactamente nInc+nStr secciones con altura distribuida
+      const nSecs  = (+document.getElementById('nInc').value || 0) + (+document.getElementById('nStr').value || 0);
+      const totalH = +document.getElementById('height').value || 30;
+      const hSec   = Math.max(0.5, +(totalH / Math.max(1, nSecs)).toFixed(2));
+      buildSectionRows(Math.max(1, nSecs));
+      secData.forEach(s => { if (s) s.h = hSec; });
+    }
   }
 
   if (tipo === 'monopole') {
@@ -8391,6 +8963,12 @@ function generateTowerFromSetup() {
       const sd = secData[rectoStart + i];
       if (sd) sd.monoAp = ap;
     });
+    // Escalonado: ocultar altura inclinada (onTypeChange la volvió a mostrar)
+    const _monoTipoVal = document.getElementById('s-monoTipo')?.value;
+    if (_monoTipoVal === 'escalonado') {
+      const r = document.getElementById('row-altInc-main');
+      if (r) r.style.display = 'none';
+    }
     refresh();
   }
 
@@ -8648,7 +9226,7 @@ function _updateAntAddAngles() {
   for (let i = 0; i < n; i++) {
     const defAz = (i < prev.length) ? prev[i]
       : tipo === 'square'     ? (sqDef[i]  ?? Math.round(45  + (360/n)*i))
-      : tipo === 'triangular' ? (triDef[i] ?? Math.round((360/n)*i))
+      : (tipo === 'triangular' || tipo === 'monopole') ? (triDef[i] ?? Math.round((360/n)*i))
       : Math.round((360/n)*i);
     const inp = document.createElement('input');
     inp.type = 'number'; inp.min = 0; inp.max = 359; inp.step = 1;
@@ -8668,6 +9246,7 @@ function _addAntenasMulti() {
     _calcEPA(a);
     antenasData.push(a);
   }
+  antenasData.sort((a, b) => (+b.z || 0) - (+a.z || 0));
   _renderAntenasTable();
 }
 
@@ -10320,7 +10899,7 @@ function _fdDrawPlan() {
     ctx.strokeStyle = '#2a4a70'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = '#2a4a70';
     ctx.fillText('EXT',cx,cy-r_mono-LO);
-    ctx.fillText('INT',cx,cy+r_mono+LO);
+    ctx.fillText('INT',cx,cy+fsz*1.5);
     drawDots('EXT', (lat, rad) => [cx+lat, cy-r_mono-rad]);
     drawDots('INT', (lat, rad) => [cx+lat*0.4, cy]);
 
@@ -10730,11 +11309,19 @@ function _antPanelUpdate(gi, field, val) {
   if (e0) e0.textContent = fmtP(a.epa0);
   if (e6) e6.textContent = fmtP(a.epa60);
   if (e9) e9.textContent = fmtP(a.epa90);
+  if (windForcesOn || windForceLabelsOn) {
+    _buildWindForceArrows();
+    _renderAntennaForceTable(getConfig());
+  }
 }
 // Azimuth individual — solo actualiza esa antena y redibuja
 function _antPanelUpdateAz(idx, val) {
   antenasData[idx].azimuth = +val || 0;
   renderAntenas3D();
+  if (windForcesOn || windForceLabelsOn) {
+    _buildWindForceArrows();
+    _renderAntennaForceTable(getConfig());
+  }
 }
 
 function buildAntenasPanel() {
@@ -10927,7 +11514,21 @@ function renderAntenas3D() {
     if (ri >= 0) { for (let i = 0; i < ri; i++) _antM4zStart += +sd[i].h || 0; _antM4zEnd = _antM4zStart + (+sd[ri].h || 0); }
   }
   const _hwAtFn = z => {
-    if (cfg.type === 'monopole') return 0.5;
+    if (cfg.type === 'monopole') {
+      const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
+      const taperR = zz => { const t = _antZInc > 0 ? Math.min(zz / _antZInc, 1) : 1; return r0 + (r1 - r0) * t; };
+      const sd = cfg.secData || secData;
+      let cumZ = 0;
+      for (let i = 0; i < sd.length; i++) {
+        const h = +sd[i]?.h || 6; cumZ += h;
+        if (z <= cumZ + 1e-6 || i === sd.length - 1) {
+          const isInc = i < (cfg.nInc || 0);
+          if (!isInc && sd[i]?.monoAp != null) return sd[i].monoAp / 2;
+          return taperR(z);
+        }
+      }
+      return r1;
+    }
     // Arriostrada: el fuste tiene ancho constante cfg.shaftW (salvo tramo pivote en la base).
     if (cfg.type === 'guyed') {
       const pivotH = cfg.guyPivot ? (+secData[0]?.h || 6) : 0;
@@ -10949,7 +11550,7 @@ function renderAntenas3D() {
   const _isGuyedSq = cfg.type === 'guyed' && cfg.guyShape === 'square';
   const _isTri     = cfg.type === 'triangular' || (cfg.type === 'guyed' && !_isGuyedSq);
   const _faceFn = cfg.type === 'monopole'
-    ? () => 0.5
+    ? _hwAtFn
     : _isGuyedSq ? z => _hwAtFn(z) * Math.SQRT2
     : _isTri     ? z => 2 * _hwAtFn(z) / Math.sqrt(3)
     : _hwAtFn;
@@ -10981,7 +11582,7 @@ function renderAntenas3D() {
       const _hasHerrD = a.herraje && a.herraje !== 'ninguno';
       const radialOff = _hasHerrD
         ? _rPost(a.herraje, _pz0dish) + _postR(a.herraje)   // apex del dish tangente al poste
-        : (cfg.type === 'monopole' ? 0.5 : halfW) + 0.30;
+        : (halfW) + 0.30;
       const px = Math.sin(az) * radialOff + perp * Math.cos(az);
       const py = Math.cos(az) * radialOff - perp * Math.sin(az);
       const pz = _pz0dish;
@@ -11141,7 +11742,7 @@ function renderAntenas3D() {
       // ── Panel / RRU / Otros (forma extruida rectangular) ─────────────────
       // RRU con _rruBehind: espalda con espalda del panel, 5 cm de separación.
       // radialOffset RRU → su cara frontal queda a 5 cm de la cara trasera del panel.
-      const base = cfg.type === 'monopole' ? 0.5 : halfW;
+      const base = halfW;
       const _hasHerr = a.herraje && a.herraje !== 'ninguno';
       const _pz0 = +a.z || 0;
       const radialOffset = _rruBehind[dataIdx]
@@ -11178,10 +11779,10 @@ function renderAntenas3D() {
         const rfhKey = `${az.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
         if (!_renderedRFH.has(rfhKey)) {
           _renderedRFH.add(rfhKey);
-          _addHerraje3D('RF_H', az, cfg.type === 'monopole' ? 0.5 : halfW, +a.z || 0, 0, _faceFn);
+          _addHerraje3D('RF_H', az, halfW, +a.z || 0, 0, _faceFn);
         }
       } else {
-        _addHerraje3D(a.herraje, az, cfg.type === 'monopole' ? 0.5 : halfW, +a.z || 0, perp, _faceFn);
+        _addHerraje3D(a.herraje, az, halfW, +a.z || 0, perp, _faceFn);
       }
     }
   });
@@ -11261,6 +11862,10 @@ function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt) {
 function applyAntenas() {
   renderAntenas3D();
   if (antenasOn) buildAntenasPanel();
+  if (windForcesOn || windForceLabelsOn) {
+    _buildWindForceArrows();
+    _renderAntennaForceTable(getConfig());
+  }
 }
 
 function switchToTorre() {
@@ -15872,7 +16477,7 @@ async function saveProjectAs() {
   document.getElementById('home-menu').classList.remove('open');
   const suggestedBase = currentFileHandle?.name?.replace(/\.tsa$/i, '') || _assetFileBase(getConfig());
   if (qtBridge) {
-    const suggested = currentFileHandle?.name || `${suggestedBase}.TSA`;
+    const suggested = currentFileHandle?.name || `${suggestedBase}.tsa`;
     return new Promise(resolve => {
       qtBridge.saveProjectDialog(_projectJSON(), suggested, resStr => {
         const res = JSON.parse(resStr);
@@ -15894,7 +16499,7 @@ async function saveProjectAs() {
       // archivos abre directo, sin ese riesgo (el usuario navega manualmente, una vez).
       const handle = await window.showSaveFilePicker({
         suggestedName: currentFileHandle ? currentFileHandle.name : `${suggestedBase}.TSA`,
-        types: [{ description: 'TSA Project', accept: { 'application/json': ['.TSA', '.tsa'] } }],
+        types: [{ description: 'TSA Project', accept: { 'application/x-tsa': ['.tsa'] } }],
       });
       await _writeHandle(handle);
       currentFileHandle = handle;
@@ -15911,7 +16516,7 @@ async function saveProjectAs() {
     const blob = new Blob([_projectJSON()], {type: 'application/json'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = currentFileHandle?.name || `${suggestedBase}.TSA`; a.click();
+    a.href = url; a.download = currentFileHandle?.name || `${suggestedBase}.tsa`; a.click();
     URL.revokeObjectURL(url);
     document.getElementById('status').textContent = 'Proyecto guardado.';
     _unsavedChanges = false;
@@ -15942,7 +16547,7 @@ async function triggerSaveForClose() {
 // app/web/ también). En el sitio publicado en GitHub Pages no están disponibles (no se
 // suben los .tsa) y simplemente mostrará un error si se intenta.
 const EXAMPLE_PROJECTS = {
-  MONOPOLO: {"type": "monopole", "baseW": 1.2, "topW": 0.8, "height": 30, "nInc": 4, "nStr": 2, "nsec": 6, "shaftW": 1, "guyLevels": 3, "guyHeights": [], "guyCableData": [], "guyAnchorData": [], "guyPivot": false, "location": null, "assetName": "", "siteName": "", "pais": "", "ingResponsable": "", "fechaCreacion": "2026-06-20", "secData": [{"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 12, "monoThk": "6.35", "monoAp": null, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.6, "monoFy": "A36"}, {"diag": "X", "bays": 1, "M": "-", "MCal": "-", "D": "-", "DCal": "-", "topH": true, "Htop": "-", "HtopCal": "-", "bayTopH": false, "Hbay": "-", "HbayCal": "-", "Ds": "-", "DsCal": "-", "Hs": "-", "HsCal": "-", "planTop": "none", "PbTop": "-", "PbTopCal": "-", "PbTop2": "-", "PbTop2Cal": "-", "planBay": "none", "PbBay": "-", "PbBayCal": "-", "PbBay2": "-", "PbBay2Cal": "-", "hip": "none", "HhipH": "-", "HhipHCal": "-", "HhipD": "-", "HhipDCal": "-", "HhipDia": "-", "HhipDiaCal": "-", "staggerFlip": false, "h": 5, "monoSides": 24, "monoThk": "6.35", "monoAp": 0.4, "monoFy": "A36"}]},
+  MONOPOLO: {"type":"monopole","baseW":1.2,"topW":0.8,"height":30,"alturaInclinada":18,"nInc":3,"nStr":2,"nsec":5,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"","assetName":"","cliente":"","pais":"","ingResponsable":"","revision":"","fechaCreacion":"2026-06-20","secData":[{"diag":"X","bays":1,"M":"-","MCal":"-","D":"-","DCal":"-","topH":true,"Htop":"-","HtopCal":"-","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"6.35","monoAp":null,"monoFy":"A572 Gr50","_m4reduc":false},{"diag":"X","bays":1,"M":"-","MCal":"-","D":"-","DCal":"-","topH":true,"Htop":"-","HtopCal":"-","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"6.35","monoAp":null,"monoFy":"A572 Gr50","_m4reduc":false},{"diag":"X","bays":1,"M":"-","MCal":"-","D":"-","DCal":"-","topH":true,"Htop":"-","HtopCal":"-","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"6.35","monoAp":null,"monoFy":"A572 Gr50","_m4reduc":false},{"diag":"X","bays":1,"M":"-","MCal":"-","D":"-","DCal":"-","topH":true,"Htop":"-","HtopCal":"-","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"6.35","monoAp":0.6,"monoFy":"A572 Gr50","_m4reduc":false},{"diag":"X","bays":1,"M":"-","MCal":"-","D":"-","DCal":"-","topH":true,"Htop":"-","HtopCal":"-","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":24,"monoThk":"6.35","monoAp":0.4,"monoFy":"A572 Gr50","_m4reduc":false}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"comentariosData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":120,"velTipo":"regional","velOperacional":97.2,"asnm":456,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"id":1,"desc":"AT\u0026T","tipo":"Panel","z":29,"azimuth":0,"ancho":0.25,"alto":2,"espesor":0.06,"peso":30,"epa0":0.7167,"epa60":0.3592,"epa90":0.24,"linkedTo":null,"herraje":"RF_H"},{"id":2,"desc":"AT\u0026T","tipo":"Panel","z":29,"azimuth":120,"ancho":0.25,"alto":2,"espesor":0.06,"peso":30,"epa0":0.7167,"epa60":0.3592,"epa90":0.24,"linkedTo":null,"herraje":"RF_H"},{"id":3,"desc":"AT\u0026T","tipo":"Panel","z":29,"azimuth":240,"ancho":0.25,"alto":2,"espesor":0.06,"peso":30,"epa0":0.7167,"epa60":0.3592,"epa90":0.24,"linkedTo":null,"herraje":"RF_H"},{"id":1,"desc":"Claro","tipo":"Panel","z":25,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":30,"epa0":0.3907,"epa60":0.1967,"epa90":0.132,"linkedTo":null,"herraje":"RF_simple"},{"id":2,"desc":"Claro","tipo":"Panel","z":25,"azimuth":120,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":30,"epa0":0.3907,"epa60":0.1967,"epa90":0.132,"linkedTo":null,"herraje":"RF_simple"},{"id":3,"desc":"Claro","tipo":"Panel","z":25,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":30,"epa0":0.3907,"epa60":0.1967,"epa90":0.132,"linkedTo":null,"herraje":"RF_simple"},{"id":4,"desc":"CFE","tipo":"Parabólica grid","z":20,"azimuth":180,"ancho":2.4,"alto":2.4,"espesor":0.06,"peso":120,"epa0":2.4212,"epa60":1.6323,"epa90":1.0957,"linkedTo":null,"herraje":"MW"},{"id":1,"desc":"Claro","tipo":"Parabólica cilíndrica","z":22,"azimuth":240,"ancho":2,"alto":2,"espesor":0.06,"peso":120,"epa0":3.9637,"epa60":2.4839,"epa90":1.9635,"linkedTo":null,"herraje":"MW"}],"feedersData":[],"antFeeders":{},"cgoData":[],"escalData":[],"m4":false,"altConst":0,"altReduccion":0},
   AUTOSOPORTADA_4P: {"type":"square","baseW":2,"topW":2,"height":30,"alturaInclinada":0,"nInc":0,"nStr":5,"nsec":5,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"434353","cliente":"AT&T","pais":"Paraguay","ingResponsable":"","revision":"01","fechaCreacion":"2026-06-19","secData":[{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"Staggered","bays":4,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X3/16","HtopCal":"A572 Gr50","bayTopH":true,"Hbay":"L3X3X3/16","HbayCal":"A572 Gr50","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":45,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":135,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":225,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":30,"azimuth":315,"ancho":0.5,"alto":2,"espesor":0.15,"peso":0,"epa0":1,"epa60":0.7598,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":45,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":135,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":225,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36},{"desc":"CFE","tipo":"Panel","z":20,"azimuth":315,"ancho":0.2,"alto":1.8,"espesor":0.2,"peso":0,"epa0":0.36,"epa60":0.4918,"epa90":0.36}]},
   AUTOSOPORTADA_3P: {"type":"triangular","baseW":8.9,"topW":1.85,"height":72,"alturaInclinada":60,"nInc":10,"nStr":2,"nsec":12,"shaftW":1,"guyShape":"triangular","guyLevels":3,"guyHeights":[],"guyCableData":[],"guyAnchorData":[],"guyPivot":false,"location":null,"assetNumber":"159047","assetName":"Prueba","cliente":"AT\u0026T","pais":"México","ingResponsable":"Juan Espinosa","revision":"01","fechaCreacion":"2026-06-29","secData":[{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-25Pct","bays":1,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"L2X2X1/8","DsCal":"A572 Gr50","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"B-B","PbTop":"L2X2X1/8","PbTopCal":"A572 Gr50","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"4","HhipH":"L2X2X1/8","HhipHCal":"A572 Gr50","HhipD":"L2X2X1/8","HhipDCal":"A572 Gr50","HhipDia":"L2X2X1/8","HhipDiaCal":"A572 Gr50","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false},{"diag":"X-50Pct","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L3X3X1/4","DCal":"A572 Gr50","topH":true,"Htop":"L3X3X1/4","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"L2X2X1/8","HsCal":"A572 Gr50","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-","_m4reduc":false}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[{"version":"V1.0","descripcion":"Publicación Inicial","autor":"Juan Espinosa","fecha":"2026-06-20","locked":true},{"version":"V1.01","descripcion":"Exportación completa de geometría y perfilería a STAAD.Pro, cálculo de presión dinámica qz, implementación de la memoria de cálculo.","autor":"Juan Espinosa","fecha":"2026-06-28","locked":true}],"comentariosData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0.3,"antenasData":[{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":0,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":1,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":120,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":2,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"Panel","z":70,"azimuth":240,"ancho":0.4,"alto":2,"espesor":0.2,"peso":35,"epa0":1.0489,"epa60":0.7122,"epa90":0.6,"id":3,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":4,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":5,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.5,"alto":2.4,"espesor":0.3,"peso":35,"epa0":1.5627,"epa60":1.1647,"epa90":1.032,"id":6,"herraje":"RF_H"},{"desc":"Sin Radomo","tipo":"Parabólica sin radomo","z":55,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":10.962,"epa60":7.3086,"epa90":2.4302,"id":7,"herraje":"MW"},{"desc":"Con Radomo","tipo":"Parabólica con radomo","z":50,"azimuth":120,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":6.1023,"epa60":4.5381,"epa90":2.872,"id":8,"herraje":"MW"},{"desc":"Cilindrica","tipo":"Parabólica cilíndrica","z":45,"azimuth":240,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":8.9184,"epa60":5.5888,"epa90":4.4179,"id":9,"herraje":"MW"},{"desc":"Rejilla","tipo":"Parabólica grid","z":40,"azimuth":0,"ancho":3,"alto":3,"espesor":0.06,"peso":70,"epa0":3.7831,"epa60":2.5504,"epa90":1.712,"id":10,"herraje":"MW"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":11,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":12,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.1,"peso":35,"epa0":0.3907,"epa60":0.2387,"epa90":0.188,"id":13,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":0,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":14,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":120,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":15,"herraje":"RF_H"},{"desc":"Altan","tipo":"Panel","z":60,"azimuth":240,"ancho":0.35,"alto":1.8,"espesor":0.2,"peso":30,"epa0":0.83,"epa60":0.6035,"epa90":0.528,"id":16,"herraje":"RF_H"},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":17},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":18},{"desc":"AT\u0026T","tipo":"RRU","z":70,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.1,"peso":30,"epa0":0.12,"epa60":0.068,"epa90":0.0507,"id":19},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":20},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":21},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":22},{"desc":"","tipo":"RRU","z":60,"azimuth":0,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":23},{"desc":"","tipo":"RRU","z":60,"azimuth":120,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":24},{"desc":"","tipo":"RRU","z":60,"azimuth":240,"ancho":0.25,"alto":0.4,"espesor":0.06,"peso":30,"epa0":0.12,"epa60":0.0549,"epa90":0.0332,"id":25}],"feedersData":[{"id":6,"type":"paquete","ruta":"A","zi":0,"zf":70,"n":12,"columnas":[[{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7}],[{"tipo":"5/16\"","diam":8},{"tipo":"5/16\"","diam":8},{"tipo":"5/16\"","diam":8}],[{"tipo":"5/8\"","diam":22},{"tipo":"5/8\"","diam":22},{"tipo":"5/8\"","diam":22}],[{"tipo":"5/8\"","diam":22},{"tipo":"1/4\"","diam":8.8},{"tipo":"1/4\"","diam":8.8}]],"cluster":false},{"id":7,"type":"paquete","ruta":"B","zi":0,"zf":70,"n":7,"columnas":[[{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7},{"tipo":"7/8\"","diam":27.7}]],"cluster":true}],"antFeeders":{"0":[],"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[],"8":[],"9":[],"10":[],"11":[],"12":[],"13":[],"14":[],"15":[],"16":[],"17":[],"18":[],"19":[],"20":[],"21":[],"22":[],"23":[],"24":[]},"m4":false,"altConst":0,"altReduccion":0},
   ARRIOSTRADA: {"type":"guyed","baseW":4,"topW":2,"height":120,"alturaInclinada":0,"nInc":0,"nStr":21,"nsec":21,"shaftW":1.5,"guyShape":"triangular","guyLevels":6,"guyHeights":[18,36,54,72,90,108],"guyCableData":[{"diam":"3/16\" (1 x 7 EHS)","diamData":{"name":"3/16","forma":"1 x 7","calidad":"EHS","peso":0.1086,"area":0.1386,"rotura":1.81,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/16\" (1 x 7 EHS)","diamData":{"name":"5/16","forma":"1 x 7","calidad":"EHS","peso":0.3051,"area":0.3849,"rotura":5.08,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"1/2\" (1 x 7 HS)","diamData":{"name":"1/2","forma":"1 x 7","calidad":"HS","peso":0.7694,"area":0.9853,"rotura":8.53,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[0,1,2],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 7 HS)","diamData":{"name":"5/8","forma":"1 x 7","calidad":"HS","peso":1.2099,"area":1.5395,"rotura":13.43,"modulo":1400000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"5/8\" (1 x 19 EHS)","diamData":{"name":"5/8","forma":"1 x 19","calidad":"EHS","peso":1.2203,"area":1.5043,"rotura":18.23,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":false,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"},{"diam":"9/16\" (1 x 19 HS)","diamData":{"name":"9/16","forma":"1 x 19","calidad":"HS","peso":0.948,"area":1.2185,"rotura":10.93,"modulo":1690000},"tensionPct":10,"conexion":"Antorchada","nodes":[3,4,5],"triangulo":true,"brazoLen":1.8,"brazoPerfil":"-","brazoPerfilCal":"-"}],"guyAnchorData":[{"elev":0,"radio":40,"azimut":0},{"elev":0,"radio":40,"azimut":120},{"elev":0,"radio":40,"azimut":240},{"elev":0,"radio":70,"azimut":0},{"elev":0,"radio":70,"azimut":120},{"elev":0,"radio":70,"azimut":240}],"guyPivot":true,"location":{"lat":19.710469100246826,"lng":-99.06828045845033},"assetNumber":"159047","assetName":"rew","cliente":"AT&T","pais":"","ingResponsable":"rwrefa","revision":"01","fechaCreacion":"2026-06-20","secData":[{"diag":"X","bays":2,"M":"L4X4X1/4","MCal":"A36","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":2.4,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":3,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":3.6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"},{"diag":"X","bays":5,"M":"L4X4X1/4","MCal":"A572 Gr50","D":"L2-1/2X2-1/2X3/16","DCal":"A572 Gr50","topH":true,"Htop":"L2-1/2X2-1/2X3/16","HtopCal":"A572 Gr50","bayTopH":false,"Hbay":"-","HbayCal":"-","Ds":"-","DsCal":"-","Hs":"-","HsCal":"-","planTop":"none","PbTop":"-","PbTopCal":"-","PbTop2":"-","PbTop2Cal":"-","planBay":"none","PbBay":"-","PbBayCal":"-","PbBay2":"-","PbBay2Cal":"-","hip":"none","HhipH":"-","HhipHCal":"-","HhipD":"-","HhipDCal":"-","HhipDia":"-","HhipDiaCal":"-","staggerFlip":false,"h":6,"monoSides":12,"monoThk":"-","monoAp":null,"monoFy":"-"}],"nodeOverrides":{},"memberOverrides":{},"supportOverrides":{},"revisionData":[],"windData":{"codigo":"ANSI_TIA_H","catRiesgo":"II","catExposicion":"C","velocidad":150,"velTipo":"regional","velOperacional":97.2,"asnm":1500,"topoCat":"plano","topoH":null,"topoL":null,"topoX":null,"topoDir":"favor","directions":[0,60,90]},"dadoHeight":0,"antenasData":[{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.35,"alto":2,"espesor":0.15,"peso":0,"epa0":0.7,"epa60":0.6098,"epa90":0.3},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"CFE","tipo":"Panel","z":80,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":0,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":180,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072},{"desc":"AT&T","tipo":"Panel","z":100,"azimuth":240,"ancho":0.25,"alto":1.2,"espesor":0.06,"peso":0,"epa0":0.3,"epa60":0.2124,"epa90":0.072}]},
@@ -15973,7 +16578,7 @@ async function openProject() {
       // Sin "startIn" (ver mismo comentario en saveProjectAs) — evita el cuadro
       // "esta carpeta no se puede abrir" de Chrome al usar TSA en un equipo nuevo.
       const [handle] = await window.showOpenFilePicker({
-        types: [{ description: 'TSA Project', accept: { 'application/json': ['.TSA', '.tsa', '.json'] } }],
+        types: [{ description: 'TSA Project', accept: { 'application/x-tsa': ['.tsa'] } }],
       });
       const file = await handle.getFile();
       loadProjectData(JSON.parse(await file.text()), file.name);
@@ -15991,6 +16596,11 @@ async function openProject() {
 function loadProject(input) {
   const file = input.files[0];
   if (!file) return;
+  if (!/\.(tsa)$/i.test(file.name)) {
+    showToast('Solo se pueden abrir archivos .TSA', 'warn');
+    input.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -16008,6 +16618,7 @@ function loadProjectData(cfg, filename) {
     const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
     set('ttype',         cfg.type);
     applyTypeLock(cfg.type);
+    document.getElementById('wfl-btn-torre').textContent = cfg.type === 'monopole' ? 'Monopolo' : 'Torre';
     set('baseW',         cfg.baseW);
     set('topW',          cfg.topW);
     set('height',        cfg.height);
@@ -16144,6 +16755,13 @@ function deleteSeccion(i) {
   if (secData[i]?._m4reduc) { showToast('Desactiva M4 para eliminar el tramo de reducción.', 'warn'); return; }
   secData.splice(i, 1);
   if (aislarTramoSec === i) aislarTramoSec = null;
+  // Para monopolo: actualizar nInc/nStr para que getConfig() retorne el conteo correcto
+  if (getConfig().type === 'monopole') {
+    const oldNInc = +document.getElementById('nInc').value || 0;
+    const newNInc = i < oldNInc ? Math.max(0, oldNInc - 1) : oldNInc;
+    document.getElementById('nInc').value = newNInc;
+    document.getElementById('nStr').value = Math.max(0, secData.length - newNInc);
+  }
   buildSectionRows(secData.length);
   refresh();
   scheduleHistoryPush();
@@ -16214,12 +16832,30 @@ function buildSectionRows(n) {
     const g = steelGrades.find(g => g.name === cal);
     return g ? `${val} <span style="color:var(--txt-sec);font-size:9px;">· ${g.name} Fy ${g.fy}</span>` : val;
   };
+  const _secWeights = cfg.type !== 'monopole' ? _reportSectionWeights() : null;
+  const _monoZIncTot = cfg.type === 'monopole'
+    ? (cfg.alturaInclinada > 0 ? +cfg.alturaInclinada
+        : Array.from({length: Math.min(cfg.nInc||0, secData.length)}, (_, j) => +secData[j]?.h||0).reduce((a,b)=>a+b,0))
+    : 0;
   const altH = cfg.alturaInclinada || 0;
   let _cumH = 0;
   secData.forEach((s, i) => {
     const isInc = altH > 0
       ? (_cumH < altH - 0.001)
       : i < nInc;
+    let pesoLbl = '—';
+    if (cfg.type === 'monopole') {
+      const thk = s.monoThk && s.monoThk !== '-' ? +s.monoThk / 1000 : null;
+      if (thk && (+s.h || 0) > 0) {
+        const sides2 = +s.monoSides || 12;
+        const rAvg = _monopoleSectionRadius(cfg, i, _cumH, _cumH + (+s.h||0), _monoZIncTot);
+        const perim = sides2 >= 24 ? 2*Math.PI*rAvg : sides2 * 2 * rAvg * Math.sin(Math.PI/sides2);
+        pesoLbl = `${Math.round(perim * thk * (+s.h||0) * 7850)} kg`;
+      }
+    } else {
+      const w = _secWeights[i];
+      if (w != null) pesoLbl = `${Math.round(w)} kg`;
+    }
     _cumH += +s.h || 0;
     const tipo    = isInc ? 'INC' : 'REC';
     const tipoLbl = isInc ? 'Inclinado' : 'Recto';
@@ -16243,17 +16879,23 @@ function buildSectionRows(n) {
       </div>
       ${cfg.type==='monopole' ? `
       <div class="sec-row-detail"><span class="sec-row-code">Altura:</span><span class="sec-row-val">${s.h} m</span></div>
-      <div class="sec-row-detail"><span class="sec-row-code">Diámetro:</span><span class="sec-row-val">${i<nInc ? 'ahusado' : (s.monoAp!=null ? s.monoAp+' m' : '—')}</span></div>
+      <div class="sec-row-detail"><span class="sec-row-code">Diámetro:</span>${i < nInc
+        ? `<span class="sec-row-val" style="color:var(--txt-sec)">ahusado</span>`
+        : `<input type="number" min="0.1" step="0.1" class="ctrl-input" style="width:70px;padding:1px 4px;font-size:11px;text-align:right;"
+            value="${s.monoAp ?? ''}" placeholder="ahusado"
+            oninput="secData[${i}].monoAp = this.value !== '' ? +this.value : null; refresh();"
+            title="Diámetro del tramo recto (m)"> <span style="font-size:10px;color:var(--txt-sec)">m</span>`
+      }</div>
       <div class="sec-row-detail"><span class="sec-row-code">Espesor:</span><span class="sec-row-val">${s.monoThk==='-'?'—':s.monoThk+' mm'}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">Fy:</span><span class="sec-row-val">${(() => { const g = steelGrades.find(g=>g.name===s.monoFy); return g ? `${g.name} (Fy ${g.fy} kg/cm²)` : '—'; })()}</span></div>
-      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">—</span></div>
+      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">${pesoLbl}</span></div>
       ` : `
       <div class="sec-row-detail"><span class="sec-row-code">M:</span><span class="sec-row-val">${profFy(s.M, s.MCal)}</span></div>
       <div class="sec-row-detail"><span class="sec-row-code">D:</span><span class="sec-row-val">${profFy(s.D, s.DCal)}</span></div>
       ${hasDsProfile(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Ds:</span><span class="sec-row-val">${profFy(s.Ds, s.DsCal)}</span></div>` : ''}
       ${isKPattern(s.diag) ? `<div class="sec-row-detail"><span class="sec-row-code">Hs:</span><span class="sec-row-val">${profFy(s.Hs, s.HsCal)}</span></div>` : ''}
       <div class="sec-row-detail"><span class="sec-row-code">H:</span><span class="sec-row-val">${s.topH ? profFy(s.Htop, s.HtopCal) : (s.bayTopH ? profFy(s.Hbay, s.HbayCal) : '—')}</span></div>
-      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">—</span></div>
+      <div class="sec-row-detail"><span class="sec-row-code">Peso:</span><span class="sec-row-val">${pesoLbl}</span></div>
       `}`;
     c.appendChild(card);
     // Separador con botón + entre secciones (copia la sección actual hacia arriba en la torre)
@@ -17610,7 +18252,31 @@ function getMemberProfile(m) {
     // null/undefined) — sin el chequeo "!== '-'" esta rama atrapaba TAMBIÉN los 'leg'
     // de lattice/guyed, devolviendo calidadName='-' en vez de sd.MCal real. Bug real
     // confirmado con harness (2026-06-28).
-    if (m.type==='leg' && sd.monoFy != null && sd.monoFy !== '-') { profile = '—'; calidadName = sd.monoFy; }
+    if (m.type==='leg' && sd.monoFy != null && sd.monoFy !== '-') {
+      // Tubo monopolo: "<Tipo> - <Forma> - <Diámetro> - <Espesor>"
+      // Tipo: según si el tramo es inclinado (cónico) o recto
+      const nIncVal  = +document.getElementById('nInc')?.value || 0;
+      const isInc    = sec < nIncVal;
+      const tipoLbl  = isInc ? 'Cónico' : 'Recto';
+      // Forma
+      const sides    = sd.monoSides != null ? +sd.monoSides : 12;
+      const formaLbl = sides >= 24 ? 'Redondo' : `${sides} Lados`;
+      // Diámetro: fijo (monoAp) para rectos; diámetro medio del tramo para cónicos
+      let dLbl = '—';
+      const ni2 = _towerData?.nodes[m.ni], nj2 = _towerData?.nodes[m.nj];
+      if (ni2 && nj2) {
+        const cfg2    = getConfig();
+        const zIncTot = Array.from({length: Math.min(nIncVal, secData.length)},
+                          (_, i) => +secData[i]?.h || 6).reduce((a, b) => a + b, 0);
+        const r = _monopoleSectionRadius(cfg2, sec,
+                    Math.min(ni2.z, nj2.z), Math.max(ni2.z, nj2.z), zIncTot);
+        if (r > 0) dLbl = `Ø${Math.round(r * 2000)} mm`;
+      }
+      const thk  = (sd.monoThk != null && sd.monoThk !== '-') ? sd.monoThk : null;
+      const eLbl = thk != null ? `${thk} mm` : '—';
+      profile = `${tipoLbl} - ${formaLbl} - ${dLbl} - ${eLbl}`;
+      calidadName = sd.monoFy;
+    }
     else if (m.type==='leg') { profile = (sd.M && sd.M!=='-') ? sd.M : '—'; calidadName = sd.MCal; }
     else if (m.type==='diagonal') {
       profile = isPrincipal
