@@ -4510,36 +4510,49 @@ function _redrawWindForceArrows() {
   _windForceLastWupp = wupp;
   const maxLenPx = 55, minLenPx = 9;
   const _secFilter = r => r.isAntenna || aislarTramoSec === null || r.sec === aislarTramoSec + 1;
-  // maxF para cargas puntuales (celosía/antenas); maxW para cargas lineales (monopolo).
-  const maxF = Math.max(..._windForceResults.filter(r => !r.isLinear).map(r => r.F_kgf), 1e-6);
+  // maxF para cargas puntuales (celosía/antenas) — incluye también las muestras de
+  // retenidas (F_kgf por punto) para que sus flechas salgan proporcionales a las de la
+  // propia torre, en la misma escala física, en vez de normalizarse contra su propio
+  // máximo aislado — pedido explícito del usuario (2026-07-21).
+  // maxW para cargas lineales de monopolo (fuste, kgf/m).
+  const maxF = Math.max(..._windForceResults.filter(r => !r.isLinear || r.grpKey).map(r => r.F_kgf), 1e-6);
   // maxW usa valores del punto medio (tabla) cuando disponibles; fallback a nodos
   const _monoWVals = Object.values(_monoSecW);
   const maxW = _monoWVals.length
     ? Math.max(..._monoWVals, 1e-6)
-    : Math.max(..._windForceResults.filter(r => r.isLinear).map(r => r.F_per_m || 0), 1e-6);
+    : Math.max(..._windForceResults.filter(r => r.isLinear && !r.grpKey).map(r => r.F_per_m || 0), 1e-6);
 
   // ── Pre-agrupar resultados ────────────────────────────────────────────
-  const udlBySec = {};   // secciones con carga distribuida (monopolo)
+  // udlBySec: 1 grupo por tramo en monopolos, 1 grupo por cable individual en retenidas
+  // (grpKey) — varias retenidas comparten "sec" (=guyLevel, solo para color) pero no son
+  // colineales entre sí, así que NO se agrupan por sec como en monopolos.
+  const udlBySec = {};
   const ptResults = [];  // cargas puntuales (celosía + antenas)
   _windForceResults.forEach(r => {
     if (!(r.F_kgf > 0) || !_secFilter(r)) return;
     if (r.isLinear) {
-      if (!udlBySec[r.sec]) udlBySec[r.sec] = { wSumW: 0, dzSum: 0, count: 0, positions: [], dir: r.dir };
-      udlBySec[r.sec].wSumW += r.F_per_m * r.dz;
-      udlBySec[r.sec].dzSum += r.dz;
-      udlBySec[r.sec].count++;
-      udlBySec[r.sec].positions.push(r.pos);
+      const gk = r.grpKey ?? r.sec;
+      if (!udlBySec[gk]) udlBySec[gk] = { wSumW: 0, dzSum: 0, count: 0, positions: [], dir: r.dir, sec: r.sec, isGuy: !!r.grpKey };
+      udlBySec[gk].wSumW += r.F_per_m * r.dz;
+      udlBySec[gk].dzSum += r.dz;
+      udlBySec[gk].count++;
+      udlBySec[gk].positions.push(r.pos);
     } else {
       ptResults.push(r);
     }
   });
 
   if (windForcesOn) {
-    // ── Carga Uniformemente Distribuida: monopolo ─────────────────────
-    Object.entries(udlBySec).forEach(([secStr, s]) => {
-      const sec   = +secStr;
+    // ── Carga Uniformemente Distribuida: monopolo / retenidas ──────────
+    Object.values(udlBySec).forEach(s => {
+      const sec   = s.sec;
       const wAvg  = _monoSecW[sec] ?? s.wSumW / s.dzSum;
-      const lenPx = Math.max(minLenPx, maxLenPx * (wAvg / maxW));
+      // Retenidas: la longitud se normaliza contra maxF (fuerza puntual promedio por
+      // muestra, misma escala que la torre) en vez de contra su propio máximo aislado —
+      // así una retenida se ve grande/chica en proporción real a las fuerzas de la torre,
+      // no siempre "llena" hasta maxLenPx — pedido explícito del usuario (2026-07-21).
+      const refVal = s.isGuy ? (s.wSumW / s.count) / maxF : wAvg / maxW;
+      const lenPx = Math.max(minLenPx, maxLenPx * refVal);
       const len   = lenPx * wupp;
       const dir3  = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
       const col   = C_WINDFORCE(sec);
@@ -4575,11 +4588,12 @@ function _redrawWindForceArrows() {
   if (_currentViewKey === '3d') {
     // UDL: una etiqueta por sección (kgf/m) en el centroide
     if (_wfLabelTorre) {
-      Object.entries(udlBySec).forEach(([secStr, s]) => {
+      Object.values(udlBySec).forEach(s => {
         if (!(s.wSumW > 0)) return;
-        const sec  = +secStr;
+        const sec  = s.sec;
         const wAvg = _monoSecW[sec] ?? s.wSumW / s.dzSum;
-        const lenPx = Math.max(minLenPx, maxLenPx * (wAvg / maxW));
+        const refVal = s.isGuy ? (s.wSumW / s.count) / maxF : wAvg / maxW;
+        const lenPx = Math.max(minLenPx, maxLenPx * refVal);
         const len  = lenPx * wupp;
         const dir3 = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
         const cx = s.positions.reduce((a, p) => a + p.x, 0) / s.count;
@@ -4633,10 +4647,10 @@ function _redrawWindForceArrows() {
         return;
       }
       if (!_wfLabelTorre) return;
-      const key = r.isLinear ? `L_${r.sec}` : `N_${r.sec ?? r.nodeIdx}`;
+      const key = r.isLinear ? `L_${r.grpKey ?? r.sec}` : `N_${r.sec ?? r.nodeIdx}`;
       if (!bySec2D[key]) bySec2D[key] = {
         total: 0, wSumW: 0, dzSum: 0, cx: 0, cy: 0, cz: 0, count: 0, dir: r.dir,
-        isLinear: !!r.isLinear, sec: r.sec,
+        isLinear: !!r.isLinear, sec: r.sec, isGuy: !!r.grpKey,
       };
       const e = bySec2D[key];
       e.total += r.F_kgf;
@@ -4645,7 +4659,8 @@ function _redrawWindForceArrows() {
     });
     Object.values(bySec2D).forEach(s => {
       const wAvg   = s.isLinear ? (_monoSecW[s.sec] ?? s.wSumW / s.dzSum) : 0;
-      const refVal = s.isLinear ? wAvg / maxW : s.total / s.count / maxF;
+      const refVal = s.isGuy ? (s.total / s.count) / maxF
+        : s.isLinear ? wAvg / maxW : s.total / s.count / maxF;
       const lenPx  = Math.max(minLenPx, maxLenPx * refVal);
       const len    = lenPx * wupp;
       const dir3   = new THREE.Vector3(s.dir.x, s.dir.y, 0).normalize();
@@ -6710,6 +6725,12 @@ function _legColumnsUnionFind(nodes, members) {
 function computeNodalWindForces(cfg, windData, angleDeg) {
   if (cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed') return [];
   if (!_towerData || !_towerData.nodes.length) return [];
+  // _monoSecW es una caché exclusiva de monopolos (indexada por nº de tramo, 1-based) que
+  // _redrawWindForceArrows consulta como atajo para el valor kgf/m — como esta función
+  // nunca corre para monopolos, cualquier valor de una torre monopolo previa en la misma
+  // sesión quedaría obsoleto y podría confundirse con el guyLevel (también 1-based) de las
+  // retenidas. Se limpia aquí para evitar ese choque de índices.
+  _monoSecW = {};
   const { nodes, members } = _towerData;
   const find = _legColumnsUnionFind(nodes, members);
   const allCols = [...new Set(members.filter(m => m.type === 'leg').map(m => find(m.ni)))];
@@ -6751,12 +6772,20 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   }
 
   // TIA-222-H §2.6.11.3 — fuerzas de viento en retenidas (guy cables)
-  // FG = Cd · d · LG · Gh · qz · sin²(θg). Repartida en N_GUY_SAMPLES puntos a lo
-  // largo de todo el cable (no en un único nodo puntual) — pedido explícito del
-  // usuario (2026-07-14), para que la vista 3D la muestre como fuerza distribuida.
+  // FG = Cd · d · LG · Gh · qz · sin²(θg). Repartida a lo largo de todo el cable, marcada
+  // isLinear (igual que el fuste de un monopolo) para que se dibuje como una carga
+  // uniformemente distribuida — una sola franja de flechas de igual longitud y una sola
+  // etiqueta "kgf/m" por cable, en vez de cargas puntuales sueltas con su propia etiqueta
+  // "kgf" cada una — pedido explícito del usuario (2026-07-21).
+  // Cantidad fija de flechas por cable (GUY_ARROWS, no proporcional al largo) — la densidad
+  // por metro se probó primero pero resultaba en demasiadas flechas en cables largos, así
+  // que se volvió a un conteo fijo — pedido explícito del usuario (2026-07-21).
+  // grpKey identifica cada cable individualmente (ni_nj): varias retenidas comparten el
+  // mismo guyLevel (sec, usado solo para color/leyenda) pero NO son colineales entre sí, así
+  // que agruparlas por sec mezclaría sus posiciones en una sola polilínea sin sentido.
   if (cfg.type === 'guyed') {
     const Cd = 1.2, Gh = 0.85;
-    const N_GUY_SAMPLES = 6;
+    const GUY_ARROWS = 20;
     members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
@@ -6776,16 +6805,23 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
       const qz = calcWindPressure(cfg, windData, zMid);
       const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
       if (FG_kgf > 0) {
-        const Fk = FG_kgf / N_GUY_SAMPLES;
-        for (let k = 0; k < N_GUY_SAMPLES; k++) {
-          const t = (k + 0.5) / N_GUY_SAMPLES;
+        const F_per_m = FG_kgf / LG;
+        const nSub    = GUY_ARROWS - 1;   // GUY_ARROWS puntos (incl. extremos) → nSub tramos
+        const dzStep  = LG / nSub;
+        const grpKey  = `guy_${m.ni}_${m.nj}`;
+        // k=0..nSub inclusive → el primer y último punto caen exactamente en los nodos
+        // inicial/final del cable (igual criterio que el fuste del monopolo, ver arriba) —
+        // pedido explícito del usuario (2026-07-21) para que la carga se vea de extremo a
+        // extremo en vez de recortada dentro del tramo.
+        for (let k = 0; k <= nSub; k++) {
+          const t      = k / nSub;
+          const dzTrib = (k === 0 || k === nSub) ? dzStep / 2 : dzStep;
           results.push({
-            sec: guyLevel,
+            sec: guyLevel, grpKey,
             pos: { x: na.x + dx * t, y: na.y + dy * t, z: na.z + dz * t },
             z: na.z + dz * t,
-            F_kgf: Fk,
-            dir,
-            isGuy: true,
+            F_kgf: F_per_m * dzTrib, F_per_m,
+            dz: dzTrib, dir, isLinear: true,
           });
         }
       }
@@ -8118,6 +8154,10 @@ function _drawMonopolePreview3D(svgEl, cfg) {
       const tR = i / nInc;                 // ahusado: SOLO a través de los nInc tramos inclinados
       prof.push({yScr: yOf(tY), rpx: (baseD + (topD - baseD) * tR) / 2 * rScale});
     }
+    // Escalón cono→recto: el cono termina en topD pero el primer tramo recto puede tener
+    // un diámetro propio distinto (editado por el usuario) — sin este punto la cara se
+    // dibujaba ahusada entre topD y dOf(0) en vez de un escalón vertical.
+    if (nStr > 0) prof.push({yScr: yOf(nInc / nTot), rpx: dOf(0) / 2 * rScale});
     for (let i = 0; i < nStr; i++) {
       const tTop = (nInc + i + 1) / nTot;
       const rpx  = dOf(i) / 2 * rScale;
