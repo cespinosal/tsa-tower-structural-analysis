@@ -3033,10 +3033,15 @@ function _genMonopoleForDisplay(cfg) {
 }
 
 function generateTower(cfg) {
-  return cfg.type === 'square'   ? genSquare(cfg)
-       : cfg.type === 'guyed'    ? genGuyed(cfg)
-       : cfg.type === 'monopole' ? _genMonopoleForDisplay(cfg)
-       :                           genTriangular(cfg);
+  const result = cfg.type === 'square'   ? genSquare(cfg)
+               : cfg.type === 'guyed'    ? genGuyed(cfg)
+               : cfg.type === 'monopole' ? _genMonopoleForDisplay(cfg)
+               :                           genTriangular(cfg);
+  if (dadoHeight > 0) {
+    result.nodes.forEach(n => n.z += dadoHeight);
+    if (result.monoProf) result.monoProf.forEach(p => p.z += dadoHeight);
+  }
+  return result;
 }
 
 // Monopolo: tubo cilíndrico (12 líneas verticales + anillos)
@@ -5034,6 +5039,51 @@ function updateTowerNameLabel() {
   el.textContent = `${TYPE_LABELS[cfg.type] || cfg.type} · ${fmtNum(cfg.height)} m`;
 }
 
+function _buildDadoBlocks(data, cfg) {
+  if (!dadoHeight || dadoHeight <= 0) return;
+  const _qZ = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x8A8A8A, metalness: 0.05, roughness: 0.85,
+    emissive: 0x8A8A8A, emissiveIntensity: 0.15
+  });
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.7, transparent: true });
+  const addBox = (cx, cy, side) => {
+    const geo  = new THREE.BoxGeometry(side, dadoHeight, side);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.quaternion.copy(_qZ);
+    mesh.position.set(cx, cy, dadoHeight / 2);
+    mesh.frustumCulled = false;
+    towerGroup.add(mesh);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat.clone());
+    edges.quaternion.copy(_qZ);
+    edges.position.set(cx, cy, dadoHeight / 2);
+    edges.frustumCulled = false;
+    towerGroup.add(edges);
+  };
+  if (cfg.type === 'monopole') {
+    addBox(0, 0, 1.5 * cfg.baseW);
+  } else if (cfg.type === 'triangular' || cfg.type === 'square') {
+    const minZ = Math.min(...data.nodes.map(n => n.z));
+    const seen = new Set();
+    data.nodes.filter(n => Math.abs(n.z - minZ) < 0.01).forEach(n => {
+      const key = `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
+      if (!seen.has(key)) { seen.add(key); addBox(n.x, n.y, 0.5); }
+    });
+  } else if (cfg.type === 'guyed') {
+    if (cfg.guyPivot) {
+      const minZ = Math.min(...data.nodes.map(n => n.z));
+      const seen = new Set();
+      data.nodes.filter(n => Math.abs(n.z - minZ) < 0.01).forEach(n => {
+        const key = `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
+        if (!seen.has(key)) { seen.add(key); addBox(n.x, n.y, 0.5); }
+      });
+    } else {
+      addBox(0, 0, 1.5 * cfg.shaftW);
+    }
+  }
+}
+
 function renderTower(data) {
   // Corta diagonales que se cruzan geométricamente (X simple, etc.) en un nodo
   // compartido real — mismo criterio que ya usa el export STAAD (_splitCrossingDiagonals),
@@ -5199,6 +5249,8 @@ function renderTower(data) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(ptInt, 3));
     towerGroup.add(new THREE.Points(g, new THREE.PointsMaterial({color:0x445566, size:0.10, sizeAttenuation:true})));
   }
+
+  _buildDadoBlocks(data, getConfig());
 
   // No recentrar controls.target aquí — esto corre en CADA edición (refresh()) y antes
   // descentraba la vista del tramo que el usuario estuviera revisando. El centrado real
