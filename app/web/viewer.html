@@ -2129,6 +2129,61 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 
         <div class="tf-sect-general">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="10" width="20" height="11" rx="1"/>
+            <polyline points="2,10 12,3 22,10"/>
+            <line x1="12" y1="21" x2="12" y2="15"/>
+          </svg>
+          AZOTEA — ROOFTOP §2.6.7
+        </div>
+        <div class="tf-body">
+          <div class="tf-row">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="viento-rooftop" onchange="_onRooftopChange()">
+              <span class="tf-lbl" style="margin:0;">Estructura sobre azotea (activa factor Ks)</span>
+            </label>
+          </div>
+          <div id="viento-rooftop-extra" style="display:none;">
+            <!-- Condiciones §2.6.7 — el usuario debe marcar al menos una para activar Ks -->
+            <div style="font-size:10px;color:var(--txt-sec);margin-top:6px;line-height:1.4;font-style:italic;">
+              §2.6.7 — Se aplica factor Ks si se cumple al menos una condición:
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">
+              <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="viento-rooftop-cond1" style="margin-top:2px;flex-shrink:0;" onchange="_onRooftopCondChange()">
+                <span class="tf-lbl" style="margin:0;font-size:10px;line-height:1.45;">
+                  <b>Cond. 1</b> — Edificio &gt;15 m de altura, aislado e inobstruido en cuadrante de 90° a distancia ≤ min(792 m, 20·Hs) desde la cara de barlovento
+                </span>
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="viento-rooftop-cond2" style="margin-top:2px;flex-shrink:0;" onchange="_onRooftopCondChange()">
+                <span class="tf-lbl" style="margin:0;font-size:10px;line-height:1.45;">
+                  <b>Cond. 2</b> — Edificio sobresale &gt;15 m sobre la altura promedio de edificios inmediatamente adyacentes en cuadrante continuo de 90°
+                </span>
+              </label>
+            </div>
+            <!-- Hs — siempre activo: se usa para Kz aunque no aplique Ks (Nota 2 §2.6.7) -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+              <div><span class="tf-lbl">Hs — Altura del edificio (m)</span>
+                <input class="tf-input" type="number" id="viento-rooftop-hs" min="0" placeholder="ej. 20"></div>
+            </div>
+            <!-- Parámetros Ks — se habilitan solo si hay condición marcada -->
+            <div id="viento-rooftop-ks-zone" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;opacity:0.35;pointer-events:none;transition:opacity .2s;">
+              <div><span class="tf-lbl">Ws — Ancho cara barlovento (m)</span>
+                <input class="tf-input" type="number" id="viento-rooftop-ws" min="0" placeholder="ej. 30"></div>
+              <div><span class="tf-lbl">Hp — Altura de pretil (m)</span>
+                <input class="tf-input" type="number" id="viento-rooftop-hp" min="0" placeholder="0" value="0"></div>
+              <div style="grid-column:1/-1"><span class="tf-lbl">Xb — Dist. cara barlovento → centro de la estructura (m)</span>
+                <input class="tf-input" type="number" id="viento-rooftop-xb" min="0" placeholder="ej. 15" style="max-width:50%;"></div>
+            </div>
+            <div id="viento-rooftop-summary" style="display:none;margin-top:8px;padding:6px 8px;background:var(--bg-alt,rgba(255,255,255,0.06));border-radius:4px;font-size:10px;color:var(--txt-sec);line-height:1.7;"></div>
+            <div style="font-size:10px;color:var(--txt-sec);margin-top:6px;line-height:1.4;">
+              Sin condición: Ks=1.0, solo Hs eleva la referencia de Kz al nivel de calle del edificio.
+            </div>
+          </div>
+        </div>
+
+        <div class="tf-sect-general">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
             <line x1="12" y1="12" x2="16" y2="12"/>
           </svg>
@@ -2418,21 +2473,21 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     <div class="gp-sub">Malla principal</div>
     <div class="gp-row">
       <span>Tamaño (m)</span>
-      <input type="number" id="grid-size"  value="200" min="50"  max="2000" step="50"  oninput="refreshGrid()">
+      <input type="number" id="grid-size"  value="200" min="50"  max="2000" step="50"  oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row">
       <span>Divisiones</span>
-      <input type="number" id="grid-divs"  value="10"  min="2"   max="50"   step="1"   oninput="refreshGrid()">
+      <input type="number" id="grid-divs"  value="10"  min="2"   max="50"   step="1"   oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row">
       <span>Grosor (px)</span>
-      <input type="number" id="grid-thick" value="1.5" min="0.5" max="8"    step="0.5" oninput="refreshGrid()">
+      <input type="number" id="grid-thick" value="1.5" min="0.5" max="8"    step="0.5" oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
 
     <div class="gp-sub" style="margin-top:10px;">Malla secundaria</div>
     <div class="gp-row">
       <span>Subdivisiones</span>
-      <input type="number" id="grid-subs"  value="5"   min="2"   max="20"   step="1"   oninput="refreshGrid()">
+      <input type="number" id="grid-subs"  value="5"   min="2"   max="20"   step="1"   oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
 
     <div class="gp-sep"></div>
@@ -2447,7 +2502,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     </div>
     <div class="gp-row">
       <span>Inicio (%)</span>
-      <input type="number" id="fade-start" value="45" min="0" max="95" step="5" oninput="refreshGrid()">
+      <input type="number" id="fade-start" value="45" min="0" max="95" step="5" oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row" style="padding-bottom:12px;">
       <span>Intensidad</span>
@@ -5039,6 +5094,110 @@ function updateTowerNameLabel() {
   el.textContent = `${TYPE_LABELS[cfg.type] || cfg.type} · ${fmtNum(cfg.height)} m`;
 }
 
+function _buildRooftopBuilding() {
+  const wd = windData;
+  if (!wd.rooftop || !(wd.rooftopHs > 0) || !(wd.rooftopWs > 0)) return;
+  const Hs = wd.rooftopHs, Ws = wd.rooftopWs;
+  const _qZ = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+
+  // Textura de fachada — proporciones típicas edificio comercial México
+  // Entrepiso estándar 3.5 m, bahía de ventana 2.5 m (centro a centro)
+  const FLOOR_H = 3.5, BAY_W = 2.5;
+  const rows = Math.min(24, Math.max(2, Math.round(Hs / FLOOR_H)));
+  const cols = Math.min(16, Math.max(3, Math.round(Ws / BAY_W)));
+  const tw = 512, th = Math.round(tw * Hs / Ws);
+  const cv = document.createElement('canvas');
+  cv.width = tw; cv.height = th;
+  const cx = cv.getContext('2d');
+  // Fondo — concreto azul-gris
+  cx.fillStyle = '#4A5E72';
+  cx.fillRect(0, 0, tw, th);
+  const rowH = th / rows, colW = tw / cols;
+  // Antepecho (spandrel) en el tercio inferior de cada entrepiso
+  const spandrelH = rowH * 0.28;
+  for (let r = 0; r < rows; r++) {
+    const y = r * rowH + rowH - spandrelH;
+    cx.fillStyle = '#374F5E';
+    cx.fillRect(0, y, tw, spandrelH);
+  }
+  // Banda de losa entre pisos
+  const bandH = Math.max(2, rowH * 0.06);
+  for (let r = 0; r <= rows; r++) {
+    cx.fillStyle = '#38505F';
+    cx.fillRect(0, r * rowH - bandH / 2, tw, bandH);
+  }
+  // Ventanas: 0.52 de la bahía en ancho, ocupa zona superior del entrepiso
+  const winW = colW * 0.52;
+  const winH = (rowH - spandrelH - bandH) * 0.85;
+  const offX = (colW - winW) / 2;
+  const offY = bandH / 2 + (rowH - spandrelH - bandH - winH) / 2;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * colW + offX;
+      const y = r * rowH + offY;
+      const lit = (r * 3 + c * 5) % 9 !== 0;  // ~89 % encendidas, distribuidas
+      cx.fillStyle = lit ? '#8BBCDD' : '#2A3D50';
+      cx.fillRect(x, y, winW, winH);
+      if (lit) {
+        // reflejo diagonal
+        cx.fillStyle = 'rgba(255,255,255,0.12)';
+        cx.beginPath();
+        cx.moveTo(x, y); cx.lineTo(x + winW * 0.4, y); cx.lineTo(x, y + winH * 0.5); cx.closePath();
+        cx.fill();
+      }
+      // marco
+      cx.strokeStyle = '#2E4255'; cx.lineWidth = 1.2;
+      cx.strokeRect(x, y, winW, winH);
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+
+  const sideMat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.08, roughness: 0.85, transparent: true, opacity: 0.5, depthWrite: false });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x253545, metalness: 0.1, roughness: 0.9, transparent: true, opacity: 0.5, depthWrite: false });
+  // Orden de caras BoxGeometry: +X,-X,+Y(→roof),-Y(→bottom),+Z,-Z
+  const materials = [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat];
+
+  const geo = new THREE.BoxGeometry(Ws, Hs, Ws);
+  const mesh = new THREE.Mesh(geo, materials);
+  mesh.quaternion.copy(_qZ);
+  mesh.position.set(0, 0, -Hs / 2);
+  mesh.frustumCulled = false;
+  towerGroup.add(mesh);
+
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x4A7090, opacity: 0.6, transparent: true });
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+  edges.quaternion.copy(_qZ);
+  edges.position.set(0, 0, -Hs / 2);
+  edges.frustumCulled = false;
+  towerGroup.add(edges);
+
+  // Pretil (parapet) — 4 muros delgados en el perímetro de la azotea, de z=0 a z=+Hp
+  // Geometría: BoxGeometry(gx, Hp, gz) con _qZ → gx=ancho X, Hp=altura Z, gz=profundidad Y
+  const Hp = wd.rooftopHp || 0;
+  if (Hp > 0.05) {
+    const t = Math.max(0.20, Ws * 0.025);   // grosor del muro (≥20 cm)
+    const pMat = new THREE.MeshStandardMaterial({
+      color: 0x2A3E50, metalness: 0.05, roughness: 0.95,
+      transparent: true, opacity: 0.85, depthWrite: false
+    });
+    const pEdgeMat = new THREE.LineBasicMaterial({ color: 0x6AAED4, opacity: 0.95, transparent: true });
+    const _addWall = (gx, gz, px, py) => {
+      const g = new THREE.BoxGeometry(gx, Hp, gz);
+      const m = new THREE.Mesh(g, pMat);
+      m.quaternion.copy(_qZ); m.position.set(px, py, Hp / 2); m.frustumCulled = false;
+      towerGroup.add(m);
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), pEdgeMat);
+      e.quaternion.copy(_qZ); e.position.set(px, py, Hp / 2); e.frustumCulled = false;
+      towerGroup.add(e);
+    };
+    _addWall(Ws,       t,       0,            Ws / 2 - t / 2);   // frente +Y
+    _addWall(Ws,       t,       0,          -(Ws / 2 - t / 2));  // fondo  -Y
+    _addWall(t,        Ws-2*t, -(Ws / 2 - t / 2), 0);           // izquierda -X
+    _addWall(t,        Ws-2*t,  (Ws / 2 - t / 2), 0);           // derecha   +X
+  }
+}
+
 function _buildDadoBlocks(data, cfg) {
   if (!dadoHeight || dadoHeight <= 0) return;
   const _qZ = new THREE.Quaternion().setFromUnitVectors(
@@ -5102,7 +5261,9 @@ function renderTower(data) {
   _applyMemberOverrides(data.members);
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
-    c.material && c.material.dispose();
+    if (c.material) {
+      Array.isArray(c.material) ? c.material.forEach(m => m && m.dispose()) : c.material.dispose();
+    }
     towerGroup.remove(c);
   });
   _hlMesh.forEach(o => { o.geometry.dispose(); o.material.dispose(); scene.remove(o); });
@@ -5250,7 +5411,9 @@ function renderTower(data) {
     towerGroup.add(new THREE.Points(g, new THREE.PointsMaterial({color:0x445566, size:0.10, sizeAttenuation:true})));
   }
 
+  try { _buildRooftopBuilding(); } catch(e) { console.warn('_buildRooftopBuilding:', e); }
   _buildDadoBlocks(data, getConfig());
+  _applyGridRooftopOffset();
 
   // No recentrar controls.target aquí — esto corre en CADA edición (refresh()) y antes
   // descentraba la vista del tramo que el usuario estuviera revisando. El centrado real
@@ -6223,6 +6386,8 @@ let windData = {
   codigo: 'ANSI_TIA_H',
   catRiesgo: 'II',
   catExposicion: 'C',
+  rooftop: false, rooftopHs: null, rooftopWs: null, rooftopHp: 0, rooftopXb: null,
+  rooftopCond1: false, rooftopCond2: false,
   velocidad: null,
   velTipo: 'regional',     // 'regional' | 'ultima' — mutuamente excluyentes (confirmado con el usuario)
   velOperacional: 97.2,
@@ -6260,6 +6425,64 @@ function _onTopoCatChange() {
   const v = document.getElementById('viento-topocat').value;
   document.getElementById('viento-topo-extra').style.display = (v === 'plano') ? 'none' : 'block';
 }
+function _onRooftopChange() {
+  const on = document.getElementById('viento-rooftop').checked;
+  document.getElementById('viento-rooftop-extra').style.display = on ? 'block' : 'none';
+  _updateRooftopKsInputsState();
+  _updateRooftopSummary();
+}
+function _onRooftopCondChange() {
+  _updateRooftopKsInputsState();
+  _updateRooftopSummary();
+  windData = _readVientoForm();
+  if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
+}
+function _updateRooftopKsInputsState() {
+  const cond = (document.getElementById('viento-rooftop-cond1') || {}).checked ||
+               (document.getElementById('viento-rooftop-cond2') || {}).checked;
+  const zone = document.getElementById('viento-rooftop-ks-zone');
+  if (zone) { zone.style.opacity = cond ? '1' : '0.35'; zone.style.pointerEvents = cond ? '' : 'none'; }
+}
+function _updateRooftopSummary() {
+  const sumDiv = document.getElementById('viento-rooftop-summary');
+  if (!sumDiv) return;
+  const on = document.getElementById('viento-rooftop').checked;
+  const Hs = +document.getElementById('viento-rooftop-hs').value || 0;
+  const Ws = +document.getElementById('viento-rooftop-ws').value || 0;
+  const Hp = +document.getElementById('viento-rooftop-hp').value || 0;
+  const Xb = +document.getElementById('viento-rooftop-xb').value || 0;
+  const cond1 = (document.getElementById('viento-rooftop-cond1') || {}).checked;
+  const cond2 = (document.getElementById('viento-rooftop-cond2') || {}).checked;
+  const condOk = cond1 || cond2;
+  if (!on || !(Hs > 0)) { sumDiv.style.display = 'none'; return; }
+  sumDiv.style.display = 'block';
+  if (!condOk) {
+    sumDiv.innerHTML =
+      '<b style="color:var(--txt-main)">Sin condición activa</b><br>' +
+      'Ks = 1.000 — no aplica incremento por azotea.<br>' +
+      'Hs = ' + Hs.toFixed(1) + ' m eleva la referencia de Kz al nivel de calle del edificio.';
+    return;
+  }
+  if (!(Ws > 0)) {
+    sumDiv.innerHTML = '<b style="color:var(--txt-main)">Condición activa</b> — ingrese Ws para calcular Ks.';
+    return;
+  }
+  const Ks_z = Math.max(1.10, 1 + 0.3 * Math.min(Ws / Hs, 1.0));
+  if (!(Xb > 0)) {
+    sumDiv.innerHTML =
+      '<b style="color:var(--txt-main)">Ks — Nota 1 §2.6.7</b><br>' +
+      'Ks = max(1.10, 1+0.3·min(Ws/Hs,1)) = <b style="color:var(--accent)">' + Ks_z.toFixed(3) + '</b> constante sobre toda la altura<br>' +
+      '<span style="opacity:.7">Ingrese Xb para usar el método por zonas H₁…H₂</span>';
+    return;
+  }
+  const H1 = Hp + Xb / 5;
+  const H2 = Hp + Math.min(Hs, Ws);
+  sumDiv.innerHTML =
+    '<b style="color:var(--txt-main)">Zona de aceleración Ks — §2.6.7</b><br>' +
+    'H₁ = ' + Hp.toFixed(1) + ' + ' + (Xb/5).toFixed(1) + ' = <b style="color:var(--accent)">' + H1.toFixed(2) + ' m</b> sobre azotea&emsp;' +
+    'H₂ = ' + Hp.toFixed(1) + ' + ' + Math.min(Hs,Ws).toFixed(1) + ' = <b style="color:var(--accent)">' + H2.toFixed(2) + ' m</b><br>' +
+    'Ks en H₁…H₂ = <b style="color:var(--accent)">' + Ks_z.toFixed(3) + '</b>&emsp;Fuera de zona: Ks = 1.000';
+}
 // Flyout, no modal — pegado al sidebar igual que "Nueva Torre" (.torre-flyout), así la
 // torre queda activa/visible a la derecha mientras se ajusta el viento (pedido explícito
 // del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
@@ -6269,6 +6492,7 @@ function openVientoFlyout() {
   closeAntenasFlyout();
   closeFeedersPanel();
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
@@ -6287,6 +6511,14 @@ function openVientoFlyout() {
   document.getElementById('viento-topo-x').value = windData.topoX ?? '';
   document.getElementById('viento-topo-dir').value = windData.topoDir;
   _onTopoCatChange();
+  document.getElementById('viento-rooftop').checked = windData.rooftop ?? false;
+  document.getElementById('viento-rooftop-cond1').checked = windData.rooftopCond1 ?? false;
+  document.getElementById('viento-rooftop-cond2').checked = windData.rooftopCond2 ?? false;
+  document.getElementById('viento-rooftop-hs').value = windData.rooftopHs ?? '';
+  document.getElementById('viento-rooftop-ws').value = windData.rooftopWs ?? '';
+  document.getElementById('viento-rooftop-hp').value = windData.rooftopHp ?? 0;
+  document.getElementById('viento-rooftop-xb').value = windData.rooftopXb ?? '';
+  _onRooftopChange();
   _flyoutDirs = Array.isArray(windData.directions) && windData.directions.length
     ? windData.directions.slice() : [0, 60, 90];
   _renderDirsChips();
@@ -6338,6 +6570,13 @@ function _readVientoForm() {
     topoL:   +document.getElementById('viento-topo-l').value || null,
     topoX:   +document.getElementById('viento-topo-x').value || null,
     topoDir: document.getElementById('viento-topo-dir').value,
+    rooftop:     document.getElementById('viento-rooftop').checked,
+    rooftopCond1: document.getElementById('viento-rooftop-cond1').checked,
+    rooftopCond2: document.getElementById('viento-rooftop-cond2').checked,
+    rooftopHs:  +document.getElementById('viento-rooftop-hs').value || null,
+    rooftopWs:  +document.getElementById('viento-rooftop-ws').value || null,
+    rooftopHp:  +document.getElementById('viento-rooftop-hp').value || 0,
+    rooftopXb:  +document.getElementById('viento-rooftop-xb').value || null,
     directions: _flyoutDirs.slice(),
   };
 }
@@ -6355,6 +6594,7 @@ function saveVientoFlyout() {
   scheduleHistoryPush();
   showToast('Parámetros de viento guardados.', 'ok', 2000);
   closeVientoFlyout();
+  refresh();
   if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
@@ -6366,11 +6606,14 @@ function saveVientoFlyout() {
 // historial con cada tecla presionada.
 function _onVientoFieldInput() {
   windData = _readVientoForm();
+  _updateRooftopSummary();
   if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
 }
 ['viento-codigo', 'viento-catriesgo', 'viento-catexp', 'viento-velocidad', 'viento-vel-regional',
  'viento-vel-ultima', 'viento-velop', 'viento-asnm', 'viento-topocat', 'viento-topo-h',
- 'viento-topo-l', 'viento-topo-x', 'viento-topo-dir'].forEach(id => {
+ 'viento-topo-l', 'viento-topo-x', 'viento-topo-dir',
+ 'viento-rooftop', 'viento-rooftop-cond1', 'viento-rooftop-cond2',
+ 'viento-rooftop-hs', 'viento-rooftop-ws', 'viento-rooftop-hp', 'viento-rooftop-xb'].forEach(id => {
   const el = document.getElementById(id);
   if (el) { el.addEventListener('input', _onVientoFieldInput); el.addEventListener('change', _onVientoFieldInput); }
 });
@@ -6500,16 +6743,35 @@ function _tiaVelocidadUltimaKmh(windData) {
   return v * Math.sqrt(1.6 * FI);
 }
 
-// 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s]. Ks (rooftop wind speed-up,
-// 2.6.7) = 1.0 siempre — TSA modela torres en suelo, no estructuras sobre azotea.
-// z = altura (m) sobre el nivel del suelo en la base de la torre, punto donde se evalúa.
+// Ks §2.6.7 — depende de zr (altura sobre azotea). z = altura absoluta sobre nivel de calle.
+// Si Xb no se ingresa: Nota 1 §2.6.7 — Ks constante sobre toda la altura (conservador).
+// Si Xb se ingresa: método por zonas H1…H2. Fuera de zona Ks = 1.0.
+function _tiaKsRooftop(wd, zAbsoluteM) {
+  if (!wd.rooftop || !(wd.rooftopHs > 0)) return 1.0;
+  if (!wd.rooftopCond1 && !wd.rooftopCond2) return 1.0;  // ninguna condición activa
+  const Hs = wd.rooftopHs;
+  const Ws = wd.rooftopWs || Hs;
+  const Ks_zona = Math.max(1.10, 1 + 0.3 * Math.min(Ws / Hs, 1.0));
+  const zr = zAbsoluteM - Hs;   // altura sobre la azotea
+  if (zr <= 0) return 1.0;
+  if (!(wd.rooftopXb > 0)) return Ks_zona;  // Nota 1: Ks constante sobre toda la altura
+  const Hp = wd.rooftopHp || 0;
+  const H1 = Hp + wd.rooftopXb / 5;
+  const H2 = Hp + Math.min(Hs, Ws);
+  if (zr < H1 || zr > H2) return 1.0;
+  return Ks_zona;
+}
+
+// 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s].
+// z = altura absoluta (m) sobre el nivel de calle (base del edificio o del suelo).
+// Si rooftop activo: z incluye la altura del edificio (Hs) + la altura en la torre.
 // vKmhOverride: si se da, se usa esa velocidad (km/h) en vez de la Última derivada de
 // windData — pedido explícito del usuario (2026-06-29) para repetir el mismo cálculo de
 // qz con la Velocidad Operacional en el subtítulo 6.2 de la Memoria de Cálculo.
 function calcWindPressure(cfg, windData, z, vKmhOverride) {
   const Kz  = _tiaKz(z, windData.catExposicion);
   const Kzt = _tiaKzt(z, windData);
-  const Ks  = 1.0;
+  const Ks  = _tiaKsRooftop(windData, z);
   const Ke  = _tiaKe(windData.asnm);
   const Kd  = _tiaKd(cfg.type);
   const Vms = (vKmhOverride ?? _tiaVelocidadUltimaKmh(windData)) / 3.6;
@@ -6799,7 +7061,8 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   });
 
   const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
-  let zBase = dadoHeight, zBaseTower = 0;
+  const _rooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZ + dadoHeight, zBaseTower = 0;
   const results = [];
   for (let i = 0; i < nsec; i++) {
     const h = +cfg.secData[i]?.h || (cfg.height / nsec);
@@ -6977,7 +7240,8 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
   const taperR = z => { const t = zIncTot > 0 ? Math.min(z / zIncTot, 1) : 1; return r0 + (r1 - r0) * t; };
   const results = [];
-  let zBase = dadoHeight, zTower = 0;
+  const _rooftopZm = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZm + dadoHeight, zTower = 0;
   for (let i = 0; i < secData.length; i++) {
     const s      = secData[i];
     const h      = +s?.h || 0;
@@ -9133,6 +9397,7 @@ function openAntenasFlyout() {
   closeVientoFlyout();
   closeFeedersPanel();
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('antenas-btn').classList.add('active');
   _renderAntenasTable();
@@ -9878,6 +10143,13 @@ function toggleHerrajesPanel(e) {
   const btn = document.getElementById('side-accesorios-btn');
   const fl  = document.getElementById('herrajes-flyout');
   const wasOpen = fl.classList.contains('open');
+  if (!wasOpen) {
+    closeTorreFlyout();
+    closeAntenasFlyout();
+    closeFeedersPanel();
+    closeCombisPanel();
+    closeVientoFlyout();
+  }
   fl.classList.toggle('open', !wasOpen);
   btn?.classList.toggle('active', !wasOpen);
   if (!wasOpen) buildHerrajesPanel();
@@ -12017,7 +12289,8 @@ function nuevoProyecto() {
   antenasGroupCollapsed = {};
   windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
     velTipo:'regional', velOperacional:97.2, asnm:null, topoCat:'plano',
-    topoH:null, topoL:null, topoX:null, topoDir:'favor', directions:[0,60,90] };
+    topoH:null, topoL:null, topoX:null, topoDir:'favor',
+    rooftop:false, rooftopHs:null, rooftopWs:null, directions:[0,60,90] };
   windForcesOn = false;
   windForceLabelsOn = false;
   document.getElementById('wfl-cascade') && (document.getElementById('wfl-cascade').style.display = 'none');
@@ -12055,7 +12328,9 @@ function nuevoProyecto() {
   applyTypeLock('triangular');
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
-    c.material && c.material.dispose();
+    if (c.material) {
+      Array.isArray(c.material) ? c.material.forEach(m => m && m.dispose()) : c.material.dispose();
+    }
     towerGroup.remove(c);
   });
   projectGenerated = false;
@@ -12064,6 +12339,7 @@ function nuevoProyecto() {
   document.getElementById('rpanel').classList.remove('visible');
   document.getElementById('rpanel-info').classList.remove('visible');
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
   document.getElementById('torre-flyout').classList.add('open');
@@ -16785,9 +17061,16 @@ function loadProjectData(cfg, filename) {
     supportOverrides = (cfg.supportOverrides && typeof cfg.supportOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.supportOverrides)) : {};
     revisionData = Array.isArray(cfg.revisionData) ? JSON.parse(JSON.stringify(cfg.revisionData)) : [];
     comentariosData = Array.isArray(cfg.comentariosData) ? JSON.parse(JSON.stringify(cfg.comentariosData)) : [];
-    // Proyectos guardados antes de que existiera Diseño por Viento no traen windData —
-    // se cae a los valores por defecto (ya declarados arriba) en vez de quedar undefined.
-    if (cfg.windData && typeof cfg.windData === 'object') windData = JSON.parse(JSON.stringify(cfg.windData));
+    // Siempre resetear windData a defaults antes de aplicar el proyecto — evita que un
+    // windData de una sesión anterior (ej. rooftop:true) persista al cargar proyectos
+    // viejos que no traen windData.
+    windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
+      velTipo:'regional', velOperacional:97.2, asnm:null, topoCat:'plano',
+      topoH:null, topoL:null, topoX:null, topoDir:'favor',
+      rooftop:false, rooftopCond1:false, rooftopCond2:false,
+      rooftopHs:null, rooftopWs:null, rooftopHp:0, rooftopXb:null, directions:[0,60,90] };
+    if (cfg.windData && typeof cfg.windData === 'object') Object.assign(windData, cfg.windData);
+    if (!windData.rooftop) windData.rooftop = false;
     if (!Array.isArray(windData.directions) || !windData.directions.length) windData.directions = [0, 60, 90];
     dadoHeight = +cfg.dadoHeight || 0;
     if (document.getElementById('dado')) document.getElementById('dado').value = dadoHeight;
@@ -18161,40 +18444,71 @@ function toggleGridPanel(e) {
   btn.style.color      = panel.classList.contains('open') ? 'var(--cyan)' : '';
 }
 
-// Close panel when clicking outside
+// Close panel when clicking outside — usa composedPath() para no romper en shadow DOM
+// (los spin-buttons de <input type=number> en Chromium/QWebEngineView generan clicks
+// cuyo e.target puede ser un nodo del shadow DOM; contains() lo ignora y cierra el panel).
 document.addEventListener('click', e => {
   const panel = document.getElementById('grid-panel');
   const btn   = document.getElementById('grid-cfg-btn');
-  if (!panel.contains(e.target) && !btn.contains(e.target)) {
+  const path  = e.composedPath ? e.composedPath() : [e.target];
+  if (!path.some(el => el === panel || el === btn)) {
     panel.classList.remove('open');
     btn.style.background = '';
     btn.style.color = '';
   }
 });
 
+function _applyGridRooftopOffset() {
+  const rtZ = (windData && windData.rooftop && windData.rooftopHs > 0) ? -windData.rooftopHs : 0;
+  if (secondaryGrid) secondaryGrid.position.z = _gridZ + rtZ;
+  if (primaryGrid)   primaryGrid.position.z   = rtZ;
+  if (fadeMesh)      fadeMesh.position.z      = 0.02 + rtZ;
+}
+
 function refreshGrid() {
-  const gridOn = document.getElementById('grid-on').checked;
-  document.getElementById('grid-panel-body').style.opacity        = gridOn ? '1' : '.4';
-  document.getElementById('grid-panel-body').style.pointerEvents  = gridOn ? '' : 'none';
+  try {
+    const gridOn = document.getElementById('grid-on').checked;
+    document.getElementById('grid-panel-body').style.opacity        = gridOn ? '1' : '.4';
+    document.getElementById('grid-panel-body').style.pointerEvents  = gridOn ? '' : 'none';
 
-  const size  = +document.getElementById('grid-size').value  || 200;
-  const divs  = +document.getElementById('grid-divs').value  || 10;
-  const thick = +document.getElementById('grid-thick').value || 1.5;
-  const subs  = +document.getElementById('grid-subs').value  || 5;
-  buildGrid(size, divs, thick, subs);
-  primaryGrid.visible   = gridOn;
-  secondaryGrid.visible = gridOn;
+    const size  = +document.getElementById('grid-size').value  || 200;
+    const divs  = +document.getElementById('grid-divs').value  || 10;
+    const thick = +document.getElementById('grid-thick').value || 1.5;
+    const subs  = +document.getElementById('grid-subs').value  || 5;
+    buildGrid(size, divs, thick, subs);
+    primaryGrid.visible   = gridOn;
+    secondaryGrid.visible = gridOn;
 
-  const enabled = gridOn && document.getElementById('fade-on').checked;
-  const start   = +document.getElementById('fade-start').value || 45;
-  const exp     = +document.getElementById('fade-exp').value   || 2;
-  buildFadeMask(size / 2, start, exp, enabled);
+    const enabled = gridOn && document.getElementById('fade-on').checked;
+    const start   = +document.getElementById('fade-start').value || 45;
+    const exp     = +document.getElementById('fade-exp').value   || 2;
+    buildFadeMask(size / 2, start, exp, enabled);
+    // Offset DESPUÉS de buildFadeMask: mueve grid+fade al nivel correcto
+    // (con rooftop activo, el grid baja a z=-Hs y la fadeMask también debe bajar)
+    _applyGridRooftopOffset();
+
+    // Actualizar indicador de tamaño en el botón para retroalimentación visual inmediata
+    const btn = document.getElementById('grid-cfg-btn');
+    if (btn && btn._gp_indicator) btn._gp_indicator.textContent = size + 'm';
+  } catch(e) {
+    console.error('refreshGrid error:', e);
+    showToast('Error en malla: ' + e.message, 'warn', 4000);
+  }
 }
 
 // Boot — inicia limpio sin torre
 document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
 buildSectionRows(8);
 refreshGrid();
+// Listeners programáticos como respaldo a los oninput/onchange inline del panel de malla
+// (en algunas versiones de QWebEngineView los atributos inline no disparan correctamente)
+['grid-size','grid-divs','grid-thick','grid-subs','fade-start','fade-exp',
+ 'grid-on','fade-on'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input',  refreshGrid);
+  el.addEventListener('change', refreshGrid);
+});
 loadAppSettings();
 loadSteelGrades();
 loadProfileCatalogs();
