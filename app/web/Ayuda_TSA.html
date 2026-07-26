@@ -85,6 +85,8 @@
   <a href="#secciones">Secciones y tramos</a>
   <a href="#bracing">Patrones de arriostramiento</a>
   <a href="#monopolo">Monopolo</a>
+  <a href="#mastil-arriostrado">Mástil Arriostrado</a>
+  <a href="#mastil-apuntalado">Mástil Apuntalado</a>
   <a href="#arriostrada">Torres arriostradas (guyed)</a>
   <h4>Materiales y perfiles</h4>
   <a href="#bases-datos">Bases de datos</a>
@@ -136,7 +138,7 @@
 <p class="tagline">TSA (Tower Structural Analysis) es una aplicaci&oacute;n de escritorio para modelar geom&eacute;tricamente torres de telecomunicaci&oacute;n &mdash; autosoportadas, arriostradas y monopolos &mdash; visualizarlas en 3D, asignarles perfiles de acero, calcular cargas de viento seg&uacute;n ANSI/TIA-222-H, y exportar la geometr&iacute;a y la memoria de c&aacute;lculo en Word.</p>
 <div class="quicknav">
   <a href="#ejemplos"><div class="qn-title">&#128194; Ejemplos precargados</div><div class="qn-desc">4 torres listas en Archivo &rarr; Ejemplos</div></a>
-  <a href="#tipos"><div class="qn-title">&#127959; Tipos de estructura</div><div class="qn-desc">3P, 4P, arriostrada, monopolo</div></a>
+  <a href="#tipos"><div class="qn-title">&#127959; Tipos de estructura</div><div class="qn-desc">3P, 4P, arriostrada, monopolo, mástil arr./apunt.</div></a>
   <a href="#secciones"><div class="qn-title">&#128208; Secciones y tramos</div><div class="qn-desc">Geometr&iacute;a, arriostramiento y perfiles por tramo</div></a>
   <a href="#bases-datos"><div class="qn-title">&#128452; Bases de datos</div><div class="qn-desc">Calidades, perfiles IMCA/AISC, USER, retenidas</div></a>
   <a href="#visor3d"><div class="qn-title">&#128251; Visor 3D</div><div class="qn-desc">Navegaci&oacute;n, nodos, inspecci&oacute;n de miembros</div></a>
@@ -462,6 +464,55 @@
   Cuando dos tramos consecutivos cambian el n&uacute;mero de lados o tienen un salto de di&aacute;metro, la transici&oacute;n se modela como un cambio brusco (anillo nuevo sin interpolaci&oacute;n suave). En el export STAAD, cada tramo del monopolo se exporta como una sola barra con secci&oacute;n <code>PRISMATIC</code> (solo el eje central, no el pol&iacute;gono).
 </div>
 
+<h2 id="mastil-arriostrado">Mástil Arriostrado <span class="badge done">Nuevo</span></h2>
+<p>El <b>Mástil Arriostrado</b> es un subtipo de Monopolo: un fuste tubular esbelto estabilizado lateralmente por <b>retenidas</b> (cables) ancladas al terreno. A diferencia de las torres arriostradas en celosía (Guyed), el fuste es un tubo continuo sin diagonales. Es la solución habitual para mástiles de telecomunicaciones de altura media (10–30 m) donde no se dispone de espacio para una torre autosoportada, pero sí hay radio de anclaje disponible.</p>
+<table>
+  <thead><tr><th>Parámetro</th><th>Campo</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><b>Forma</b></td><td>s-monoForma</td><td>Número de lados del fuste. "Redondo" (≥ 24 lados) es lo más habitual en mástiles.</td></tr>
+    <tr><td><b>Dado (m)</b></td><td>s-dado</td><td>Altura del pedestal de concreto. El fuste arranca encima de él.</td></tr>
+    <tr><td><b>Altura total (m)</b></td><td>s-height</td><td>Altura del fuste metálico, sin incluir el dado.</td></tr>
+    <tr><td><b>Diámetro base (m)</b></td><td>s-baseW</td><td>Diámetro en la base del fuste. Por default 1.0 m.</td></tr>
+    <tr><td><b>Diámetro tope (m)</b></td><td>s-topW</td><td>Diámetro en la cima del fuste. Por default 0.4 m.</td></tr>
+    <tr><td><b>Tramos</b></td><td>s-monoTramos</td><td>Número de secciones del fuste. Cada tramo puede tener su propio espesor de pared, calidad de acero y número de lados.</td></tr>
+    <tr><td><b>Radio de anclaje (m)</b></td><td>s-guyAnchorR</td><td>Distancia horizontal desde el eje del fuste hasta los anclajes en el suelo.</td></tr>
+    <tr><td><b>Niveles de retenidas</b></td><td>s-guyLevels</td><td>Cuántos juegos de retenidas tiene el mástil. Cada nivel se ancla a la misma planta de anclajes en el suelo.</td></tr>
+    <tr><td><b>Altura por nivel (m)</b></td><td>Lista editable</td><td>Altura de cada nivel sobre la base del fuste. El programa inserta un nodo exacto en el fuste a esa altura (dividiendo el tramo si es necesario), preservando las propiedades de la sección.</td></tr>
+  </tbody>
+</table>
+<div class="callout info">
+  <b>Valores por defecto</b>
+  Al seleccionar "Mástil Arriostrado" por primera vez, TSA llena automáticamente: Forma = Redondo, Dado = 0 m, Altura = 18 m, Diámetro base = 1.0 m, Diámetro tope = 0.4 m, Tramos = 3, Radio = 6 m, Niveles = 1 (nivel a 6 m).
+</div>
+<div class="callout info">
+  <b>Nodo exacto de anclaje</b>
+  La altura del nivel de retenidas <b>no está restringida a los límites de tramo</b>. Si la altura pedida cae dentro de un tramo, TSA divide ese tramo en dos sub-tramos, insertando un nodo nuevo a la altura exacta. Ambos sub-tramos heredan el <code>sec</code> del tramo original (mismo espesor, calidad de acero y forma). Esto garantiza que el cable se ancle en el punto correcto sin afectar la geometría ni las propiedades de los tramos.
+</div>
+<p>Las retenidas del mástil arriostrado funcionan igual que las de una torre arriostrada convencional: se pueden configurar como cables simples o con triángulo estabilizador (brazos + anillo), y el perfil del cable se elige desde Bases de Datos → Retenidas.</p>
+
+<h2 id="mastil-apuntalado">Mástil Apuntalado <span class="badge done">Nuevo</span></h2>
+<p>El <b>Mástil Apuntalado</b> es similar al Mástil Arriostrado pero en lugar de cables usa <b>puntales rígidos</b>: elementos de acero en compresión que van desde el fuste hasta un punto fijo en el suelo (o en una estructura adyacente). Es adecuado cuando no hay espacio para el radio de cables de una torre arriostrada, pero sí para instalar puntales más cortos y rígidos.</p>
+<p>Los puntales se visualizan en el preview SVG como una "V" simétrica desde el punto de conexión en el fuste hasta los apoyos en el suelo.</p>
+<table>
+  <thead><tr><th>Parámetro</th><th>Descripción</th></tr></thead>
+  <tbody>
+    <tr><td><b>Forma / Dado / Altura / Diámetros / Tramos</b></td><td>Idénticos al Mástil Arriostrado.</td></tr>
+    <tr><td><b>Altura de fuste (m)</b></td><td>A qué altura del fuste se conecta el puntal. Al igual que las retenidas, el programa inserta un nodo exacto a esa altura, dividiendo el tramo si es necesario y preservando todas sus propiedades.</td></tr>
+    <tr><td><b>Azimut (°)</b></td><td>Dirección horizontal del puntal. 0° = Norte.</td></tr>
+    <tr><td><b>Radio (m)</b></td><td>Distancia horizontal desde el eje del fuste hasta el punto de anclaje del puntal en el suelo.</td></tr>
+    <tr><td><b>z Fijo (m)</b></td><td>Altura del punto de anclaje del puntal en el suelo (normalmente 0 m).</td></tr>
+    <tr><td><b>Perfil</b></td><td>Sección transversal del puntal, elegida desde la base de datos de perfiles (botón 📋). Puede ser tubo circular (OC), ángulo (LI/LD) u otro perfil catalogado.</td></tr>
+  </tbody>
+</table>
+<div class="callout info">
+  <b>Valores por defecto</b>
+  Al seleccionar "Mástil Apuntalado": Forma = Redondo, Dado = 0 m, Altura = 18 m, Diámetro base = 1.0 m, Diámetro tope = 0.4 m, Tramos = 3, un puntal con Altura = 6 m.
+</div>
+<div class="callout info">
+  <b>Agregar / editar / eliminar puntales</b>
+  Desde el panel del mástil se puede agregar más de un puntal (botón + Agregar puntal). Cada puntal tiene su propio modal de edición: haz clic en el lápiz (✏) para cambiar sus parámetros o en la X para eliminarlo. El botón 📋 abre el selector de perfiles de la base de datos directamente.
+</div>
+
 <h2 id="arriostrada">Torres arriostradas (guyed)</h2>
 <p>Una torre arriostrada combina un m&aacute;stil esbelto en celosia (mismo modelo de diagonales/horizontales que las autosoportadas) con <b>niveles de retenidas</b> &mdash; cables anclados al terreno en radio fijo. La imagen de abajo muestra la configuraci&oacute;n de retenidas dentro del flyout:</p>
 <div class="diagram-card" style="max-width:420px;">
@@ -476,6 +527,12 @@
   <li><b>Torre con pivote</b> &mdash; agrega una articulaci&oacute;n en la base del primer tramo.</li>
 </ul>
 <p>Cada nivel genera 3 cables en 120&deg; (torres 3P) o 4 cables en 90&deg; (torres 4P). Si el tri&aacute;ngulo estabilizador est&aacute; activo, agrega los brazos y el anillo de conexi&oacute;n. El perfil del cable (di&aacute;metro, calidad HS/EHS) se elige desde <a href="#retenidas-db" style="color:var(--cyan)">Bases de Datos &rarr; Retenidas</a>.</p>
+<div class="callout info">
+  <b>Fuerza de viento en retenidas &mdash; carga puntual <span class="ref-tag">&sect;2.6.11.3, TIA-222-H</span></b>
+  La fuerza de viento sobre cada cable de retenida se calcula con la f&oacute;rmula:<br>
+  <code>F<sub>G</sub> = Cd &middot; d &middot; L<sub>G</sub> &middot; G<sub>h</sub> &middot; q<sub>z</sub> &middot; sin²(&theta;<sub>g</sub>) / 9.80665 &nbsp;[kgf]</code><br><br>
+  Esta fuerza se aplica como una <b>carga puntual en el nodo del fuste</b> donde se ancla el cable, no como carga distribuida a lo largo del cable. Esta es la interpretaci&oacute;n correcta para el an&aacute;lisis estructural de la torre: el cable transmite su carga de viento al fuste en el punto de conexi&oacute;n. Lo mismo aplica a las retenidas de los <b>mástiles arriostrados</b>.
+</div>
 <hr>
 
 <h2 id="bases-datos">Bases de datos</h2>
@@ -518,7 +575,8 @@
 <tr><td>Selector de &aacute;ngulo de viento</td><td>Muestra flechas de fuerza FST sobre cada secci&oacute;n para el &aacute;ngulo seleccionado (0&deg;, 45&deg;, 90&deg;, etc.)</td></tr>
 </tbody></table>
 <h3 id="inspeccion">Inspecci&oacute;n de miembros</h3>
-<p>Haz clic sobre cualquier pierna, diagonal, horizontal o cable en el visor 3D para resaltarlo y abrir un panel lateral con: secci&oacute;n y categor&iacute;a del miembro, <b>perfil asignado</b> y <b>calidad de acero</b>, longitud real, n&uacute;meros de nodo Inicio y Fin, e ID interno. La imagen de abajo muestra ese panel de inspecci&oacute;n.</p>
+<p>Haz clic sobre cualquier pierna, diagonal, horizontal, cable o <b>tramo del fuste de un monopolo/mástil</b> en el visor 3D para resaltarlo y abrir un panel lateral con: secci&oacute;n y categor&iacute;a del miembro, <b>perfil asignado</b> y <b>calidad de acero</b>, longitud real, n&uacute;meros de nodo Inicio y Fin, e ID interno. La imagen de abajo muestra ese panel de inspecci&oacute;n.</p>
+<p>Para monopolos y mástiles, cada cilindro del fuste es seleccionable individualmente &mdash; el panel muestra el tramo al que pertenece, la forma (número de lados), el espesor de pared y la calidad de acero de esa sección.</p>
 <div class="diagram-card" style="max-width:420px;">
   <img src="img/ayuda_inspeccion_miembro.png" alt="Panel de inspección de miembro seleccionado">
   <div class="dc-label">Panel de inspecci&oacute;n de miembro</div>
@@ -848,20 +906,22 @@ FST &nbsp;= &nbsp;qz &middot; Gh &middot; (EPA)s &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&
 <h2 id="aviso">Aviso profesional</h2>
 <div class="callout warn"><b>&#9888; Responsabilidad del dise&ntilde;o</b> TSA es una herramienta de modelado geom&eacute;trico y preparaci&oacute;n de datos. No realiza por s&iacute; sola el an&aacute;lisis estructural, las revisiones por c&oacute;digo, ni emite ning&uacute;n juicio de ingenier&iacute;a. Todo proyecto generado con TSA debe ser revisado, calculado y validado por un ingeniero estructurista responsable antes de utilizarse en construcci&oacute;n real.</div>
 <h2 id="pendientes">Funciones en desarrollo</h2>
-<p>Estas &aacute;reas ya tienen un punto de entrada en la interfaz pero su funcionalidad a&uacute;n est&aacute; en proceso:</p>
-<table><thead><tr><th>Funci&oacute;n</th><th>Estado</th></tr></thead><tbody>
-<tr><td>Visualizaci&oacute;n 3D de antenas en el visor (panel, parab&oacute;lica, RRU)</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Cap. 3 &mdash; Cargas (peso antenas, escaleras, plataformas)</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Cap. 6.3 &mdash; Cargas de Viento en Accesorios (EPA de antenas)</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Cap. 6.4 &mdash; Cortante Basal y Momento de Vuelco</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Cap. 7 &mdash; Combinaciones de Carga</td><td><span class="badge soon">Pendiente</span></td></tr>
-<tr><td>Cap. 2.4 &mdash; Par&aacute;metros S&iacute;smicos</td><td><span class="badge soon">Pendiente</span></td></tr>
-<tr><td>Cap. 2.5 &mdash; Par&aacute;metros de Hielo / Temperatura</td><td><span class="badge soon">Pendiente</span></td></tr>
-<tr><td>Exportar STAAD: cargas de viento (MEMBER LOAD / JOINT LOAD)</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Conversi&oacute;n real de unidades MKS &harr; IMP (longitudes en ft)</td><td><span class="badge soon">Planeado</span></td></tr>
-<tr><td>Pesta&ntilde;as FEM / C&oacute;digos en la barra superior</td><td><span class="badge soon">Placeholder</span></td></tr>
-<tr><td>&Iacute;cono de barra lateral: Optimizaci&oacute;n</td><td><span class="badge soon">Placeholder</span></td></tr>
-<tr><td>C&oacute;digo de viento CFE 2020</td><td><span class="badge soon">En proceso</span></td></tr>
+<p>Estado actualizado de cada m&oacute;dulo. Las entradas marcadas como <span class="badge done" style="font-size:10px">Listo</span> ya est&aacute;n en producci&oacute;n; las de <span class="badge soon" style="font-size:10px">Parcial</span> tienen funcionalidad parcial; las de <span class="badge soon" style="font-size:10px">Pendiente</span> a&uacute;n no est&aacute;n implementadas.</p>
+<table><thead><tr><th>Funci&oacute;n</th><th>Estado</th><th>Notas</th></tr></thead><tbody>
+<tr><td>Visualizaci&oacute;n 3D de antenas en el visor (panel, parab&oacute;lica, RRU, herrajes)</td><td><span class="badge done">Listo</span></td><td>Incluye herrajes de montaje, feeders, CGO y escalerillas</td></tr>
+<tr><td>M&aacute;stil Arriostrado (fuste tubular + retenidas)</td><td><span class="badge done">Listo</span></td><td>Subtipo de Monopolo; nodo exacto de anclaje, fuerza puntual en retenidas</td></tr>
+<tr><td>M&aacute;stil Apuntalado (fuste tubular + puntales r&iacute;gidos)</td><td><span class="badge done">Listo</span></td><td>Subtipo de Monopolo; perfil por base de datos</td></tr>
+<tr><td>Exportar STAAD: cargas de viento y peso de antenas (<code>JOINT LOAD</code>)</td><td><span class="badge done">Listo</span></td><td>Un caso de carga por &aacute;ngulo de viento; carga muerta de antenas en <code>LOAD 2 DG</code></td></tr>
+<tr><td>Cap. 7 &mdash; Combinaciones de Carga (Word)</td><td><span class="badge done">Listo</span></td><td>Tabla TIA-222-H editable; se exporta en el reporte Word</td></tr>
+<tr><td>Cap. 3 &mdash; Cargas (Word): antenas, EPA, coaxiales</td><td><span class="badge soon">Parcial</span></td><td>3.1 Antenas ✓ &middot; 3.5 EPA ✓ &middot; 3.6 Coaxiales ✓ &mdash; pendientes: 3.2 Soportes, 3.3 Escalerillas, 3.4 Resumen carga muerta</td></tr>
+<tr><td>Cap. 6.3 &mdash; Cargas de Viento en Accesorios</td><td><span class="badge soon">Parcial</span></td><td>Tabla en el visor ✓ &mdash; pendiente en el reporte Word (.docx)</td></tr>
+<tr><td>Cap. 6.4 &mdash; Cortante Basal y Momento de Vuelco</td><td><span class="badge soon">Pendiente</span></td><td>&mdash;</td></tr>
+<tr><td>Cap. 2.4 &mdash; Par&aacute;metros S&iacute;smicos</td><td><span class="badge soon">Pendiente</span></td><td>&mdash;</td></tr>
+<tr><td>Cap. 2.5 &mdash; Par&aacute;metros de Hielo / Temperatura</td><td><span class="badge soon">Pendiente</span></td><td>&mdash;</td></tr>
+<tr><td>Conversi&oacute;n real de unidades MKS &harr; IMP (longitudes en ft en la UI)</td><td><span class="badge soon">Pendiente</span></td><td>El export STAAD ya respeta MKS/IMP para fuerzas; longitudes en la interfaz siguen en metros</td></tr>
+<tr><td>Pesta&ntilde;a FEM en la barra superior</td><td><span class="badge soon">Placeholder</span></td><td>Bot&oacute;n visible, sin contenido todav&iacute;a</td></tr>
+<tr><td>&Iacute;cono de barra lateral: Optimizaci&oacute;n</td><td><span class="badge soon">Placeholder</span></td><td>Bot&oacute;n visible, sin contenido todav&iacute;a</td></tr>
+<tr><td>C&oacute;digo de viento CFE 2020</td><td><span class="badge soon">Pendiente</span></td><td>Selector visible pero deshabilitado</td></tr>
 </tbody></table>
 </main>
 </div>

@@ -3066,6 +3066,54 @@ function _genMonopoleForDisplay(cfg) {
   return {nodes, members, monoProf, structNodes: nodes.length};
 }
 
+// Inserta un nodo en el eje del fuste (x=0, y=0) a la altura exacta targetZ.
+// Si ya existe un nodo de eje a esa altura (±1mm) lo devuelve sin modificar nada.
+// Si no, divide el miembro 'leg' que abarca esa altura en dos, conservando el
+// mismo sec (y por tanto todas las propiedades del tramo: espesor, material, lados).
+// También interpola y añade el punto en monoProf para que el render sea correcto.
+// Devuelve el índice del nodo en nodes[], o null si targetZ está fuera del fuste.
+function _insertAxisNode(nodes, members, monoProf, targetZ) {
+  const tol = 1e-3;
+  // ¿Ya existe nodo de eje en esa altura?
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (Math.abs(n.x) < 1e-6 && Math.abs(n.y) < 1e-6 && Math.abs(n.z - targetZ) < tol)
+      return i;
+  }
+  // Busca el miembro leg que abarca targetZ
+  let splitIdx = -1;
+  for (let i = 0; i < members.length; i++) {
+    const m = members[i];
+    if (m.type !== 'leg') continue;
+    const za = nodes[m.ni].z, zb = nodes[m.nj].z;
+    const zLo = Math.min(za, zb), zHi = Math.max(za, zb);
+    if (zLo - tol < targetZ && targetZ < zHi + tol && zHi - zLo > tol) {
+      splitIdx = i; break;
+    }
+  }
+  if (splitIdx === -1) return null;
+  const m = members[splitIdx];
+  const sec = m.sec;
+  // Nodo nuevo en el eje (addNode niega x,y pero son 0)
+  const newIdx = addNode(nodes, 0, 0, targetZ);
+  // Dividir el leg en dos, ambos con el mismo sec del tramo original
+  members.splice(splitIdx, 1,
+    {ni: m.ni, nj: newIdx, type: 'leg', sec},
+    {ni: newIdx, nj: m.nj, type: 'leg', sec}
+  );
+  // Insertar punto interpolado en monoProf para render correcto
+  for (let i = 0; i < monoProf.length - 1; i++) {
+    const pa = monoProf[i], pb = monoProf[i + 1];
+    if (pa.z <= targetZ + tol && targetZ - tol <= pb.z && pb.z - pa.z > tol) {
+      const t = (targetZ - pa.z) / (pb.z - pa.z);
+      const rNew = pa.r + t * (pb.r - pa.r);
+      monoProf.splice(i + 1, 0, {z: targetZ, r: rNew, sides: pa.sides, sec: pa.sec});
+      break;
+    }
+  }
+  return newIdx;
+}
+
 // ── Mástil Arriostrado: fuste de tubo sólido (escalonado) + cables tipo HS/EHS ──────────
 // Genera el fuste con _genMonopoleForDisplay y agrega nodos de anclaje + miembros guy.
 // El estabilizador triangular funciona igual que en genGuyed pero sin piernas de celosía:
@@ -3075,15 +3123,6 @@ function _genMastGuyed(cfg) {
   const shaftResult = _genMonopoleForDisplay(cfg);
   const {nodes, members, monoProf} = shaftResult;
   if (!monoProf || monoProf.length < 2) return shaftResult;
-
-  // Nodos del eje (x≈0, y≈0) para encontrar el más cercano a cada altura de retenida
-  const axisNodes = nodes.map((n, idx) => ({z: n.z, idx}))
-    .filter(an => Math.abs(nodes[an.idx].x) < 1e-6 && Math.abs(nodes[an.idx].y) < 1e-6);
-  const nearestAxis = targetZ => {
-    let best = axisNodes[0];
-    for (const an of axisNodes) if (Math.abs(an.z - targetZ) < Math.abs(best.z - targetZ)) best = an;
-    return best?.idx ?? 0;
-  };
 
   const defaultAnchors = [0, 120, 240].map(az => ({elev: 0, radio: 15, azimut: az}));
   const anchorDefs = (cfg.guyAnchorData && cfg.guyAnchorData.length) ? cfg.guyAnchorData : defaultAnchors;
@@ -3095,12 +3134,19 @@ function _genMastGuyed(cfg) {
   });
 
   const nLevels = cfg.guyLevels || (Array.isArray(cfg.guyHeights) ? cfg.guyHeights.length : 3);
-  const totalH  = axisNodes.reduce((mx, an) => Math.max(mx, an.z), 0);
+  const totalH  = monoProf.reduce((mx, p) => Math.max(mx, p.z), 0);
 
   for (let g = 0; g < nLevels; g++) {
     const reqH = (Array.isArray(cfg.guyHeights) && cfg.guyHeights.length > g)
       ? cfg.guyHeights[g] : totalH * (g + 1) / (nLevels + 1);
-    const shaftNi = nearestAxis(reqH);
+    // Insertar nodo exacto en el eje (o reutilizar si ya existe), dividiendo el leg
+    // y conservando las propiedades del tramo (sec, espesor, material).
+    const shaftNi = _insertAxisNode(nodes, members, monoProf, reqH) ??
+      (() => { // fallback: nodo más cercano si reqH > fuste (altura fuera de rango)
+        let best = {idx: 0, dz: Infinity};
+        nodes.forEach((n, i) => { if (Math.abs(n.x)<1e-6 && Math.abs(n.y)<1e-6) { const d=Math.abs(n.z-reqH); if(d<best.dz) best={idx:i,dz:d}; } });
+        return best.idx;
+      })();
     const shaftZ  = nodes[shaftNi].z;
     const cd = cfg.guyCableData?.[g];
     const deletedSet = new Set(cd?.deletedGuyCables || []);
@@ -3166,17 +3212,16 @@ function _genMastStrut(cfg) {
   const strutList = cfg.strutData || [];
   if (!strutList.length) return shaftResult;
 
-  const axisNodes = nodes.map((n, idx) => ({z: n.z, idx}))
-    .filter(an => Math.abs(nodes[an.idx].x) < 1e-6 && Math.abs(nodes[an.idx].y) < 1e-6);
-  const nearestAxis = targetZ => {
-    let best = axisNodes[0];
-    for (const an of axisNodes) if (Math.abs(an.z - targetZ) < Math.abs(best.z - targetZ)) best = an;
-    return best?.idx ?? 0;
-  };
-
   strutList.forEach((s, si) => {
     const h = +s.h || 0, az = +s.az || 0, r = Math.max(0.1, +s.r || 3), zFixed = +s.zFixed || 0;
-    const shaftNi = nearestAxis(h);
+    // Insertar nodo exacto en el eje a la altura h del puntal, dividiendo el leg
+    // y conservando las propiedades del tramo (sec, espesor, material, lados).
+    const shaftNi = _insertAxisNode(nodes, members, monoProf, h) ??
+      (() => {
+        let best = {idx: 0, dz: Infinity};
+        nodes.forEach((n, i) => { if (Math.abs(n.x)<1e-6 && Math.abs(n.y)<1e-6) { const d=Math.abs(n.z-h); if(d<best.dz) best={idx:i,dz:d}; } });
+        return best.idx;
+      })();
     const rad = (az + 270) * Math.PI / 180;
     const fxPt = addNode(nodes, r * Math.cos(rad), r * Math.sin(rad), zFixed);
     nodes[fxPt].isStrutAnchor = true;
@@ -5495,6 +5540,17 @@ function renderTower(data) {
     const prof = data.monoProf;
     const _qMono = new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+    // Índice de miembros leg para selección por clic en el cilindro.
+    // Búsqueda por contención de rango [p0.z, p1.z] dentro del leg, no por igualdad
+    // exacta: un tramo con bays>1 genera varios intervalos de monoProf pero un solo leg.
+    const _legRanges = data.members
+      .filter(m => m.type === 'leg')
+      .map(m => {
+        const za = data.nodes[m.ni]?.z ?? 0, zb = data.nodes[m.nj]?.z ?? 0;
+        return {m, zLo: Math.min(za, zb), zHi: Math.max(za, zb)};
+      });
+    const findLeg = (z0, z1, sec) =>
+      _legRanges.find(lr => lr.m.sec === sec && lr.zLo <= z0 + 1e-3 && z1 <= lr.zHi + 1e-3)?.m ?? null;
     for (let i = 0; i + 1 < prof.length; i++) {
       const p0 = prof[i], p1 = prof[i + 1];
       const h = p1.z - p0.z;
@@ -5510,6 +5566,9 @@ function renderTower(data) {
       mesh.position.set(0, 0, p0.z + h / 2);
       mesh.quaternion.copy(_qMono);
       mesh.frustumCulled = false;
+      // Asociar el miembro leg correspondiente para que el raycaster lo pueda seleccionar
+      const legM = findLeg(p0.z, p1.z, p0.sec);
+      if (legM) mesh.userData.members = [legM];
       towerGroup.add(mesh);
       // Aristas de las caras (threshold 8° para mostrar bordes del polígono)
       const edGeo = new THREE.EdgesGeometry(geo, 8);
@@ -7240,58 +7299,38 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   }
 
   // TIA-222-H §2.6.11.3 — fuerzas de viento en retenidas (guy cables)
-  // FG = Cd · d · LG · Gh · qz · sin²(θg). Repartida a lo largo de todo el cable, marcada
-  // isLinear (igual que el fuste de un monopolo) para que se dibuje como una carga
-  // uniformemente distribuida — una sola franja de flechas de igual longitud y una sola
-  // etiqueta "kgf/m" por cable, en vez de cargas puntuales sueltas con su propia etiqueta
-  // "kgf" cada una — pedido explícito del usuario (2026-07-21).
-  // Cantidad fija de flechas por cable (GUY_ARROWS, no proporcional al largo) — la densidad
-  // por metro se probó primero pero resultaba en demasiadas flechas en cables largos, así
-  // que se volvió a un conteo fijo — pedido explícito del usuario (2026-07-21).
-  // grpKey identifica cada cable individualmente (ni_nj): varias retenidas comparten el
-  // mismo guyLevel (sec, usado solo para color/leyenda) pero NO son colineales entre sí, así
-  // que agruparlas por sec mezclaría sus posiciones en una sola polilínea sin sentido.
+  // FG = Cd · d · LG · Gh · qz · sin²(θg). Se aplica como carga PUNTUAL en el nodo de
+  // la estructura (o triángulo estabilizador) donde el cable se conecta, no distribuida
+  // a lo largo del cable — pedido explícito del usuario (2026-07-25).
   if (cfg.type === 'guyed') {
     const Cd = 1.2, Gh = 0.85;
-    const GUY_ARROWS = 20;
     members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
       if (guyLevel == null) return;
       const cd = cfg.guyCableData?.[guyLevel - 1];
       if (!cd?.diamData) return;
-      const d = _parseInchDim(cd.diamData.name) * 0.0254;  // pulgadas → metros
+      const d = _parseInchDim(cd.diamData.name) * 0.0254;
       if (!(d > 0)) return;
       const na = nodes[m.ni], nb = nodes[m.nj];
       if (!na || !nb) return;
       const dx = nb.x - na.x, dy = nb.y - na.y, dz = nb.z - na.z;
       const LG = Math.sqrt(dx*dx + dy*dy + dz*dz);
       if (!(LG > 0)) return;
-      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);  // componente Z del viento = 0
+      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);
       const sin2_tg = Math.max(0, 1 - cos_tg * cos_tg);
       const zMid = (na.z + nb.z) / 2;
       const qz = calcWindPressure(cfg, windData, zMid);
       const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
       if (FG_kgf > 0) {
-        const F_per_m = FG_kgf / LG;
-        const nSub    = GUY_ARROWS - 1;   // GUY_ARROWS puntos (incl. extremos) → nSub tramos
-        const dzStep  = LG / nSub;
-        const grpKey  = `guy_${m.ni}_${m.nj}`;
-        // k=0..nSub inclusive → el primer y último punto caen exactamente en los nodos
-        // inicial/final del cable (igual criterio que el fuste del monopolo, ver arriba) —
-        // pedido explícito del usuario (2026-07-21) para que la carga se vea de extremo a
-        // extremo en vez de recortada dentro del tramo.
-        for (let k = 0; k <= nSub; k++) {
-          const t      = k / nSub;
-          const dzTrib = (k === 0 || k === nSub) ? dzStep / 2 : dzStep;
-          results.push({
-            sec: guyLevel, grpKey,
-            pos: { x: na.x + dx * t, y: na.y + dy * t, z: na.z + dz * t },
-            z: na.z + dz * t,
-            F_kgf: F_per_m * dzTrib, F_per_m,
-            dz: dzTrib, dir, isLinear: true,
-          });
-        }
+        // Nodo de estructura = extremo con mayor z (conexión en torre/triángulo estabilizador)
+        const towerNi = na.z >= nb.z ? m.ni : m.nj;
+        const tn = nodes[towerNi];
+        results.push({
+          sec: guyLevel, nodeIdx: towerNi,
+          pos: { x: tn.x, y: tn.y, z: tn.z },
+          z: tn.z, F_kgf: FG_kgf, dir, isCablePoint: true,
+        });
       }
     });
   }
@@ -7426,6 +7465,42 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
     }
     zBase += h; zTower += h;
   }
+
+  // Mástil Arriostrado: fuerzas de viento en retenidas como cargas puntuales
+  // en el nodo de la estructura (igual que torres arriostradas — §2.6.11.3)
+  if (cfg.mastType === 'mast-guyed' && _towerData) {
+    const Cd = 1.2;
+    const Gh = _tiaGh(cfg.height, 'monopole');
+    _towerData.members.forEach(m => {
+      if (m.type !== 'guy') return;
+      const guyLevel = m.guyLevel;
+      if (guyLevel == null) return;
+      const cd = cfg.guyCableData?.[guyLevel - 1];
+      if (!cd?.diamData) return;
+      const d = _parseInchDim(cd.diamData.name) * 0.0254;
+      if (!(d > 0)) return;
+      const na = _towerData.nodes[m.ni], nb = _towerData.nodes[m.nj];
+      if (!na || !nb) return;
+      const dx = nb.x - na.x, dy = nb.y - na.y, dz = nb.z - na.z;
+      const LG = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (!(LG > 0)) return;
+      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);
+      const sin2_tg = Math.max(0, 1 - cos_tg * cos_tg);
+      const zMid = (na.z + nb.z) / 2;
+      const qz = calcWindPressure(cfg, windData, zMid);
+      const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
+      if (FG_kgf > 0) {
+        const towerNi = na.z >= nb.z ? m.ni : m.nj;
+        const tn = _towerData.nodes[towerNi];
+        results.push({
+          sec: guyLevel, nodeIdx: towerNi,
+          pos: { x: tn.x, y: tn.y, z: tn.z },
+          z: tn.z, F_kgf: FG_kgf, dir, isCablePoint: true,
+        });
+      }
+    });
+  }
+
   return results;
 }
 
@@ -19124,7 +19199,7 @@ function _pickMember(e) {
   );
   _raycaster.setFromCamera(ndc, activeCamera);
   const targets = towerGroup.children.filter(c =>
-    (c instanceof THREE.LineSegments || c instanceof THREE.InstancedMesh) &&
+    (c instanceof THREE.LineSegments || c instanceof THREE.InstancedMesh || c instanceof THREE.Mesh) &&
     c.userData.members && c.userData.members.length
   );
   const hits = _raycaster.intersectObjects(targets, false);
@@ -19132,7 +19207,9 @@ function _pickMember(e) {
   const hit    = hits[0];
   const segIdx = hit.object instanceof THREE.InstancedMesh
     ? hit.instanceId
-    : Math.floor(hit.index / 2);
+    : hit.object instanceof THREE.Mesh
+      ? 0  // fuste sólido — un miembro por cilindro
+      : Math.floor(hit.index / 2);
   const member = hit.object.userData.members[segIdx];
   if (!member) { closeMemberInfo(); return; }
   _highlightMember(member);

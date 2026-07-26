@@ -8,4 +8,4 @@ __pycache__/
 *.xlsx
 
 # Proyectos de ejemplo / datos locales
-*.TSA
+*.tsa
