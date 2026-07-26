@@ -497,7 +497,7 @@ body {
 
 /* ── Right panel ────────────────────────────────────────────── */
 .rpanel {
-  width: 310px;
+  width: 330px;
   flex-shrink: 0;
   display: none;          /* oculto hasta activar Torre */
   flex-direction: column;
@@ -508,7 +508,7 @@ body {
 /* Cargas de Viento necesita más ancho que el panel de info normal (tabla de 5 columnas
    qz/Kz/Kzt por sección) — pedido explícito del usuario (2026-06-28). Solo se aplica
    mientras esa vista está activa (ver switchTab); el panel de info normal sigue en
-   272px. */
+   330px. */
 .rpanel.wide { width: 560px; }
 .rpanel.ant-wide { width: 400px; }
 
@@ -908,28 +908,28 @@ input[type=number]:focus, input[type=text]:focus, select:focus {
   text-align: right;
 }
 .sec-edit-btn {
-  margin-left: auto; background: none; border: 1px solid #1b3150;
+  background: none; border: 1px solid #1b3150;
   color: #94a3b8; border-radius: 4px; padding: 1px 7px;
-  font-size: 11px; cursor: pointer; line-height: 1.6;
+  font-size: 11px; cursor: pointer; line-height: 1.6; flex-shrink: 0;
 }
 .sec-edit-btn:hover { border-color: var(--cyan); color: var(--cyan); }
 .sec-edit-btn-active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,.12); }
 .sec-insert-btn:hover { border-color: #4ade80 !important; color: #4ade80 !important; }
 .sec-delete-btn { border-color: rgba(224,85,85,.4) !important; color: #e05555 !important; }
 .sec-delete-btn:hover { border-color: #f87171 !important; color: #f87171 !important; background: rgba(248,113,113,.12) !important; }
+.sec-btn-group { display: flex; flex-shrink: 0; gap: 3px; }
 .sec-add-strip {
-  display: flex; align-items: center; gap: 6px; padding: 2px 14px;
-  border-bottom: 1px solid #111c28;
-}
-.sec-add-strip::before, .sec-add-strip::after {
-  content: ''; flex: 1; height: 1px; background: #1b3150;
+  display: flex; align-items: center; padding: 0 14px;
+  border-bottom: 1px dashed rgba(74,222,128,.18);
 }
 .sec-add-strip-btn {
-  background: none; border: 1px solid #1b3150; color: #4ade80;
-  border-radius: 3px; padding: 0 6px; font-size: 11px; cursor: pointer;
-  line-height: 1.5; flex-shrink: 0;
+  display: flex; align-items: center; gap: 3px;
+  background: none; border: none; color: #4a9068;
+  border-radius: 3px; padding: 3px 8px; font-size: 10px; cursor: pointer;
+  width: 100%; justify-content: center; line-height: 1.6;
+  transition: color .12s, background .12s;
 }
-.sec-add-strip-btn:hover { border-color: #4ade80; background: rgba(74,222,128,.08); }
+.sec-add-strip-btn:hover { color: #4ade80; background: rgba(74,222,128,.08); }
 
 /* Secciones modal */
 .sec-modal-overlay {
@@ -1955,6 +1955,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <option value="conico">Tronco-Cónico</option>
             <option value="escalonado">Escalonado</option>
             <option value="combinado">Combinado</option>
+            <option value="mast-guyed">Mástil Arriostrado</option>
+            <option value="mast-strut">Mástil Apuntalado</option>
           </select></div>
         <div class="tf-row" id="s-row-monoForma" style="display:none;"><span class="tf-lbl">FORMA</span>
           <select class="tf-input" id="s-monoForma" onchange="buildSetupPreview()">
@@ -2014,6 +2016,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <input type="checkbox" id="s-guyPivot" onchange="buildSetupPreview()">
             <span class="tf-lbl" style="margin:0">TORRE CON PIVOTE</span>
           </label>
+        </div>
+        <div class="tf-row" id="s-row-strutData" style="display:none;">
+          <span class="tf-lbl">PUNTALES</span>
+          <div id="s-strut-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;"></div>
+          <button onclick="addStrutItem()" style="display:flex;align-items:center;gap:3px;background:none;border:1px dashed rgba(74,222,128,.3);color:#4a9068;border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;width:100%;justify-content:center;" onmouseover="this.style.color='#4ade80';this.style.background='rgba(74,222,128,.08)'" onmouseout="this.style.color='#4a9068';this.style.background='none'">+ Agregar puntal</button>
         </div>
       </div>
       </div>
@@ -2124,6 +2131,26 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
                   <option value="contra">En contra del viento</option>
                 </select></div>
             </div>
+          </div>
+        </div>
+
+        <div class="tf-sect-general">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="10" width="20" height="11" rx="1"/>
+            <polyline points="2,10 12,3 22,10"/>
+            <line x1="12" y1="21" x2="12" y2="15"/>
+          </svg>
+          AZOTEA — ROOFTOP §2.6.7
+        </div>
+        <div class="tf-body">
+          <div class="tf-row">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="viento-rooftop" onchange="_onRooftopChange()">
+              <span class="tf-lbl" style="margin:0;">Estructura sobre azotea (activa factor Ks)</span>
+            </label>
+          </div>
+          <div style="font-size:10px;color:var(--txt-sec);margin-top:4px;line-height:1.4;">
+            Parámetros §2.6.7 editables en la pestaña <b>Cargas de Viento</b>.
           </div>
         </div>
 
@@ -2345,9 +2372,16 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
             <button class="btn-apply" style="width:100%;margin-top:4px;padding:7px 0;" onclick="openRetenidasModal()">Editar Retenidas</button>
           </div>
 
+          <div id="strut-params" style="display:none;">
+            <div class="sep"></div>
+            <div class="fsect" style="margin-bottom:4px;">PUNTALES</div>
+            <div id="strut-list-rpanel" style="display:flex;flex-direction:column;gap:3px;margin-bottom:6px;font-size:11px;"></div>
+            <button class="btn-apply" style="width:100%;padding:5px 0;font-size:11px;" onclick="openStrutAddModal()">+ Agregar puntal</button>
+          </div>
+
           <div class="frow">
             <span class="flbl">Peso total:</span>
-            <span class="fval">0 kg</span>
+            <span class="fval" id="info-peso-total">—</span>
           </div>
 
         </div><!-- /sect-body geom -->
@@ -2418,21 +2452,21 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     <div class="gp-sub">Malla principal</div>
     <div class="gp-row">
       <span>Tamaño (m)</span>
-      <input type="number" id="grid-size"  value="200" min="50"  max="2000" step="50"  oninput="refreshGrid()">
+      <input type="number" id="grid-size"  value="200" min="50"  max="2000" step="50"  oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row">
       <span>Divisiones</span>
-      <input type="number" id="grid-divs"  value="10"  min="2"   max="50"   step="1"   oninput="refreshGrid()">
+      <input type="number" id="grid-divs"  value="10"  min="2"   max="50"   step="1"   oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row">
       <span>Grosor (px)</span>
-      <input type="number" id="grid-thick" value="1.5" min="0.5" max="8"    step="0.5" oninput="refreshGrid()">
+      <input type="number" id="grid-thick" value="1.5" min="0.5" max="8"    step="0.5" oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
 
     <div class="gp-sub" style="margin-top:10px;">Malla secundaria</div>
     <div class="gp-row">
       <span>Subdivisiones</span>
-      <input type="number" id="grid-subs"  value="5"   min="2"   max="20"   step="1"   oninput="refreshGrid()">
+      <input type="number" id="grid-subs"  value="5"   min="2"   max="20"   step="1"   oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
 
     <div class="gp-sep"></div>
@@ -2447,7 +2481,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
     </div>
     <div class="gp-row">
       <span>Inicio (%)</span>
-      <input type="number" id="fade-start" value="45" min="0" max="95" step="5" oninput="refreshGrid()">
+      <input type="number" id="fade-start" value="45" min="0" max="95" step="5" oninput="refreshGrid()" onchange="refreshGrid()">
     </div>
     <div class="gp-row" style="padding-bottom:12px;">
       <span>Intensidad</span>
@@ -3032,11 +3066,180 @@ function _genMonopoleForDisplay(cfg) {
   return {nodes, members, monoProf, structNodes: nodes.length};
 }
 
+// Inserta un nodo en el eje del fuste (x=0, y=0) a la altura exacta targetZ.
+// Si ya existe un nodo de eje a esa altura (±1mm) lo devuelve sin modificar nada.
+// Si no, divide el miembro 'leg' que abarca esa altura en dos, conservando el
+// mismo sec (y por tanto todas las propiedades del tramo: espesor, material, lados).
+// También interpola y añade el punto en monoProf para que el render sea correcto.
+// Devuelve el índice del nodo en nodes[], o null si targetZ está fuera del fuste.
+function _insertAxisNode(nodes, members, monoProf, targetZ) {
+  const tol = 1e-3;
+  // ¿Ya existe nodo de eje en esa altura?
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (Math.abs(n.x) < 1e-6 && Math.abs(n.y) < 1e-6 && Math.abs(n.z - targetZ) < tol)
+      return i;
+  }
+  // Busca el miembro leg que abarca targetZ
+  let splitIdx = -1;
+  for (let i = 0; i < members.length; i++) {
+    const m = members[i];
+    if (m.type !== 'leg') continue;
+    const za = nodes[m.ni].z, zb = nodes[m.nj].z;
+    const zLo = Math.min(za, zb), zHi = Math.max(za, zb);
+    if (zLo - tol < targetZ && targetZ < zHi + tol && zHi - zLo > tol) {
+      splitIdx = i; break;
+    }
+  }
+  if (splitIdx === -1) return null;
+  const m = members[splitIdx];
+  const sec = m.sec;
+  // Nodo nuevo en el eje (addNode niega x,y pero son 0)
+  const newIdx = addNode(nodes, 0, 0, targetZ);
+  // Dividir el leg en dos, ambos con el mismo sec del tramo original
+  members.splice(splitIdx, 1,
+    {ni: m.ni, nj: newIdx, type: 'leg', sec},
+    {ni: newIdx, nj: m.nj, type: 'leg', sec}
+  );
+  // Insertar punto interpolado en monoProf para render correcto
+  for (let i = 0; i < monoProf.length - 1; i++) {
+    const pa = monoProf[i], pb = monoProf[i + 1];
+    if (pa.z <= targetZ + tol && targetZ - tol <= pb.z && pb.z - pa.z > tol) {
+      const t = (targetZ - pa.z) / (pb.z - pa.z);
+      const rNew = pa.r + t * (pb.r - pa.r);
+      monoProf.splice(i + 1, 0, {z: targetZ, r: rNew, sides: pa.sides, sec: pa.sec});
+      break;
+    }
+  }
+  return newIdx;
+}
+
+// ── Mástil Arriostrado: fuste de tubo sólido (escalonado) + cables tipo HS/EHS ──────────
+// Genera el fuste con _genMonopoleForDisplay y agrega nodos de anclaje + miembros guy.
+// El estabilizador triangular funciona igual que en genGuyed pero sin piernas de celosía:
+// los brazos van del eje del fuste al vértice (no de pierna a vértice).
+// Puntales y Tensores se omiten (solo aplican a torres de celosía).
+function _genMastGuyed(cfg) {
+  const shaftResult = _genMonopoleForDisplay(cfg);
+  const {nodes, members, monoProf} = shaftResult;
+  if (!monoProf || monoProf.length < 2) return shaftResult;
+
+  const defaultAnchors = [0, 120, 240].map(az => ({elev: 0, radio: 15, azimut: az}));
+  const anchorDefs = (cfg.guyAnchorData && cfg.guyAnchorData.length) ? cfg.guyAnchorData : defaultAnchors;
+  const ancIds = anchorDefs.map(a => {
+    const rad = (a.azimut + 270) * Math.PI / 180;
+    const idx = addNode(nodes, a.radio * Math.cos(rad), a.radio * Math.sin(rad), a.elev);
+    nodes[idx].isAnchor = true;
+    return idx;
+  });
+
+  const nLevels = cfg.guyLevels || (Array.isArray(cfg.guyHeights) ? cfg.guyHeights.length : 3);
+  const totalH  = monoProf.reduce((mx, p) => Math.max(mx, p.z), 0);
+
+  for (let g = 0; g < nLevels; g++) {
+    const reqH = (Array.isArray(cfg.guyHeights) && cfg.guyHeights.length > g)
+      ? cfg.guyHeights[g] : totalH * (g + 1) / (nLevels + 1);
+    // Insertar nodo exacto en el eje (o reutilizar si ya existe), dividiendo el leg
+    // y conservando las propiedades del tramo (sec, espesor, material).
+    const shaftNi = _insertAxisNode(nodes, members, monoProf, reqH) ??
+      (() => { // fallback: nodo más cercano si reqH > fuste (altura fuera de rango)
+        let best = {idx: 0, dz: Infinity};
+        nodes.forEach((n, i) => { if (Math.abs(n.x)<1e-6 && Math.abs(n.y)<1e-6) { const d=Math.abs(n.z-reqH); if(d<best.dz) best={idx:i,dz:d}; } });
+        return best.idx;
+      })();
+    const shaftZ  = nodes[shaftNi].z;
+    const cd = cfg.guyCableData?.[g];
+    const deletedSet = new Set(cd?.deletedGuyCables || []);
+    const useAnchors = (cd?.nodes && cd.nodes.length) ? cd.nodes : anchorDefs.map((_, i) => i);
+
+    if (cd?.triangulo) {
+      // Vértices del triángulo estabilizador, a brazoLen del eje en los azimuts de cada anclaje
+      const brazoLen = +cd.brazoLen || 1.5;
+      const vIds = anchorDefs.slice(0, 3).map(a => {
+        const rad = (a.azimut + 270) * Math.PI / 180;
+        return addNode(nodes, brazoLen * Math.cos(rad), brazoLen * Math.sin(rad), shaftZ);
+      });
+      // Cables: anclaje → vértice más cercano por azimut
+      useAnchors.forEach(ai => {
+        const aid = ancIds[ai];
+        if (aid == null) return;
+        const azRad = (anchorDefs[ai].azimut + 270) * Math.PI / 180;
+        const nx = Math.cos(azRad), ny = Math.sin(azRad);
+        let bestV = 0, bestDot = -Infinity;
+        vIds.forEach((vid, k) => {
+          const vn = nodes[vid];
+          const dot = (-nx) * vn.x + (-ny) * vn.y; // compensar negación de addNode
+          if (dot > bestDot) { bestDot = dot; bestV = k; }
+        });
+        if (!deletedSet.has(`mgy_${g}_${ai}_0`))
+          members.push({ni: aid, nj: vIds[bestV], type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id: `mgy_${g}_${ai}_0`});
+      });
+      // Brazos estabilizador: eje → vértice
+      vIds.forEach((vid, k) => {
+        members.push({ni: shaftNi, nj: vid, type: 'stabarm', guyLevel: g + 1});
+      });
+      // Cables adicionales
+      (cd.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
+        if (deletedSet.has(_id)) return;
+        const aid = ancIds[ai];
+        if (aid != null)
+          members.push({ni: aid, nj: shaftNi, type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id});
+      });
+    } else {
+      useAnchors.forEach(ai => {
+        const aid = ancIds[ai];
+        if (aid == null) return;
+        if (!deletedSet.has(`mgy_${g}_${ai}_0`))
+          members.push({ni: aid, nj: shaftNi, type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id: `mgy_${g}_${ai}_0`});
+      });
+      (cd?.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
+        if (deletedSet.has(_id)) return;
+        const aid = ancIds[ai];
+        if (aid != null)
+          members.push({ni: aid, nj: shaftNi, type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id});
+      });
+    }
+  }
+  return {nodes, members, monoProf, structNodes: shaftResult.structNodes};
+}
+
+// ── Mástil Apuntalado: fuste de tubo sólido (escalonado) + puntales rígidos ─────────────
+// Genera el fuste con _genMonopoleForDisplay y agrega un miembro 'mast-strut' por puntal.
+// Cada puntal va del nodo del eje más cercano a su altura (h) al punto fijo (az, r, zFixed).
+function _genMastStrut(cfg) {
+  const shaftResult = _genMonopoleForDisplay(cfg);
+  const {nodes, members, monoProf} = shaftResult;
+  const strutList = cfg.strutData || [];
+  if (!strutList.length) return shaftResult;
+
+  strutList.forEach((s, si) => {
+    const h = +s.h || 0, az = +s.az || 0, r = Math.max(0.1, +s.r || 3), zFixed = +s.zFixed || 0;
+    // Insertar nodo exacto en el eje a la altura h del puntal, dividiendo el leg
+    // y conservando las propiedades del tramo (sec, espesor, material, lados).
+    const shaftNi = _insertAxisNode(nodes, members, monoProf, h) ??
+      (() => {
+        let best = {idx: 0, dz: Infinity};
+        nodes.forEach((n, i) => { if (Math.abs(n.x)<1e-6 && Math.abs(n.y)<1e-6) { const d=Math.abs(n.z-h); if(d<best.dz) best={idx:i,dz:d}; } });
+        return best.idx;
+      })();
+    const rad = (az + 270) * Math.PI / 180;
+    const fxPt = addNode(nodes, r * Math.cos(rad), r * Math.sin(rad), zFixed);
+    nodes[fxPt].isStrutAnchor = true;
+    members.push({ni: shaftNi, nj: fxPt, type: 'mast-strut', strutIdx: si, sec: null});
+  });
+  return {nodes, members, monoProf, structNodes: shaftResult.structNodes};
+}
+
 function generateTower(cfg) {
-  const result = cfg.type === 'square'   ? genSquare(cfg)
-               : cfg.type === 'guyed'    ? genGuyed(cfg)
-               : cfg.type === 'monopole' ? _genMonopoleForDisplay(cfg)
-               :                           genTriangular(cfg);
+  let result;
+  if      (cfg.type === 'square')   result = genSquare(cfg);
+  else if (cfg.type === 'guyed')    result = genGuyed(cfg);
+  else if (cfg.type === 'monopole') {
+    const mt = cfg.mastType;
+    if      (mt === 'mast-guyed') result = _genMastGuyed(cfg);
+    else if (mt === 'mast-strut') result = _genMastStrut(cfg);
+    else                          result = _genMonopoleForDisplay(cfg);
+  } else result = genTriangular(cfg);
   if (dadoHeight > 0) {
     result.nodes.forEach(n => n.z += dadoHeight);
     if (result.monoProf) result.monoProf.forEach(p => p.z += dadoHeight);
@@ -3458,7 +3661,7 @@ function genGuyed(cfg) {
         const k = nearestLeg(anchorDefsAll[ai].azimut);
         members.push({ni:aid, nj:lnodes[gLv][k], type:'guy', guyLevel:g, anchorIdx:ai, _id:`gy_${g}_${ai}_0`});
       });
-      (cd.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
+      (cd?.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
         const aid = ancIdsAll[ai];
         if (aid == null) return;
         const k = nearestLeg(anchorDefsAll[ai].azimut);
@@ -4158,6 +4361,15 @@ function towerBounds() {
   if (box.isEmpty()) return null;
   return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()) };
 }
+// Fallback: si no hay nodos de torre (solo edificio de azotea visible), usa los objetos
+// Three.js de towerGroup para calcular el encuadre — evita pantalla negra en Planta/Alzados.
+function _getSceneBounds() {
+  const tb = towerBounds();
+  if (tb) return tb;
+  const box = new THREE.Box3().setFromObject(towerGroup);
+  if (box.isEmpty()) return null;
+  return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()) };
+}
 
 // Regresa al ángulo de vista INICIAL (el mismo de siempre: posición (50,50,25) → target
 // (0,0,15), de fábrica), pero con la distancia calibrada al tamaño REAL de la torre actual
@@ -4167,7 +4379,7 @@ const _INITIAL_VIEW_DIR = new THREE.Vector3(-50, -50, 10).normalize();
 // la vista isométrica de fábrica. Usada solo por la vista "3D" (ver setView) — Planta/
 // Alzados usan fitOrthoView() con la cámara ortográfica (orthoCamera), no esta.
 function fitView(dir = _INITIAL_VIEW_DIR, padding = 1.08) {
-  const b = towerBounds();
+  const b = _getSceneBounds();
   if (!b) return;
   // Radio de la esfera que envuelve TODA la caja (torre + vientos/anclajes) y distancia
   // necesaria para que esa esfera quepa completa dentro del FOV vertical de la cámara —
@@ -4228,7 +4440,7 @@ function _applyOrthoFrustum() {
 // muestran 2 de los 3 ejes, usar la diagonal 3D completa (incluida la altura en Planta)
 // deja la torre diminuta en el canvas (reporte del usuario, 2026-06-28: "y maximizada").
 function fitOrthoView(dir, up, dimW, dimH, padding = 1.08) {
-  const b = towerBounds();
+  const b = _getSceneBounds();
   if (!b) return;
   orthoCamera.up.copy(up);
   const farDist = b.size.length() + 100;
@@ -4237,7 +4449,7 @@ function fitOrthoView(dir, up, dimW, dimH, padding = 1.08) {
   orthoCamera.far = farDist * 2 + 100;
   controls.target.copy(b.center);
   const aspect = (wrap.clientWidth || 1) / (wrap.clientHeight || 1);
-  _orthoHalfHeight = Math.max(dimH / 2, (dimW / 2) / aspect) * padding;
+  _orthoHalfHeight = Math.max(dimH / 2, (dimW / 2) / aspect, 0.5) * padding;
   _applyOrthoFrustum();
   orthoCamera.updateProjectionMatrix();
   controls.update();
@@ -4264,7 +4476,7 @@ function setView(viewKey, padding = 1.08) {
   }
   const dir = _VIEW_DIRS[viewKey];
   if (!dir) return;
-  const b = towerBounds();
+  const b = _getSceneBounds();
   let dimW = 1, dimH = 1;
   if (b) {
     if (viewKey === 'xy') { dimW = b.size.x; dimH = b.size.y; }
@@ -4462,6 +4674,7 @@ function toggleApoyosLabels() {
   document.getElementById('vbtn-apoyoslabels').classList.toggle('active', apoyosLabelsOn);
   if (primaryGrid) primaryGrid.visible = !apoyosLabelsOn;
   if (secondaryGrid) secondaryGrid.visible = !apoyosLabelsOn;
+  dadoGroup.visible = !apoyosLabelsOn;
   if (apoyosLabelsOn) _buildApoyosLabels(); else _clearApoyosLabels();
 }
 
@@ -4995,6 +5208,7 @@ function updateAxisLabels() {
 }
 
 const towerGroup    = new THREE.Group();
+const dadoGroup     = new THREE.Group();   // dados de cimentación — se ocultan al ver Apoyos
 const antenasGroup  = new THREE.Group();
 const feedersGroup  = new THREE.Group();
 const cgoEscalGroup  = new THREE.Group();  // CGO + escalerilla, independiente de feeders
@@ -5003,6 +5217,7 @@ feedersGroup.visible  = true;
 cgoEscalGroup.visible = true;
 herrajesGroup.visible = true;
 scene.add(towerGroup);
+scene.add(dadoGroup);
 scene.add(antenasGroup);
 scene.add(feedersGroup);
 scene.add(cgoEscalGroup);
@@ -5039,7 +5254,117 @@ function updateTowerNameLabel() {
   el.textContent = `${TYPE_LABELS[cfg.type] || cfg.type} · ${fmtNum(cfg.height)} m`;
 }
 
+function _buildRooftopBuilding() {
+  const wd = windData;
+  if (!wd.rooftop || !(wd.rooftopHs > 0) || !(wd.rooftopWs > 0)) return;
+  const Hs = wd.rooftopHs, Ws = wd.rooftopWs;
+  const _qZ = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+
+  // Textura de fachada — proporciones típicas edificio comercial México
+  // Entrepiso estándar 3.5 m, bahía de ventana 2.5 m (centro a centro)
+  const FLOOR_H = 3.5, BAY_W = 2.5;
+  const rows = Math.min(24, Math.max(2, Math.round(Hs / FLOOR_H)));
+  const cols = Math.min(16, Math.max(3, Math.round(Ws / BAY_W)));
+  const tw = 512, th = Math.round(tw * Hs / Ws);
+  const cv = document.createElement('canvas');
+  cv.width = tw; cv.height = th;
+  const cx = cv.getContext('2d');
+  // Fondo — concreto azul-gris
+  cx.fillStyle = '#4A5E72';
+  cx.fillRect(0, 0, tw, th);
+  const rowH = th / rows, colW = tw / cols;
+  // Antepecho (spandrel) en el tercio inferior de cada entrepiso
+  const spandrelH = rowH * 0.28;
+  for (let r = 0; r < rows; r++) {
+    const y = r * rowH + rowH - spandrelH;
+    cx.fillStyle = '#374F5E';
+    cx.fillRect(0, y, tw, spandrelH);
+  }
+  // Banda de losa entre pisos
+  const bandH = Math.max(2, rowH * 0.06);
+  for (let r = 0; r <= rows; r++) {
+    cx.fillStyle = '#38505F';
+    cx.fillRect(0, r * rowH - bandH / 2, tw, bandH);
+  }
+  // Ventanas: 0.52 de la bahía en ancho, ocupa zona superior del entrepiso
+  const winW = colW * 0.52;
+  const winH = (rowH - spandrelH - bandH) * 0.85;
+  const offX = (colW - winW) / 2;
+  const offY = bandH / 2 + (rowH - spandrelH - bandH - winH) / 2;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * colW + offX;
+      const y = r * rowH + offY;
+      const lit = (r * 3 + c * 5) % 9 !== 0;  // ~89 % encendidas, distribuidas
+      cx.fillStyle = lit ? '#8BBCDD' : '#2A3D50';
+      cx.fillRect(x, y, winW, winH);
+      if (lit) {
+        // reflejo diagonal
+        cx.fillStyle = 'rgba(255,255,255,0.12)';
+        cx.beginPath();
+        cx.moveTo(x, y); cx.lineTo(x + winW * 0.4, y); cx.lineTo(x, y + winH * 0.5); cx.closePath();
+        cx.fill();
+      }
+      // marco
+      cx.strokeStyle = '#2E4255'; cx.lineWidth = 1.2;
+      cx.strokeRect(x, y, winW, winH);
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+
+  const sideMat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.08, roughness: 0.85, transparent: true, opacity: 0.5, depthWrite: false });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x253545, metalness: 0.1, roughness: 0.9, transparent: true, opacity: 0.5, depthWrite: false });
+  // Orden de caras BoxGeometry: +X,-X,+Y(→roof),-Y(→bottom),+Z,-Z
+  const materials = [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat];
+
+  const geo = new THREE.BoxGeometry(Ws, Hs, Ws);
+  const mesh = new THREE.Mesh(geo, materials);
+  mesh.quaternion.copy(_qZ);
+  mesh.position.set(0, 0, -Hs / 2);
+  mesh.frustumCulled = false;
+  towerGroup.add(mesh);
+
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x4A7090, opacity: 0.6, transparent: true });
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+  edges.quaternion.copy(_qZ);
+  edges.position.set(0, 0, -Hs / 2);
+  edges.frustumCulled = false;
+  towerGroup.add(edges);
+
+  // Pretil (parapet) — 4 muros delgados en el perímetro de la azotea, de z=0 a z=+Hp
+  // Geometría: BoxGeometry(gx, Hp, gz) con _qZ → gx=ancho X, Hp=altura Z, gz=profundidad Y
+  const Hp = wd.rooftopHp || 0;
+  if (Hp > 0.05) {
+    const t = Math.max(0.20, Ws * 0.025);   // grosor del muro (≥20 cm)
+    const pMat = new THREE.MeshStandardMaterial({
+      color: 0x2A3E50, metalness: 0.05, roughness: 0.95,
+      transparent: true, opacity: 0.85, depthWrite: false
+    });
+    const pEdgeMat = new THREE.LineBasicMaterial({ color: 0x6AAED4, opacity: 0.95, transparent: true });
+    const _addWall = (gx, gz, px, py) => {
+      const g = new THREE.BoxGeometry(gx, Hp, gz);
+      const m = new THREE.Mesh(g, pMat);
+      m.quaternion.copy(_qZ); m.position.set(px, py, Hp / 2); m.frustumCulled = false;
+      towerGroup.add(m);
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), pEdgeMat);
+      e.quaternion.copy(_qZ); e.position.set(px, py, Hp / 2); e.frustumCulled = false;
+      towerGroup.add(e);
+    };
+    _addWall(Ws,       t,       0,            Ws / 2 - t / 2);   // frente +Y
+    _addWall(Ws,       t,       0,          -(Ws / 2 - t / 2));  // fondo  -Y
+    _addWall(t,        Ws-2*t, -(Ws / 2 - t / 2), 0);           // izquierda -X
+    _addWall(t,        Ws-2*t,  (Ws / 2 - t / 2), 0);           // derecha   +X
+  }
+}
+
 function _buildDadoBlocks(data, cfg) {
+  // Limpiar dados anteriores
+  dadoGroup.children.slice().forEach(c => {
+    c.geometry?.dispose();
+    Array.isArray(c.material) ? c.material.forEach(m => m?.dispose()) : c.material?.dispose();
+    dadoGroup.remove(c);
+  });
   if (!dadoHeight || dadoHeight <= 0) return;
   const _qZ = new THREE.Quaternion().setFromUnitVectors(
     new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
@@ -5054,22 +5379,26 @@ function _buildDadoBlocks(data, cfg) {
     mesh.quaternion.copy(_qZ);
     mesh.position.set(cx, cy, dadoHeight / 2);
     mesh.frustumCulled = false;
-    towerGroup.add(mesh);
+    dadoGroup.add(mesh);
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat.clone());
     edges.quaternion.copy(_qZ);
     edges.position.set(cx, cy, dadoHeight / 2);
     edges.frustumCulled = false;
-    towerGroup.add(edges);
+    dadoGroup.add(edges);
   };
   if (cfg.type === 'monopole') {
     addBox(0, 0, 1.5 * cfg.baseW);
   } else if (cfg.type === 'triangular' || cfg.type === 'square') {
-    const minZ = Math.min(...data.nodes.map(n => n.z));
-    const seen = new Set();
-    data.nodes.filter(n => Math.abs(n.z - minZ) < 0.01).forEach(n => {
-      const key = `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
-      if (!seen.has(key)) { seen.add(key); addBox(n.x, n.y, 0.5); }
-    });
+    if (cfg.m4) {
+      addBox(0, 0, 1.5 * cfg.baseW);
+    } else {
+      const minZ = Math.min(...data.nodes.map(n => n.z));
+      const seen = new Set();
+      data.nodes.filter(n => Math.abs(n.z - minZ) < 0.01).forEach(n => {
+        const key = `${n.x.toFixed(3)},${n.y.toFixed(3)}`;
+        if (!seen.has(key)) { seen.add(key); addBox(n.x, n.y, 0.5); }
+      });
+    }
   } else if (cfg.type === 'guyed') {
     if (cfg.guyPivot) {
       const minZ = Math.min(...data.nodes.map(n => n.z));
@@ -5102,7 +5431,9 @@ function renderTower(data) {
   _applyMemberOverrides(data.members);
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
-    c.material && c.material.dispose();
+    if (c.material) {
+      Array.isArray(c.material) ? c.material.forEach(m => m && m.dispose()) : c.material.dispose();
+    }
     towerGroup.remove(c);
   });
   _hlMesh.forEach(o => { o.geometry.dispose(); o.material.dispose(); scene.remove(o); });
@@ -5155,6 +5486,8 @@ function renderTower(data) {
       color=C_STABARM();
     } else if (type==='tensor') {
       color=0x22C55E;
+    } else if (type==='mast-strut') {
+      color=0x4488CC; opacity=0.9; transparent=true;
     } else if (type==='puntal') {
       color=0x9AA7B2;
     } else if (type==='horizPuntal' || type==='horizTensor') {
@@ -5207,6 +5540,17 @@ function renderTower(data) {
     const prof = data.monoProf;
     const _qMono = new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+    // Índice de miembros leg para selección por clic en el cilindro.
+    // Búsqueda por contención de rango [p0.z, p1.z] dentro del leg, no por igualdad
+    // exacta: un tramo con bays>1 genera varios intervalos de monoProf pero un solo leg.
+    const _legRanges = data.members
+      .filter(m => m.type === 'leg')
+      .map(m => {
+        const za = data.nodes[m.ni]?.z ?? 0, zb = data.nodes[m.nj]?.z ?? 0;
+        return {m, zLo: Math.min(za, zb), zHi: Math.max(za, zb)};
+      });
+    const findLeg = (z0, z1, sec) =>
+      _legRanges.find(lr => lr.m.sec === sec && lr.zLo <= z0 + 1e-3 && z1 <= lr.zHi + 1e-3)?.m ?? null;
     for (let i = 0; i + 1 < prof.length; i++) {
       const p0 = prof[i], p1 = prof[i + 1];
       const h = p1.z - p0.z;
@@ -5222,6 +5566,9 @@ function renderTower(data) {
       mesh.position.set(0, 0, p0.z + h / 2);
       mesh.quaternion.copy(_qMono);
       mesh.frustumCulled = false;
+      // Asociar el miembro leg correspondiente para que el raycaster lo pueda seleccionar
+      const legM = findLeg(p0.z, p1.z, p0.sec);
+      if (legM) mesh.userData.members = [legM];
       towerGroup.add(mesh);
       // Aristas de las caras (threshold 8° para mostrar bordes del polígono)
       const edGeo = new THREE.EdgesGeometry(geo, 8);
@@ -5250,7 +5597,9 @@ function renderTower(data) {
     towerGroup.add(new THREE.Points(g, new THREE.PointsMaterial({color:0x445566, size:0.10, sizeAttenuation:true})));
   }
 
+  try { _buildRooftopBuilding(); } catch(e) { console.warn('_buildRooftopBuilding:', e); }
   _buildDadoBlocks(data, getConfig());
+  _applyGridRooftopOffset();
 
   // No recentrar controls.target aquí — esto corre en CADA edición (refresh()) y antes
   // descentraba la vista del tramo que el usuario estuviera revisando. El centrado real
@@ -5280,11 +5629,74 @@ function renderTower(data) {
   _updateSectionWeights();
 }
 
+// Peso del fuste de monopolo/mástil calculado directamente desde monoProf + secData
+// (los miembros 'leg' de monopolo no tienen designación de catálogo → _profileWeightPerMeter
+// devuelve null, por lo que _reportSectionWeights siempre da 0 para monopolos).
+function _calcMonopoleShaftWeight() {
+  const prof = _towerData?.monoProf;
+  if (!prof || prof.length < 2) return 0;
+  let kg = 0;
+  for (let i = 0; i + 1 < prof.length; i++) {
+    const p0 = prof[i], p1 = prof[i + 1];
+    const dz = Math.abs(p1.z - p0.z);
+    if (dz < 1e-6) continue;
+    const rAvg = (p0.r + p1.r) / 2;
+    const sec = p0.sec ?? p1.sec;
+    const sd = (sec != null && secData[sec]) ? secData[sec] : null;
+    const thkMm = (sd?.monoThk != null && sd.monoThk !== '-') ? +sd.monoThk : 0;
+    if (thkMm <= 0) continue;
+    const t = thkMm / 1000;
+    const rIn = Math.max(0, rAvg - t);
+    kg += Math.PI * (rAvg * rAvg - rIn * rIn) * 7850 * dz;
+  }
+  return kg;
+}
+
+// Peso de los puntales de mástil apuntalado desde strutData (catálogo o geometría)
+function _calcMastStrutWeight() {
+  if (!_towerData || !strutData.length) return 0;
+  let kg = 0;
+  _towerData.members.forEach(m => {
+    if (m.type !== 'mast-strut') return;
+    const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+    const len = Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+    const s = strutData[m.strutIdx];
+    if (!s) return;
+    if (s.designacion) {
+      const kgm = _profileWeightPerMeter(s.designacion);
+      if (kgm != null) { kg += kgm * len; return; }
+    }
+    // Área de la sección desde dimensiones (mm → m)
+    let area = 0;
+    if (s.profile === 'tube' && s.d && s.t) {
+      const D = s.d / 1000, t = s.t / 1000;
+      area = Math.PI / 4 * (D * D - (D - 2 * t) * (D - 2 * t));
+    } else if (s.profile === 'LI' && s.b && s.t) {
+      const b = s.b / 1000, t = s.t / 1000;
+      area = 2 * b * t - t * t;
+    } else if (s.profile === 'LD' && s.b1 && s.b2 && s.t) {
+      const b1 = s.b1 / 1000, b2 = s.b2 / 1000, t = s.t / 1000;
+      area = (b1 + b2 - t) * t;
+    }
+    kg += area * 7850 * len;
+  });
+  return kg;
+}
+
 function _updateSectionWeights() {
   const bySec   = _reportSectionWeights();
   const fmtKg   = kg => kg.toFixed(1) + ' kg';
-  const total   = Object.values(bySec).reduce((s, v) => s + v, 0);
-  const fvalEl  = document.querySelector('.fval');
+  let total     = Object.values(bySec).reduce((s, v) => s + v, 0);
+
+  // Para monopolos y mástiles el fuste no aparece en _reportSectionWeights
+  // (perfil no estándar) — se calcula directo desde monoProf.
+  const isMonopole = document.getElementById('ttype')?.value === 'monopole';
+  if (isMonopole) {
+    total += _calcMonopoleShaftWeight();
+    if (_mastType === 'mast-strut') total += _calcMastStrutWeight();
+  }
+
+  const fvalEl  = document.getElementById('info-peso-total');
   if (fvalEl) fvalEl.textContent = total > 0 ? fmtKg(total) : '—';
   document.querySelectorAll('#sec-container .sec-card').forEach((card, idx) => {
     card.querySelectorAll('.sec-row-detail').forEach(row => {
@@ -6223,6 +6635,8 @@ let windData = {
   codigo: 'ANSI_TIA_H',
   catRiesgo: 'II',
   catExposicion: 'C',
+  rooftop: false, rooftopHs: null, rooftopWs: null, rooftopHp: 0, rooftopXb: null,
+  rooftopCond1: false, rooftopCond2: false,
   velocidad: null,
   velTipo: 'regional',     // 'regional' | 'ultima' — mutuamente excluyentes (confirmado con el usuario)
   velOperacional: 97.2,
@@ -6260,6 +6674,11 @@ function _onTopoCatChange() {
   const v = document.getElementById('viento-topocat').value;
   document.getElementById('viento-topo-extra').style.display = (v === 'plano') ? 'none' : 'block';
 }
+function _onRooftopChange() {
+  windData = _readVientoForm();
+  refresh();
+  if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
+}
 // Flyout, no modal — pegado al sidebar igual que "Nueva Torre" (.torre-flyout), así la
 // torre queda activa/visible a la derecha mientras se ajusta el viento (pedido explícito
 // del usuario, 2026-06-28: "Como el menú de nuevo proyecto y dejando la torre activa").
@@ -6269,6 +6688,7 @@ function openVientoFlyout() {
   closeAntenasFlyout();
   closeFeedersPanel();
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('viento-btn').classList.add('active');
   document.getElementById('viento-codigo').value = windData.codigo;
@@ -6287,6 +6707,7 @@ function openVientoFlyout() {
   document.getElementById('viento-topo-x').value = windData.topoX ?? '';
   document.getElementById('viento-topo-dir').value = windData.topoDir;
   _onTopoCatChange();
+  document.getElementById('viento-rooftop').checked = windData.rooftop ?? false;
   _flyoutDirs = Array.isArray(windData.directions) && windData.directions.length
     ? windData.directions.slice() : [0, 60, 90];
   _renderDirsChips();
@@ -6338,6 +6759,13 @@ function _readVientoForm() {
     topoL:   +document.getElementById('viento-topo-l').value || null,
     topoX:   +document.getElementById('viento-topo-x').value || null,
     topoDir: document.getElementById('viento-topo-dir').value,
+    rooftop:      document.getElementById('viento-rooftop').checked,
+    rooftopCond1: windData.rooftopCond1 ?? false,
+    rooftopCond2: windData.rooftopCond2 ?? false,
+    rooftopHs:    windData.rooftopHs,
+    rooftopWs:    windData.rooftopWs,
+    rooftopHp:    windData.rooftopHp ?? 0,
+    rooftopXb:    windData.rooftopXb,
     directions: _flyoutDirs.slice(),
   };
 }
@@ -6355,6 +6783,7 @@ function saveVientoFlyout() {
   scheduleHistoryPush();
   showToast('Parámetros de viento guardados.', 'ok', 2000);
   closeVientoFlyout();
+  refresh();
   if (document.getElementById('rpanel-viento').classList.contains('visible')) buildCargasVientoPanel();
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
@@ -6370,7 +6799,8 @@ function _onVientoFieldInput() {
 }
 ['viento-codigo', 'viento-catriesgo', 'viento-catexp', 'viento-velocidad', 'viento-vel-regional',
  'viento-vel-ultima', 'viento-velop', 'viento-asnm', 'viento-topocat', 'viento-topo-h',
- 'viento-topo-l', 'viento-topo-x', 'viento-topo-dir'].forEach(id => {
+ 'viento-topo-l', 'viento-topo-x', 'viento-topo-dir',
+ 'viento-rooftop'].forEach(id => {
   const el = document.getElementById(id);
   if (el) { el.addEventListener('input', _onVientoFieldInput); el.addEventListener('change', _onVientoFieldInput); }
 });
@@ -6500,16 +6930,37 @@ function _tiaVelocidadUltimaKmh(windData) {
   return v * Math.sqrt(1.6 * FI);
 }
 
-// 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s]. Ks (rooftop wind speed-up,
-// 2.6.7) = 1.0 siempre — TSA modela torres en suelo, no estructuras sobre azotea.
-// z = altura (m) sobre el nivel del suelo en la base de la torre, punto donde se evalúa.
+// Ks §2.6.7 — depende de zr (altura sobre azotea). z = altura absoluta sobre nivel de calle.
+// zr = z - Hs incluye dadoHeight si la torre tiene dado (ya viene sumado en z).
+// Hp protege siempre las secciones por debajo de él (H1 = Hp + Xb/5 ≥ Hp en todo caso).
+// Si Xb no se ingresa: Nota 1 §2.6.7 — Ks constante sobre H1_min = Hp (conservador con Xb→0).
+// Si Xb se ingresa: método por zonas H1…H2. Fuera de zona Ks = 1.0.
+function _tiaKsRooftop(wd, zAbsoluteM) {
+  if (!wd.rooftop || !(wd.rooftopHs > 0)) return 1.0;
+  if (!wd.rooftopCond1 && !wd.rooftopCond2) return 1.0;  // ninguna condición activa
+  const Hs = wd.rooftopHs;
+  const Ws = wd.rooftopWs || Hs;
+  const Hp = wd.rooftopHp || 0;
+  const Ks_zona = Math.max(1.10, 1 + 0.3 * Math.min(Ws / Hs, 1.0));
+  const zr = zAbsoluteM - Hs;   // altura sobre la azotea (incluye dado si lo hay)
+  if (zr <= Hp) return 1.0;     // bajo/sobre el parapeto: sin aceleración de cubierta
+  if (!(wd.rooftopXb > 0)) return Ks_zona;  // Nota 1 (Xb desconocido): Ks sobre toda H > Hp
+  const H1 = Hp + wd.rooftopXb / 5;
+  const H2 = Hp + Math.min(Hs, Ws);
+  if (zr < H1 || zr > H2) return 1.0;
+  return Ks_zona;
+}
+
+// 2.6.11.6 — qz = 0.613·Kz·Kzt·Ks·Ke·Kd·V² [N/m², V en m/s].
+// z = altura absoluta (m) sobre el nivel de calle (base del edificio o del suelo).
+// Si rooftop activo: z incluye la altura del edificio (Hs) + la altura en la torre.
 // vKmhOverride: si se da, se usa esa velocidad (km/h) en vez de la Última derivada de
 // windData — pedido explícito del usuario (2026-06-29) para repetir el mismo cálculo de
 // qz con la Velocidad Operacional en el subtítulo 6.2 de la Memoria de Cálculo.
 function calcWindPressure(cfg, windData, z, vKmhOverride) {
   const Kz  = _tiaKz(z, windData.catExposicion);
   const Kzt = _tiaKzt(z, windData);
-  const Ks  = 1.0;
+  const Ks  = _tiaKsRooftop(windData, z);
   const Ke  = _tiaKe(windData.asnm);
   const Kd  = _tiaKd(cfg.type);
   const Vms = (vKmhOverride ?? _tiaVelocidadUltimaKmh(windData)) / 3.6;
@@ -6539,6 +6990,21 @@ function _faceWidthAt(cfg, z) {
       if (pivotH > 0 && z < pivotH) return (cfg.shaftW || 0) * z / pivotH;
     }
     return cfg.shaftW || 0;
+  }
+  // M4: base constante en baseW, REDUCCIÓN interpola, top constante en topW.
+  // alturaInclinada=0 y nInc=0 en M4, así que _zIncForCfg devuelve 0 → t=1 → topW para
+  // todas las secciones; hay que calcularlo directamente desde el tramo REDUCCIÓN.
+  if (cfg.m4) {
+    const ri = (cfg.secData || []).findIndex(s => s._m4reduc);
+    if (ri >= 0) {
+      let m4zStart = 0;
+      for (let i = 0; i < ri; i++) m4zStart += +cfg.secData[i]?.h || 0;
+      const m4zEnd = m4zStart + (+cfg.secData[ri]?.h || 0);
+      if (z <= m4zStart) return cfg.baseW;
+      if (z >= m4zEnd)   return cfg.topW;
+      const t = (m4zEnd > m4zStart) ? (z - m4zStart) / (m4zEnd - m4zStart) : 1;
+      return cfg.baseW + (cfg.topW - cfg.baseW) * t;
+    }
   }
   const zInc = _zIncForCfg(cfg);
   const t = zInc > 0 ? Math.min(z / zInc, 1) : 1;
@@ -6629,8 +7095,16 @@ function _profileWidthAndRound(designacion, fallbackDesignacion) {
 // piernas de ángulo + diagonales tubulares) — pedido explícito del usuario (2026-06-29:
 // "agrega las columnas de área plana y área redonda").
 function calcSectionSolidity(cfg, sec, faceWidth) {
-  const s = secData[sec];
+  let s = secData[sec];
   if (!s || !faceWidth) return null;
+  // REDUCCIÓN M4 sin perfiles asignados: hereda M/D/H del tramo base inferior para
+  // que la fuerza de viento se calcule con la misma solidez que el tramo contiguo.
+  if (s._m4reduc && (!s.M || s.M === '-') && (!s.D || s.D === '-') && sec > 0) {
+    const sb = secData[sec - 1];
+    if (sb) s = { ...s, M: sb.M, MCal: sb.MCal, D: sb.D, DCal: sb.DCal,
+                  Htop: sb.Htop, HtopCal: sb.HtopCal,
+                  Hbay: sb.Hbay, HbayCal: sb.HbayCal };
+  }
   const pattern = s.diag || 'X';
   const bays = Math.max(1, +s.bays || 1);
   const nTot = (cfg.nInc||0) + (cfg.nStr||0);
@@ -6799,7 +7273,8 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   });
 
   const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
-  let zBase = dadoHeight, zBaseTower = 0;
+  const _rooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZ + dadoHeight, zBaseTower = 0;
   const results = [];
   for (let i = 0; i < nsec; i++) {
     const h = +cfg.secData[i]?.h || (cfg.height / nsec);
@@ -6824,58 +7299,38 @@ function computeNodalWindForces(cfg, windData, angleDeg) {
   }
 
   // TIA-222-H §2.6.11.3 — fuerzas de viento en retenidas (guy cables)
-  // FG = Cd · d · LG · Gh · qz · sin²(θg). Repartida a lo largo de todo el cable, marcada
-  // isLinear (igual que el fuste de un monopolo) para que se dibuje como una carga
-  // uniformemente distribuida — una sola franja de flechas de igual longitud y una sola
-  // etiqueta "kgf/m" por cable, en vez de cargas puntuales sueltas con su propia etiqueta
-  // "kgf" cada una — pedido explícito del usuario (2026-07-21).
-  // Cantidad fija de flechas por cable (GUY_ARROWS, no proporcional al largo) — la densidad
-  // por metro se probó primero pero resultaba en demasiadas flechas en cables largos, así
-  // que se volvió a un conteo fijo — pedido explícito del usuario (2026-07-21).
-  // grpKey identifica cada cable individualmente (ni_nj): varias retenidas comparten el
-  // mismo guyLevel (sec, usado solo para color/leyenda) pero NO son colineales entre sí, así
-  // que agruparlas por sec mezclaría sus posiciones en una sola polilínea sin sentido.
+  // FG = Cd · d · LG · Gh · qz · sin²(θg). Se aplica como carga PUNTUAL en el nodo de
+  // la estructura (o triángulo estabilizador) donde el cable se conecta, no distribuida
+  // a lo largo del cable — pedido explícito del usuario (2026-07-25).
   if (cfg.type === 'guyed') {
     const Cd = 1.2, Gh = 0.85;
-    const GUY_ARROWS = 20;
     members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
       if (guyLevel == null) return;
       const cd = cfg.guyCableData?.[guyLevel - 1];
       if (!cd?.diamData) return;
-      const d = _parseInchDim(cd.diamData.name) * 0.0254;  // pulgadas → metros
+      const d = _parseInchDim(cd.diamData.name) * 0.0254;
       if (!(d > 0)) return;
       const na = nodes[m.ni], nb = nodes[m.nj];
       if (!na || !nb) return;
       const dx = nb.x - na.x, dy = nb.y - na.y, dz = nb.z - na.z;
       const LG = Math.sqrt(dx*dx + dy*dy + dz*dz);
       if (!(LG > 0)) return;
-      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);  // componente Z del viento = 0
+      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);
       const sin2_tg = Math.max(0, 1 - cos_tg * cos_tg);
       const zMid = (na.z + nb.z) / 2;
       const qz = calcWindPressure(cfg, windData, zMid);
       const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
       if (FG_kgf > 0) {
-        const F_per_m = FG_kgf / LG;
-        const nSub    = GUY_ARROWS - 1;   // GUY_ARROWS puntos (incl. extremos) → nSub tramos
-        const dzStep  = LG / nSub;
-        const grpKey  = `guy_${m.ni}_${m.nj}`;
-        // k=0..nSub inclusive → el primer y último punto caen exactamente en los nodos
-        // inicial/final del cable (igual criterio que el fuste del monopolo, ver arriba) —
-        // pedido explícito del usuario (2026-07-21) para que la carga se vea de extremo a
-        // extremo en vez de recortada dentro del tramo.
-        for (let k = 0; k <= nSub; k++) {
-          const t      = k / nSub;
-          const dzTrib = (k === 0 || k === nSub) ? dzStep / 2 : dzStep;
-          results.push({
-            sec: guyLevel, grpKey,
-            pos: { x: na.x + dx * t, y: na.y + dy * t, z: na.z + dz * t },
-            z: na.z + dz * t,
-            F_kgf: F_per_m * dzTrib, F_per_m,
-            dz: dzTrib, dir, isLinear: true,
-          });
-        }
+        // Nodo de estructura = extremo con mayor z (conexión en torre/triángulo estabilizador)
+        const towerNi = na.z >= nb.z ? m.ni : m.nj;
+        const tn = nodes[towerNi];
+        results.push({
+          sec: guyLevel, nodeIdx: towerNi,
+          pos: { x: tn.x, y: tn.y, z: tn.z },
+          z: tn.z, F_kgf: FG_kgf, dir, isCablePoint: true,
+        });
       }
     });
   }
@@ -6977,7 +7432,8 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
   const taperR = z => { const t = zIncTot > 0 ? Math.min(z / zIncTot, 1) : 1; return r0 + (r1 - r0) * t; };
   const results = [];
-  let zBase = dadoHeight, zTower = 0;
+  const _rooftopZm = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZm + dadoHeight, zTower = 0;
   for (let i = 0; i < secData.length; i++) {
     const s      = secData[i];
     const h      = +s?.h || 0;
@@ -7009,6 +7465,42 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
     }
     zBase += h; zTower += h;
   }
+
+  // Mástil Arriostrado: fuerzas de viento en retenidas como cargas puntuales
+  // en el nodo de la estructura (igual que torres arriostradas — §2.6.11.3)
+  if (cfg.mastType === 'mast-guyed' && _towerData) {
+    const Cd = 1.2;
+    const Gh = _tiaGh(cfg.height, 'monopole');
+    _towerData.members.forEach(m => {
+      if (m.type !== 'guy') return;
+      const guyLevel = m.guyLevel;
+      if (guyLevel == null) return;
+      const cd = cfg.guyCableData?.[guyLevel - 1];
+      if (!cd?.diamData) return;
+      const d = _parseInchDim(cd.diamData.name) * 0.0254;
+      if (!(d > 0)) return;
+      const na = _towerData.nodes[m.ni], nb = _towerData.nodes[m.nj];
+      if (!na || !nb) return;
+      const dx = nb.x - na.x, dy = nb.y - na.y, dz = nb.z - na.z;
+      const LG = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      if (!(LG > 0)) return;
+      const cos_tg = dir.x * (dx / LG) + dir.y * (dy / LG);
+      const sin2_tg = Math.max(0, 1 - cos_tg * cos_tg);
+      const zMid = (na.z + nb.z) / 2;
+      const qz = calcWindPressure(cfg, windData, zMid);
+      const FG_kgf = Cd * d * LG * Gh * qz * sin2_tg / 9.80665;
+      if (FG_kgf > 0) {
+        const towerNi = na.z >= nb.z ? m.ni : m.nj;
+        const tn = _towerData.nodes[towerNi];
+        results.push({
+          sec: guyLevel, nodeIdx: towerNi,
+          pos: { x: tn.x, y: tn.y, z: tn.z },
+          z: tn.z, F_kgf: FG_kgf, dir, isCablePoint: true,
+        });
+      }
+    });
+  }
+
   return results;
 }
 
@@ -7335,6 +7827,106 @@ function _onWindAngleSelect(val) {
   // Actualizar flechas 3D con el nuevo ángulo
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
+function _calcPvRooftopSummaryHtml(wd) {
+  const condOk = wd.rooftopCond1 || wd.rooftopCond2;
+  const Hs = wd.rooftopHs || 0, Ws = wd.rooftopWs || 0;
+  const Hp = wd.rooftopHp || 0, Xb = wd.rooftopXb || 0;
+  const dado = (typeof dadoHeight !== 'undefined' ? dadoHeight : 0) || 0;
+  if (!condOk) return '<b>Sin condición activa</b> — Ks = 1.000.' +
+    (Hs > 0 ? ' Hs = ' + Hs.toFixed(1) + ' m eleva la referencia de Kz.' : ' Ingrese Hs.');
+  if (!(Hs > 0) || !(Ws > 0)) return '<b style="color:var(--accent)">Condición activa</b> — ingrese Hs y Ws para calcular Ks.';
+  const Ks_z = Math.max(1.10, 1 + 0.3 * Math.min(Ws / Hs, 1.0));
+  const dadoNote = dado > 0 ? `&ensp;<span style="color:var(--txt-sec)">(dado ${dado.toFixed(2)} m)</span>` : '';
+  const hpNote = Hp > 0 ? `Parapeto Hp = ${Hp.toFixed(2)} m → Ks = 1 bajo esa altura.&ensp;` : '';
+  if (!(Xb > 0)) {
+    const towerStartZr = dado;
+    const ksLine = towerStartZr <= Hp
+      ? `Ks = ${Ks_z.toFixed(3)} desde ${Hp.toFixed(2)} m sobre azotea` + (dado > 0 ? ` (${(Hp - dado).toFixed(2)} m sobre base torre)` : '')
+      : `Ks = ${Ks_z.toFixed(3)} sobre toda la altura de la torre`;
+    return '<b style="color:var(--accent)">Ks — Nota 1 §2.6.7</b>' + dadoNote + '<br>' +
+      hpNote + ksLine + '. Ingrese Xb para método por zonas.';
+  }
+  const H1 = Hp + Xb / 5, H2 = Hp + Math.min(Hs, Ws);
+  const towerH1 = Math.max(0, H1 - dado), towerH2 = Math.max(0, H2 - dado);
+  const towerNote = dado > 0 ? `<br><span style="color:var(--txt-sec)">En la torre: Ks desde ${towerH1.toFixed(2)} m hasta ${towerH2.toFixed(2)} m sobre base</span>` : '';
+  return '<b style="color:var(--accent)">Zona Ks — §2.6.7</b>' + dadoNote + '<br>' +
+    hpNote +
+    'H₁ = ' + H1.toFixed(2) + ' m&ensp;H₂ = ' + H2.toFixed(2) + ' m sobre azotea<br>' +
+    'Ks en H₁…H₂ = <b style="color:var(--accent)">' + Ks_z.toFixed(3) + '</b>&emsp;Fuera: Ks = 1.000' +
+    towerNote;
+}
+function _onPvRooftopInput() {
+  const g = id => document.getElementById(id);
+  if (g('pv-rooftop-hs')) windData.rooftopHs = +g('pv-rooftop-hs').value || null;
+  if (g('pv-rooftop-ws')) windData.rooftopWs = +g('pv-rooftop-ws').value || null;
+  if (g('pv-rooftop-hp')) windData.rooftopHp = +g('pv-rooftop-hp').value || 0;
+  if (g('pv-rooftop-xb')) windData.rooftopXb = +g('pv-rooftop-xb').value || null;
+  _applyGridRooftopOffset();
+  // Actualizar solo las partes dinámicas — no recrear los inputs (evita reset del cursor)
+  const condOk = windData.rooftopCond1 || windData.rooftopCond2;
+  const zone = g('pv-rooftop-ks-zone');
+  if (zone) { zone.style.opacity = condOk ? '1' : '0.35'; zone.style.pointerEvents = condOk ? 'all' : 'none'; }
+  const summary = g('pv-rooftop-summary');
+  if (summary) summary.innerHTML = _calcPvRooftopSummaryHtml(windData);
+  refresh();
+  _unsavedChanges = true;
+}
+function _onPvRooftopCondChange() {
+  const g = id => document.getElementById(id);
+  if (g('pv-rooftop-cond1')) windData.rooftopCond1 = g('pv-rooftop-cond1').checked;
+  if (g('pv-rooftop-cond2')) windData.rooftopCond2 = g('pv-rooftop-cond2').checked;
+  buildCargasVientoPanel();
+  _unsavedChanges = true;
+}
+function _buildPvRooftopSection() {
+  const wd = windData;
+  const condOk = wd.rooftopCond1 || wd.rooftopCond2;
+  const Hs = wd.rooftopHs || 0, Ws = wd.rooftopWs || 0;
+  const Hp = wd.rooftopHp || 0, Xb = wd.rooftopXb || 0;
+  const sumHtml = _calcPvRooftopSummaryHtml(wd);
+  const iBase = `class="ctrl-input" type="number" min="0" oninput="_onPvRooftopInput()" style="width:100%;"`;
+  const lbl = t => `<span style="font-size:10px;color:var(--txt-sec);display:block;margin-bottom:2px;">${t}</span>`;
+  const zoneOpacity = condOk ? '1' : '0.35';
+  const zonePE = condOk ? 'all' : 'none';
+  return `
+    <div class="sect-title" style="margin:0 0 8px;padding:0;">AZOTEA — §2.6.7</div>
+    <div style="font-size:10px;color:var(--txt-sec);font-style:italic;margin-bottom:6px;">
+      Aplica Ks si se cumple al menos una condición:
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;">
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="pv-rooftop-cond1" ${wd.rooftopCond1?'checked':''}
+               onchange="_onPvRooftopCondChange()" style="margin-top:2px;flex-shrink:0;">
+        <span style="font-size:10px;line-height:1.45;color:var(--txt-sec);">
+          <b>Cond. 1</b> — Edificio &gt;15 m, aislado en cuadrante 90° a ≤ min(792 m, 20·Hs) desde cara barlovento
+        </span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="pv-rooftop-cond2" ${wd.rooftopCond2?'checked':''}
+               onchange="_onPvRooftopCondChange()" style="margin-top:2px;flex-shrink:0;">
+        <span style="font-size:10px;line-height:1.45;color:var(--txt-sec);">
+          <b>Cond. 2</b> — Edificio sobresale &gt;15 m sobre altura promedio adyacentes en cuadrante 90°
+        </span>
+      </label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:6px;">
+      <div>${lbl('Hs — Altura edificio (m)')}
+        <input ${iBase} id="pv-rooftop-hs" value="${Hs||''}" placeholder="ej. 20"></div>
+    </div>
+    <div id="pv-rooftop-ks-zone" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;
+         opacity:${zoneOpacity};pointer-events:${zonePE};transition:opacity .2s;margin-bottom:8px;">
+      <div>${lbl('Ws — Ancho barlovento (m)')}
+        <input ${iBase} id="pv-rooftop-ws" value="${Ws||''}" placeholder="ej. 30"></div>
+      <div>${lbl('Hp — Pretil (m)')}
+        <input ${iBase} id="pv-rooftop-hp" value="${Hp||0}" placeholder="0"></div>
+      <div style="grid-column:1/-1">${lbl('Xb — Dist. cara barlovento → centro torre (m)')}
+        <input ${iBase} id="pv-rooftop-xb" value="${Xb||''}" placeholder="ej. 15" style="width:55%;"></div>
+    </div>
+    <div id="pv-rooftop-summary" style="padding:6px 8px;background:var(--bg-alt,rgba(255,255,255,0.06));border-radius:4px;
+         font-size:10px;color:var(--txt-sec);line-height:1.7;margin-bottom:4px;">${sumHtml}</div>
+    <div class="sep" style="margin:12px 0;"></div>
+  `;
+}
 function buildCargasVientoPanel() {
   const body = document.getElementById('rpanel-viento-body');
   if (!projectGenerated) {
@@ -7401,6 +7993,7 @@ function buildCargasVientoPanel() {
     <div class="frow"><span class="flbl">Kd:</span><span>${_tiaKd(cfg.type)}</span></div>
     <div class="frow"><span class="flbl">Ke:</span><span>${_tiaKe(windData.asnm).toFixed(3)}</span></div>
     <div class="sep" style="margin:12px 0;"></div>
+    ${windData.rooftop ? _buildPvRooftopSection() : ''}
     <div class="sect-title" style="margin:0 0 8px;padding:0;">PARÁMETROS DE Kz / Kzt</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 10px;font-size:11px;">
       <div>${lbl('Kzmin')}${fmt(exp.Kzmin)}</div>
@@ -7618,6 +8211,8 @@ let monoAperturas = [];  // apertura (m) de cada tramo recto — solo Monopolo E
 let dadoHeight = 0;
 let guyCableData  = [];  // [{diam: nombre del cable seleccionado o null, tensionPct}] — paralelo a guyHeights por índice
 let guyAnchorData = [];  // [{elev, radio, azimut}] — uno o más puntos de anclaje (editable, no atado a #piernas)
+let strutData     = [];  // [{h, az, r, zFixed, profile, d, t, b, b1, b2}] — puntales del Mástil Apuntalado
+let _mastType     = null; // 'mast-guyed' | 'mast-strut' | null — subtipo de monopolo activo
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
 let _unsavedChanges = false;  // true tras cualquier edición; false al abrir/nuevo/guardar — usado al cerrar la app (.exe)
 // Override manual de posición de nodo, vía tabla Nodos — {idx: {x,y,z}}. Se reaplica
@@ -7793,6 +8388,8 @@ function getConfig() {
     guyCableData:   guyCableData.slice(),
     guyAnchorData:  guyAnchorData.slice(),
     guyPivot:       document.getElementById('guyPivot')?.checked ?? false,
+    mastType:       _mastType || null,
+    strutData:      strutData.slice(),
     location:       projectLocation,
     assetNumber:    document.getElementById('assetNumber').value,
     assetName:      document.getElementById('assetName').value,
@@ -7989,16 +8586,34 @@ function onTypeChange() {
     v = 'square';
     showToast('M4 no es compatible con Autosoportada 3 piernas.', 'warn');
   }
-  const isGuyed = v === 'guyed';
+  const isGuyed     = v === 'guyed';
+  const isMastGuyed = v === 'monopole' && _mastType === 'mast-guyed';
+  const isMastStrut = v === 'monopole' && _mastType === 'mast-strut';
   // Incremento más fino (0.1 en vez de 0.5) para diámetro base/tope en Monopolo —
   // pedido explícito del usuario (2026-06-28).
   document.getElementById('baseW').step = v === 'monopole' ? '0.1' : '0.5';
   document.getElementById('topW').step  = v === 'monopole' ? '0.1' : '0.5';
-  document.getElementById('geom-sect-title').textContent = v === 'monopole' ? 'GEOMETRÍA DEL MONOPOLO' : 'GEOMETRÍA DE LA TORRE';
+  const _geomLbl = v !== 'monopole' ? 'GEOMETRÍA DE LA TORRE'
+    : (isMastGuyed ? 'GEOMETRÍA DEL MÁSTIL ARR.' : isMastStrut ? 'GEOMETRÍA DEL MÁSTIL APU.' : 'GEOMETRÍA DEL MONOPOLO');
+  document.getElementById('geom-sect-title').textContent = _geomLbl;
   document.getElementById('detalle-sect-title').textContent = v === 'monopole' ? 'DETALLE POR TRAMO' : 'DETALLE POR SECCIÓN';
-  document.getElementById('wfl-btn-torre').textContent = v === 'monopole' ? 'Monopolo' : 'Torre';
-  document.getElementById('guyed-params').classList.toggle('show', isGuyed);
+  const _wflLbl = v !== 'monopole' ? 'Torre' : (isMastGuyed ? 'Mástil Arr.' : isMastStrut ? 'Mástil Apu.' : 'Monopolo');
+  document.getElementById('wfl-btn-torre').textContent = _wflLbl;
+  document.getElementById('guyed-params').classList.toggle('show', isGuyed || isMastGuyed);
+  const gpEl = document.getElementById('strut-params');
+  if (gpEl) gpEl.style.display = isMastStrut ? '' : 'none';
   const setDisp = (id, show) => document.getElementById(id).style.display = show ? '' : 'none';
+  // En Mástil Arriostrado: ocultar Forma y Pivote (son de celosía, no de tubo sólido)
+  const _guyParamsFila = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
+  _guyParamsFila('guyShape', isGuyed && !isMastGuyed);
+  _guyParamsFila('guyPivot', isGuyed && !isMastGuyed);
+  // La frow que contiene guyShape y guyPivot — ocultarla completa
+  ['guyShape','guyPivot'].forEach(pid => {
+    const el = document.getElementById(pid);
+    if (!el) return;
+    let row = el.closest('.frow');
+    if (row) row.style.display = (isGuyed && !isMastGuyed) ? '' : 'none';
+  });
   setDisp('dim-hdr-base', !isGuyed);
   setDisp('baseW',        !isGuyed);
   setDisp('dim-hdr-top',  !isGuyed);
@@ -8007,8 +8622,10 @@ function onTypeChange() {
   setDisp('row-m4-main', v === 'square');
   setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
-  if (isGuyed) ensureGuyHeights();
+  if (isGuyed || isMastGuyed) ensureGuyHeights();
   _syncM4TipoLock();   // aplica visibilidad correcta de altInc / altConst / altReduccion
+  if (isGuyed || isMastGuyed) setDisp('row-altInc-main', false);  // Arriostrada y mástiles no usan altura inclinada
+  if (isMastStrut) { _buildStrutRpanel(); setDisp('row-altInc-main', false); }
   refresh();
 }
 
@@ -8135,7 +8752,7 @@ function buildSetupPreview() {
       data = tipo === 'square' ? genSquare(cfg)
            : tipo === 'guyed'  ? genGuyed(cfg)
            :                     genTriangular(cfg);
-    } catch { svgEl.innerHTML = ''; return; }
+    } catch { return; }   // mantener última vista válida mientras el usuario edita
     _drawSetupFrontView(svgEl, data);
   } finally {
     secData = savedSecData;
@@ -8149,14 +8766,19 @@ function _drawMonopolePreview3D(svgEl, cfg) {
   const baseD    = Math.max(0.1, +(cfg.baseW || 4));
   const topD     = Math.max(0.1, +(cfg.topW  || 2));
   const monoTipo = document.getElementById('s-monoTipo')?.value || 'conico';
-  const tipoLbl  = monoTipo === 'conico' ? 'Tronco-Cónico' : monoTipo === 'escalonado' ? 'Escalonado' : 'Combinado';
+  const _isMastType = monoTipo === 'mast-guyed' || monoTipo === 'mast-strut';
+  const tipoLbl = monoTipo === 'conico' ? 'Tronco-Cónico'
+    : monoTipo === 'escalonado' ? 'Escalonado'
+    : monoTipo === 'mast-guyed' ? 'Mástil Arriostrado'
+    : monoTipo === 'mast-strut' ? 'Mástil Apuntalado'
+    : 'Combinado';
 
   // Número de tramos por tipo
   const nInc = monoTipo === 'combinado' ? _monoNInc()
              : monoTipo === 'conico'    ? Math.max(1, +document.getElementById('s-monoTramos')?.value || 1)
-             : 0;
+             : 0;  // escalonado y mástiles — todos los tramos son rectos
   const nStr = monoTipo === 'combinado' ? Math.max(1, +document.getElementById('s-monoTramosRec')?.value || 1)
-             : monoTipo === 'escalonado' ? Math.max(1, +document.getElementById('s-monoTramos')?.value || 1)
+             : (monoTipo === 'escalonado' || _isMastType) ? Math.max(1, +document.getElementById('s-monoTramos')?.value || 1)
              : 0;
   const nTot = Math.max(1, nInc + nStr);
 
@@ -8278,6 +8900,31 @@ function _drawMonopolePreview3D(svgEl, cfg) {
     svg += `<line x1="${pts0[iR].x.toFixed(1)}" y1="${pts0[iR].y.toFixed(1)}" x2="${pts1[iR].x.toFixed(1)}" y2="${pts1[iR].y.toFixed(1)}" stroke="#3B8FEF" stroke-width="1.2"/>`;
   }
 
+  // Puntales para mast-strut — vista elevación: V simétrica (igual que planos de elevación)
+  if (monoTipo === 'mast-strut' && strutData.length > 0) {
+    strutData.forEach(s => {
+      const hM = +s.h || 0, rM = +s.r || 3, zFM = +s.zFixed || 0;
+      const xProj = Math.max(rM * rScale, 4);  // siempre visible, nunca cero
+      const yShaft = Math.max(yTop, yBase - hM * scaleH);
+      const yFix   = Math.min(yBase, yBase - zFM * scaleH);
+      svg += `<line x1="${cx}" y1="${yShaft.toFixed(1)}" x2="${(cx+xProj).toFixed(1)}" y2="${yFix.toFixed(1)}" stroke="#4488CC" stroke-width="1.6" stroke-dasharray="4,2"/>`;
+      svg += `<line x1="${cx}" y1="${yShaft.toFixed(1)}" x2="${(cx-xProj).toFixed(1)}" y2="${yFix.toFixed(1)}" stroke="#4488CC" stroke-width="1.6" stroke-dasharray="4,2"/>`;
+      svg += `<circle cx="${(cx+xProj).toFixed(1)}" cy="${yFix.toFixed(1)}" r="2.5" fill="#4488CC" fill-opacity="0.75"/>`;
+      svg += `<circle cx="${(cx-xProj).toFixed(1)}" cy="${yFix.toFixed(1)}" r="2.5" fill="#4488CC" fill-opacity="0.75"/>`;
+    });
+  }
+
+  // Retenidas para mast-guyed
+  if (monoTipo === 'mast-guyed' && guyHeights.length > 0) {
+    const ancR = +document.getElementById('s-guyAnchorR')?.value || 15;
+    const ancScale = Math.min(rScale, (W/2 - 8) / Math.max(ancR, 1));
+    guyHeights.forEach(gh => {
+      const yS = yBase - (+gh) * scaleH;
+      svg += `<line x1="${cx}" y1="${yS.toFixed(1)}" x2="${(cx + ancR * ancScale).toFixed(1)}" y2="${yBase}" stroke="#88AADD" stroke-width="1.2"/>`;
+      svg += `<line x1="${cx}" y1="${yS.toFixed(1)}" x2="${(cx - ancR * ancScale).toFixed(1)}" y2="${yBase}" stroke="#88AADD" stroke-width="1.2"/>`;
+    });
+  }
+
   // Etiqueta
   const nTrLbl = nTot === 1 ? '1 Tramo' : `${nTot} Tramos`;
   svg += `<text x="${cx}" y="${H - 14}" text-anchor="middle" font-size="8.5" fill="#5E85A2" font-family="'Segoe UI',sans-serif">${formaLbl} · ${nTrLbl} · ${tipoLbl} · Ø${baseD.toFixed(2)}→${topD.toFixed(2)} m</text>`;
@@ -8295,7 +8942,7 @@ function _buildPreviewCfg(tipo) {
   if (tipo === 'monopole') {
     const monoTipo = document.getElementById('s-monoTipo')?.value;
     if (monoTipo === 'conico') { nInc = Math.max(1, +document.getElementById('s-monoTramos')?.value || 6); nStr = 0; }
-    else if (monoTipo === 'escalonado') { nInc = 0; nStr = Math.max(1, +document.getElementById('s-monoTramos')?.value || 6); }
+    else if (monoTipo === 'escalonado' || monoTipo === 'mast-guyed' || monoTipo === 'mast-strut') { nInc = 0; nStr = Math.max(1, +document.getElementById('s-monoTramos')?.value || 3); }
     else { nInc = Math.max(1, +document.getElementById('s-monoTramosInc')?.value || 4); nStr = Math.max(1, +document.getElementById('s-monoTramosRec')?.value || 2); }
   } else if (tipo === 'guyed') {
     nInc = 0;
@@ -8349,7 +8996,7 @@ function _buildPreviewSecData(cfg, tipo) {
 }
 
 function _drawSetupFrontView(svgEl, data) {
-  if (!data || !data.nodes.length) { svgEl.innerHTML = ''; return; }
+  if (!data || !data.nodes.length) return;   // mantener última vista válida
   const xs = data.nodes.map(n=>n.x), zs = data.nodes.map(n=>n.z);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minZ = Math.min(...zs), maxZ = Math.max(...zs);
@@ -8410,14 +9057,68 @@ function onSetupTipoChange() {
   buildSetupPreview();
 }
 
+function _applyMonoTipoDefaults(tipo) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  monoAperturas = [];  // forzar recálculo de diámetros por tramo
+  if (tipo === 'conico' || tipo === 'escalonado') {
+    set('s-monoForma', '18');
+    set('s-dado',      '0');
+    set('s-height',    '30');
+    set('s-baseW',     '2');
+    set('s-topW',      '0.8');
+    set('s-monoTramos','5');
+  } else if (tipo === 'combinado') {
+    set('s-monoForma',     '18');
+    set('s-dado',          '0');
+    set('s-height',        '30');
+    set('s-baseW',         '2');
+    set('s-topW',          '0.8');
+    set('s-monoTramosInc', '3');
+    set('s-monoTramosRec', '2');
+  } else if (tipo === 'mast-guyed') {
+    set('s-monoForma',  '24');
+    set('s-dado',       '0');
+    set('s-height',     '18');
+    set('s-baseW',      '1');
+    set('s-topW',       '0.4');
+    set('s-monoTramos', '3');
+    set('s-guyAnchorR', '6');
+    set('s-guyLevels',  '1');
+    guyHeights = [6];
+  } else if (tipo === 'mast-strut') {
+    set('s-monoForma',  '24');
+    set('s-dado',       '0');
+    set('s-height',     '18');
+    set('s-baseW',      '1');
+    set('s-topW',       '0.4');
+    set('s-monoTramos', '3');
+    strutData = [{h: 6, az: 0, r: 3, zFixed: 0, profile: null, designacion: ''}];
+  }
+}
+
 // ── Monopolo: Tronco-Cónico / Escalonado / Combinado ────────────────
 function onMonoTipoChange() {
   const tipo = document.getElementById('s-monoTipo').value;
-  const hide = (id, on) => document.getElementById(id).style.display = on ? '' : 'none';
-  hide('s-row-monoTramos',    tipo === 'conico' || tipo === 'escalonado');
-  hide('s-row-monoTramosInc', tipo === 'combinado');
-  hide('s-row-monoTramosRec', tipo === 'combinado');
-  hide('s-row-monoAperturas', tipo === 'escalonado' || tipo === 'combinado');
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  const isMastGuyed = tipo === 'mast-guyed';
+  const isMastStrut = tipo === 'mast-strut';
+  const isMast = isMastGuyed || isMastStrut;
+  // Filas de conteo de tramos
+  show('s-row-monoTramos',    tipo === 'conico' || tipo === 'escalonado' || isMast);
+  show('s-row-monoTramosInc', tipo === 'combinado');
+  show('s-row-monoTramosRec', tipo === 'combinado');
+  // Lista de diámetros por tramo recto — aplica a escalonado, combinado y mástiles
+  show('s-row-monoAperturas', tipo === 'escalonado' || tipo === 'combinado' || isMast);
+  // Filas de retenidas — solo para mástil arriostrado
+  show('s-row-guyAnchorR', isMastGuyed);
+  show('s-row-guyLevels',  isMastGuyed);
+  show('s-row-guyHeights', isMastGuyed);
+  // Fila de puntales — solo para mástil apuntalado
+  show('s-row-strutData',  isMastStrut);
+  // Aplicar defaults del tipo seleccionado
+  _applyMonoTipoDefaults(tipo);
+  if (isMastGuyed) buildGuyHeightsList();
+  if (isMastStrut) buildStrutList();
   buildMonoAperturasList();
   buildSetupPreview();
 }
@@ -8438,13 +9139,14 @@ function _monoNInc() {
 // Combinado: un input por cada tramo recto, numerados DESPUÉS de los tramos inclinados.
 function buildMonoAperturasList() {
   const tipo = document.getElementById('s-monoTipo')?.value;
-  if (tipo !== 'escalonado' && tipo !== 'combinado') return;
+  const isMast = tipo === 'mast-guyed' || tipo === 'mast-strut';
+  if (tipo !== 'escalonado' && tipo !== 'combinado' && !isMast) return;
   const list = document.getElementById('s-monoAperturas-list');
   if (!list) return;
   const nInc = tipo === 'combinado' ? _monoNInc() : 0;
   const nRectosRaw = tipo === 'combinado'
     ? +document.getElementById('s-monoTramosRec')?.value
-    : +document.getElementById('s-monoTramos')?.value;
+    : +document.getElementById('s-monoTramos')?.value;  // escalonado y mástiles
   // Sin número de tramos aún: limpiar lista y no activar diámetros
   if (!nRectosRaw || nRectosRaw < 1) {
     monoAperturas = [];
@@ -8510,6 +9212,179 @@ function buildGuyHeightsList() {
         oninput="guyHeights[${i}] = +this.value || 0; buildSetupPreview();">
     </div>`).join('');
   buildSetupPreview();
+}
+
+// ── Mástil Apuntalado: lista dinámica de puntales en el flyout ────────────────────────
+function buildStrutList() {
+  const list = document.getElementById('s-strut-list');
+  if (!list) return;
+  const h = +document.getElementById('s-height')?.value || 30;
+  list.innerHTML = strutData.map((s, i) => {
+    const profLbl = s.designacion || _strutDimsLabel(s) || '—';
+    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:4px 6px;background:var(--bg-sec);border-radius:3px;">
+      <span style="font-size:9px;color:var(--txt-sec);min-width:14px;">P${i+1}</span>
+      <input title="Altura en fuste (m)" type="number" step="0.1" min="0" max="${h}" value="${+s.h||0}" style="width:40px;font-size:9px;" class="tf-input" oninput="strutData[${i}].h=+this.value;buildSetupPreview()">
+      <input title="Azimut (°)" type="number" step="1" min="0" max="360" value="${+s.az||0}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].az=+this.value;buildSetupPreview()">
+      <input title="Alcance horizontal (m)" type="number" step="0.1" min="0.1" value="${+s.r||3}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].r=+this.value;buildSetupPreview()">
+      <input title="z del punto fijo (m)" type="number" step="0.1" value="${+s.zFixed||0}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].zFixed=+this.value;buildSetupPreview()">
+      <span style="font-size:9px;color:var(--txt-sec);flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${profLbl}">${profLbl}</span>
+      <button onclick="removeStrutItem(${i})" style="background:none;border:none;color:#cc4444;cursor:pointer;font-size:11px;padding:0 2px;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addStrutItem() {
+  const h = +document.getElementById('s-height')?.value || 30;
+  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3});
+  buildStrutList();
+}
+
+function removeStrutItem(i) {
+  strutData.splice(i, 1);
+  buildStrutList();
+}
+
+// ── Mástil Apuntalado: lista de puntales en rpanel ────────────────────────────────────
+function _buildStrutRpanel() {
+  const list = document.getElementById('strut-list-rpanel');
+  if (!list) return;
+  list.innerHTML = strutData.length ? strutData.map((s, i) => {
+    const profLbl = s.designacion || _strutDimsLabel(s) || '—';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 4px;background:var(--bg-sec);border-radius:2px;">
+      <span style="color:var(--txt-sec);">P${i+1}</span>
+      <span>${+s.h||0} m · ${+s.az||0}° · ${+s.r||0} m · z${+s.zFixed||0} m · ${profLbl}</span>
+      <button onclick="openStrutEditModal(${i})" style="background:none;border:none;color:var(--txt-sec);cursor:pointer;font-size:11px;" title="Editar">✎</button>
+      <button onclick="removeStrutRpanel(${i})" style="background:none;border:none;color:#cc4444;cursor:pointer;font-size:11px;" title="Eliminar">✕</button>
+    </div>`;
+  }).join('') : '<span style="color:var(--txt-sec);font-size:10px;">Sin puntales definidos.</span>';
+}
+
+function removeStrutRpanel(i) {
+  strutData.splice(i, 1);
+  _buildStrutRpanel();
+  refresh();
+  _unsavedChanges = true;
+}
+
+// ── Mástil Apuntalado: modal editar puntal ────────────────────────────────────────────
+function openStrutAddModal() {
+  const h = secData.reduce((s, d) => s + (+d.h || 0), 0) || 10;
+  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3});
+  openStrutEditModal(strutData.length - 1);
+}
+
+function openStrutEditModal(i) {
+  const s = strutData[i];
+  if (!s) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'strut-edit-overlay';
+  overlay.className = 'sec-modal-overlay';
+  // z-index:250 — por debajo del profile-picker (z:300) para que el catálogo quede encima
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:250;';
+  overlay.innerHTML = `<div class="sec-modal" style="width:340px;" onclick="event.stopPropagation()">
+    <div class="sec-modal-hdr"><span>PUNTAL ${i+1}</span><button onclick="document.getElementById('strut-edit-overlay')?.remove()">✕</button></div>
+    <div class="sec-modal-body" style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+      <div class="frow"><span class="flbl">Altura en fuste (m)</span><input class="ctrl-input" type="number" step="0.1" min="0" id="se-h" value="${+s.h||0}"></div>
+      <div class="frow"><span class="flbl">Azimut (°)</span><input class="ctrl-input" type="number" step="1" min="0" max="360" id="se-az" value="${+s.az||0}"></div>
+      <div class="frow"><span class="flbl">Alcance horizontal (m)</span><input class="ctrl-input" type="number" step="0.1" min="0.1" id="se-r" value="${+s.r||3}"></div>
+      <div class="frow"><span class="flbl">z del punto fijo (m)</span><input class="ctrl-input" type="number" step="0.1" id="se-zf" value="${+s.zFixed||0}"></div>
+      <div class="frow"><span class="flbl">Perfil</span>
+        <div style="display:flex;gap:4px;flex:1;">
+          <input class="ctrl-input" style="flex:1;cursor:default;" id="se-designacion" placeholder="— elegir del catálogo —" readonly value="${s.designacion||''}">
+          <button class="btn-cancel" style="padding:4px 10px;font-size:11px;" onclick="_openStrutProfilePicker(${i})">📋</button>
+        </div>
+      </div>
+      <div id="se-dims-info" style="font-size:10px;color:var(--txt-sec);padding:1px 2px;">${_strutDimsLabel(s)}</div>
+    </div>
+    <div class="sec-modal-ftr">
+      <button class="btn-cancel" onclick="document.getElementById('strut-edit-overlay')?.remove()">Cancelar</button>
+      <button class="btn-apply" onclick="_saveStrutEdit(${i})">Guardar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _strutEditUpdateDims(i, profile) {
+  const s = strutData[i] || {};
+  const dimsEl = document.getElementById('se-dims');
+  if (!dimsEl) return;
+  if (profile === 'tube')
+    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Diámetro d (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-d" value="${+s.d||89}"></div>
+      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||5.3}"></div>`;
+  else if (profile === 'LI')
+    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Ala b (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b" value="${+s.b||76}"></div>
+      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||6.4}"></div>`;
+  else
+    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Ala mayor b1 (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b1" value="${+s.b1||100}"></div>
+      <div class="frow"><span class="flbl">Ala menor b2 (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b2" value="${+s.b2||75}"></div>
+      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||6.4}"></div>`;
+}
+
+function _openStrutProfilePicker(i) {
+  const s = strutData[i] || {};
+  openProfilePicker('_strut_' + i, {
+    currentValue: s.designacion || null,
+    currentCal: '-',
+    onPick: (des) => _strutApplyProfile(i, des)
+  });
+}
+
+function _strutDimsLabel(s) {
+  if (!s || !s.profile) return '';
+  if (s.profile === 'tube') return `Tubo Ø${+s.d||0} × ${+s.t||0} mm`;
+  if (s.profile === 'LI')   return `LI ${+s.b||0} × ${+s.t||0} mm`;
+  return `LD ${+s.b1||0} × ${+s.b2||0} × ${+s.t||0} mm`;
+}
+
+function _strutApplyProfile(idx, designation) {
+  if (!designation) return;
+  let loc = _findProfileLocation(designation);
+  if (!loc) return;
+  let row, cat = loc.cat, fam = loc.fam;
+  if (cat === 'user') {
+    row = userProfiles.find(r => r.designacion === designation);
+    cat = row?.origenCat || 'aisc';
+    fam = row?.origenFam || 'li';
+  } else {
+    row = profileCatalogs[cat][fam]?.find(r => r.designacion === designation);
+  }
+  if (!row || !['oc','li','ld'].includes(fam)) return;
+  const isAisc = cat === 'aisc';
+  let dims = { designacion: designation };
+  if (fam === 'oc') {
+    dims.profile = 'tube';
+    dims.d = +(isAisc ? row.diametro * 25.4 : row.diametro * 10).toFixed(1);
+    dims.t = +(isAisc ? row.espesor * 25.4 : row.espesor).toFixed(2);
+  } else if (fam === 'li') {
+    dims.profile = 'LI';
+    dims.b = +(isAisc ? row.leg1 * 25.4 : row.leg1 * 10).toFixed(1);
+    dims.t = +(isAisc ? row.espesor * 25.4 : row.espesor).toFixed(2);
+  } else {
+    dims.profile = 'LD';
+    dims.b1 = +(isAisc ? row.leg1 * 25.4 : row.leg1 * 10).toFixed(1);
+    dims.b2 = +(isAisc ? row.leg2 * 25.4 : row.leg2 * 10).toFixed(1);
+    dims.t  = +(isAisc ? row.espesor * 25.4 : row.espesor).toFixed(2);
+  }
+  strutData[idx] = { ...strutData[idx], ...dims };
+  // Actualizar campos del modal si está abierto
+  const desSel = document.getElementById('se-designacion');
+  if (desSel) desSel.value = designation;
+  const dimsInfo = document.getElementById('se-dims-info');
+  if (dimsInfo) dimsInfo.textContent = _strutDimsLabel(strutData[idx]);
+}
+
+function _saveStrutEdit(i) {
+  const gn = id => { const el = document.getElementById(id); return el ? +el.value : null; };
+  const des = document.getElementById('se-designacion')?.value || strutData[i].designacion || '';
+  strutData[i] = { ...strutData[i],
+    h: gn('se-h') ?? strutData[i].h, az: gn('se-az') ?? strutData[i].az,
+    r: gn('se-r') ?? strutData[i].r, zFixed: gn('se-zf') ?? strutData[i].zFixed,
+    designacion: des,
+  };
+  document.getElementById('strut-edit-overlay')?.remove();
+  _buildStrutRpanel();
+  refresh();
+  _unsavedChanges = true;
 }
 
 // Asegura que guyHeights tenga al menos un valor por defecto — los niveles de retenidas
@@ -8691,7 +9566,9 @@ function _buildEstabTipoGrid() {
 function _renderEstabFields() {
   const c = guyCableData[estabLevelIdx];
   const isSimple = c.estabTipo === 'simple';
-  document.getElementById('estab-complex-fields').style.display = isSimple ? 'none' : '';
+  // Mástil Arriostrado: solo brazos simples — puntales y tensores no aplican (son de celosía)
+  const isMastGuyed = _mastType === 'mast-guyed';
+  document.getElementById('estab-complex-fields').style.display = (isSimple || isMastGuyed) ? 'none' : '';
   // Longitud del brazo y Perfil — compartidos por los 3 tipos: definen el vértice V que
   // usan tanto el brazo simple como Puntal/Tensor.
   const lenInput = document.getElementById('estab-brazoLen');
@@ -8919,6 +9796,7 @@ function generateTowerFromSetup() {
   nodeOverrides = {};  // torre nueva — cualquier override manual previo ya no aplica
   memberOverrides = {};
   supportOverrides = {};
+  _mastType = null;  // se sobreescribe abajo si es mástil
   aislarTramoSec = null;
   // Mapear tipo de estructura a ttype
   const tipoMap = {
@@ -8952,6 +9830,7 @@ function generateTowerFromSetup() {
   { const d = document.getElementById('altConst'),     s = document.getElementById('s-altConst');     if (d && s) d.value = s.value; }
   { const d = document.getElementById('altReduccion'), s = document.getElementById('s-altReduccion'); if (d && s) d.value = s.value; }
   _syncM4TipoLock();
+  if (tipo === 'guyed') { const r = document.getElementById('row-altInc-main'); if (r) r.style.display = 'none'; }
   document.getElementById('assetNumber').value    = document.getElementById('s-assetnum').value;
   document.getElementById('assetName').value      = document.getElementById('s-asset').value;
   document.getElementById('cliente').value        = document.getElementById('s-cliente').value;
@@ -8975,6 +9854,9 @@ function generateTowerFromSetup() {
     const defaultAzs = guyShapeVal === 'square' ? [315,45,135,225] : [0,120,240];
     guyAnchorData = defaultAzs.map(az => ({elev: 0, radio: r0, azimut: az}));
     guyCableData = [];   // se reconstruye en openRetenidasModal() apuntando al anillo 1
+  } else if (tipo !== 'monopole' || !['mast-guyed','mast-strut'].includes(document.getElementById('s-monoTipo')?.value)) {
+    // Limpiar strutData al crear una torre que no es mástil apuntalado
+    strutData = [];
   }
 
   // Monopolo: Tronco-Cónico/Escalonado/Combinado reparten tramos entre nInc (se ahúsan
@@ -8992,6 +9874,18 @@ function generateTowerFromSetup() {
       const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 1);
       _setIfEmpty('s-monoTramos', nTramos);
       document.getElementById('nInc').value = 0; document.getElementById('nStr').value = nTramos;
+    } else if (monoTipo === 'mast-guyed' || monoTipo === 'mast-strut') {
+      // Mástiles: fuste siempre escalonado — nInc=0, nStr=tramos del flyout
+      const nTramos = Math.max(1, +document.getElementById('s-monoTramos').value || 3);
+      _setIfEmpty('s-monoTramos', nTramos);
+      document.getElementById('nInc').value = 0; document.getElementById('nStr').value = nTramos;
+      _mastType = monoTipo;
+      // Mástil Arriostrado: inicializar anclajes con radio del flyout
+      if (monoTipo === 'mast-guyed') {
+        const r0 = +document.getElementById('s-guyAnchorR')?.value || 15;
+        guyAnchorData = [0,120,240].map(az => ({elev:0, radio:r0, azimut:az, ring:1, letter:['a','b','c'][az/120]}));
+        guyCableData = [];
+      }
     } else /* combinado */ {
       const nInc = Math.max(1, +document.getElementById('s-monoTramosInc').value || 4);
       const nStr = Math.max(1, +document.getElementById('s-monoTramosRec').value || 2);
@@ -9004,7 +9898,7 @@ function generateTowerFromSetup() {
     // Escalonado: no tiene tramos inclinados — ocultar alturaInclinada en panel principal
     const _rowAI = document.getElementById('row-altInc-main');
     const _elAI  = document.getElementById('alturaInclinada');
-    if (monoTipo === 'escalonado') {
+    if (monoTipo === 'escalonado' || monoTipo === 'mast-guyed' || monoTipo === 'mast-strut') {
       if (_rowAI) _rowAI.style.display = 'none';
       if (_elAI)  _elAI.value = 0;
     } else {
@@ -9063,9 +9957,9 @@ function generateTowerFromSetup() {
       const sd = secData[rectoStart + i];
       if (sd) sd.monoAp = ap;
     });
-    // Escalonado: ocultar altura inclinada (onTypeChange la volvió a mostrar)
+    // Escalonado / Mástiles: ocultar altura inclinada (onTypeChange la volvió a mostrar)
     const _monoTipoVal = document.getElementById('s-monoTipo')?.value;
-    if (_monoTipoVal === 'escalonado') {
+    if (_monoTipoVal === 'escalonado' || _monoTipoVal === 'mast-guyed' || _monoTipoVal === 'mast-strut') {
       const r = document.getElementById('row-altInc-main');
       if (r) r.style.display = 'none';
     } else {
@@ -9092,7 +9986,15 @@ function generateTowerFromSetup() {
   document.getElementById('rpanel-info').classList.add('visible');
 
   _applyDefaultLabels();
-  renderTower(generateTower(getConfig()));  // sin overrides — torre recién generada
+  let _genOk = false;
+  try {
+    renderTower(generateTower(getConfig()));
+    _genOk = true;
+  } catch(e) {
+    console.error('[TSA] renderTower falló al crear torre:', e);
+    document.getElementById('status').textContent = '⚠ Error al generar geometría: ' + (e?.message || e);
+  }
+  if (!_genOk) return;
   // Diferir refitView al siguiente frame: resizeRenderer() (ResizeObserver) actualiza
   // camera.aspect DESPUÉS del layout, y ese layout ocurre al abrirse el rpanel. Si
   // llamamos refitView() sincrónico aquí, camera.aspect es el ancho anterior → cámara
@@ -9100,6 +10002,7 @@ function generateTowerFromSetup() {
   requestAnimationFrame(() => refitView(0.85));
   document.getElementById('status').textContent =
     `Torre generada · ${document.getElementById('s-asset').value || '—'}`;
+  if (_mastType === 'mast-strut') _buildStrutRpanel();
   resetHistory();
 }
 
@@ -9133,6 +10036,7 @@ function openAntenasFlyout() {
   closeVientoFlyout();
   closeFeedersPanel();
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('antenas-btn').classList.add('active');
   _renderAntenasTable();
@@ -9878,6 +10782,13 @@ function toggleHerrajesPanel(e) {
   const btn = document.getElementById('side-accesorios-btn');
   const fl  = document.getElementById('herrajes-flyout');
   const wasOpen = fl.classList.contains('open');
+  if (!wasOpen) {
+    closeTorreFlyout();
+    closeAntenasFlyout();
+    closeFeedersPanel();
+    closeCombisPanel();
+    closeVientoFlyout();
+  }
   fl.classList.toggle('open', !wasOpen);
   btn?.classList.toggle('active', !wasOpen);
   if (!wasOpen) buildHerrajesPanel();
@@ -12017,7 +12928,8 @@ function nuevoProyecto() {
   antenasGroupCollapsed = {};
   windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
     velTipo:'regional', velOperacional:97.2, asnm:null, topoCat:'plano',
-    topoH:null, topoL:null, topoX:null, topoDir:'favor', directions:[0,60,90] };
+    topoH:null, topoL:null, topoX:null, topoDir:'favor',
+    rooftop:false, rooftopHs:null, rooftopWs:null, directions:[0,60,90] };
   windForcesOn = false;
   windForceLabelsOn = false;
   document.getElementById('wfl-cascade') && (document.getElementById('wfl-cascade').style.display = 'none');
@@ -12055,7 +12967,9 @@ function nuevoProyecto() {
   applyTypeLock('triangular');
   towerGroup.children.slice().forEach(c => {
     c.geometry && c.geometry.dispose();
-    c.material && c.material.dispose();
+    if (c.material) {
+      Array.isArray(c.material) ? c.material.forEach(m => m && m.dispose()) : c.material.dispose();
+    }
     towerGroup.remove(c);
   });
   projectGenerated = false;
@@ -12064,6 +12978,7 @@ function nuevoProyecto() {
   document.getElementById('rpanel').classList.remove('visible');
   document.getElementById('rpanel-info').classList.remove('visible');
   closeCombisPanel();
+  closeHerrajesPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   document.getElementById('torre-btn').classList.add('active');
   document.getElementById('torre-flyout').classList.add('open');
@@ -16606,7 +17521,7 @@ async function saveProjectAs() {
       // confuso justo al abrir la app en un equipo nuevo. Sin esto, el picker nativo de
       // archivos abre directo, sin ese riesgo (el usuario navega manualmente, una vez).
       const handle = await window.showSaveFilePicker({
-        suggestedName: currentFileHandle ? currentFileHandle.name : `${suggestedBase}.TSA`,
+        suggestedName: currentFileHandle ? currentFileHandle.name : `${suggestedBase}.tsa`,
         types: [{ description: 'TSA Project', accept: { 'application/x-tsa': ['.tsa'] } }],
       });
       await _writeHandle(handle);
@@ -16726,7 +17641,8 @@ function loadProjectData(cfg, filename) {
     const set = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
     set('ttype',         cfg.type);
     applyTypeLock(cfg.type);
-    document.getElementById('wfl-btn-torre').textContent = cfg.type === 'monopole' ? 'Monopolo' : 'Torre';
+    document.getElementById('wfl-btn-torre').textContent = cfg.type !== 'monopole' ? 'Torre'
+      : (cfg.mastType === 'mast-guyed' ? 'Mástil Arr.' : cfg.mastType === 'mast-strut' ? 'Mástil Apu.' : 'Monopolo');
     set('baseW',         cfg.baseW);
     set('topW',          cfg.topW);
     set('height',        cfg.height);
@@ -16752,6 +17668,8 @@ function loadProjectData(cfg, filename) {
     guyHeights = Array.isArray(cfg.guyHeights) ? cfg.guyHeights.slice() : [];
     guyCableData  = Array.isArray(cfg.guyCableData)  ? cfg.guyCableData.slice()  : [];
     guyAnchorData = Array.isArray(cfg.guyAnchorData) ? cfg.guyAnchorData.slice() : [];
+    strutData = Array.isArray(cfg.strutData) ? JSON.parse(JSON.stringify(cfg.strutData)) : [];
+    _mastType = cfg.mastType || null;
     if (document.getElementById('guyPivot')) document.getElementById('guyPivot').checked = !!cfg.guyPivot;
     const m4El = document.getElementById('m4'); if (m4El) m4El.checked = !!cfg.m4;
     { const ac = document.getElementById('altConst');     if (ac) ac.value = cfg.altConst     ?? 0; }
@@ -16778,6 +17696,7 @@ function loadProjectData(cfg, filename) {
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
     document.getElementById('torre-btn').classList.add('active');
     onTypeChange();
+    if (_mastType === 'mast-strut') _buildStrutRpanel();
     onSecChange();
     _applyDefaultLabels();
     nodeOverrides = (cfg.nodeOverrides && typeof cfg.nodeOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.nodeOverrides)) : {};
@@ -16785,9 +17704,16 @@ function loadProjectData(cfg, filename) {
     supportOverrides = (cfg.supportOverrides && typeof cfg.supportOverrides === 'object') ? JSON.parse(JSON.stringify(cfg.supportOverrides)) : {};
     revisionData = Array.isArray(cfg.revisionData) ? JSON.parse(JSON.stringify(cfg.revisionData)) : [];
     comentariosData = Array.isArray(cfg.comentariosData) ? JSON.parse(JSON.stringify(cfg.comentariosData)) : [];
-    // Proyectos guardados antes de que existiera Diseño por Viento no traen windData —
-    // se cae a los valores por defecto (ya declarados arriba) en vez de quedar undefined.
-    if (cfg.windData && typeof cfg.windData === 'object') windData = JSON.parse(JSON.stringify(cfg.windData));
+    // Siempre resetear windData a defaults antes de aplicar el proyecto — evita que un
+    // windData de una sesión anterior (ej. rooftop:true) persista al cargar proyectos
+    // viejos que no traen windData.
+    windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
+      velTipo:'regional', velOperacional:97.2, asnm:null, topoCat:'plano',
+      topoH:null, topoL:null, topoX:null, topoDir:'favor',
+      rooftop:false, rooftopCond1:false, rooftopCond2:false,
+      rooftopHs:null, rooftopWs:null, rooftopHp:0, rooftopXb:null, directions:[0,60,90] };
+    if (cfg.windData && typeof cfg.windData === 'object') Object.assign(windData, cfg.windData);
+    if (!windData.rooftop) windData.rooftop = false;
     if (!Array.isArray(windData.directions) || !windData.directions.length) windData.directions = [0, 60, 90];
     dadoHeight = +cfg.dadoHeight || 0;
     if (document.getElementById('dado')) document.getElementById('dado').value = dadoHeight;
@@ -16994,10 +17920,13 @@ function buildSectionRows(n) {
           : `<span class="sec-tag" style="flex-shrink:0">${s.diag}</span>`}
         ${cfg.type!=='monopole' ? `<span class="sec-tag" style="flex-shrink:0">x${s.bays}</span>` : ''}
         <span class="sec-tag" style="flex-shrink:0">${s.h} m</span>
-        <button class="sec-edit-btn ${isolatedHere?'sec-edit-btn-active':''}" style="flex-shrink:0" title="${isolatedHere ? 'Mostrar torre completa' : 'Aislar este tramo en el visor'}"
-          onclick="toggleAislarTramo(${i})">👁</button>
-        <button class="sec-edit-btn" style="flex-shrink:0" title="Editar sección" onclick="openSecModal(${i})">✎</button>
-        ${s._m4reduc ? '' : `<button class="sec-edit-btn sec-delete-btn" style="flex-shrink:0;margin-left:2px;" title="Eliminar este tramo" onclick="deleteSeccion(${i})">✕</button>`}
+        <span style="flex:1"></span>
+        <div class="sec-btn-group">
+          <button class="sec-edit-btn ${isolatedHere?'sec-edit-btn-active':''}" title="${isolatedHere ? 'Mostrar torre completa' : 'Aislar este tramo en el visor'}"
+            onclick="toggleAislarTramo(${i})">👁</button>
+          <button class="sec-edit-btn" title="Editar sección" onclick="openSecModal(${i})">✎</button>
+          ${s._m4reduc ? '' : `<button class="sec-edit-btn sec-delete-btn" title="Eliminar este tramo" onclick="deleteSeccion(${i})">✕</button>`}
+        </div>
       </div>
       ${cfg.type==='monopole' ? `
       <div class="sec-row-detail"><span class="sec-row-code">Altura:</span><span class="sec-row-val">${s.h} m</span></div>
@@ -18161,40 +19090,71 @@ function toggleGridPanel(e) {
   btn.style.color      = panel.classList.contains('open') ? 'var(--cyan)' : '';
 }
 
-// Close panel when clicking outside
+// Close panel when clicking outside — usa composedPath() para no romper en shadow DOM
+// (los spin-buttons de <input type=number> en Chromium/QWebEngineView generan clicks
+// cuyo e.target puede ser un nodo del shadow DOM; contains() lo ignora y cierra el panel).
 document.addEventListener('click', e => {
   const panel = document.getElementById('grid-panel');
   const btn   = document.getElementById('grid-cfg-btn');
-  if (!panel.contains(e.target) && !btn.contains(e.target)) {
+  const path  = e.composedPath ? e.composedPath() : [e.target];
+  if (!path.some(el => el === panel || el === btn)) {
     panel.classList.remove('open');
     btn.style.background = '';
     btn.style.color = '';
   }
 });
 
+function _applyGridRooftopOffset() {
+  const rtZ = (windData && windData.rooftop && windData.rooftopHs > 0) ? -windData.rooftopHs : 0;
+  if (secondaryGrid) secondaryGrid.position.z = _gridZ + rtZ;
+  if (primaryGrid)   primaryGrid.position.z   = rtZ;
+  if (fadeMesh)      fadeMesh.position.z      = 0.02 + rtZ;
+}
+
 function refreshGrid() {
-  const gridOn = document.getElementById('grid-on').checked;
-  document.getElementById('grid-panel-body').style.opacity        = gridOn ? '1' : '.4';
-  document.getElementById('grid-panel-body').style.pointerEvents  = gridOn ? '' : 'none';
+  try {
+    const gridOn = document.getElementById('grid-on').checked;
+    document.getElementById('grid-panel-body').style.opacity        = gridOn ? '1' : '.4';
+    document.getElementById('grid-panel-body').style.pointerEvents  = gridOn ? '' : 'none';
 
-  const size  = +document.getElementById('grid-size').value  || 200;
-  const divs  = +document.getElementById('grid-divs').value  || 10;
-  const thick = +document.getElementById('grid-thick').value || 1.5;
-  const subs  = +document.getElementById('grid-subs').value  || 5;
-  buildGrid(size, divs, thick, subs);
-  primaryGrid.visible   = gridOn;
-  secondaryGrid.visible = gridOn;
+    const size  = +document.getElementById('grid-size').value  || 200;
+    const divs  = +document.getElementById('grid-divs').value  || 10;
+    const thick = +document.getElementById('grid-thick').value || 1.5;
+    const subs  = +document.getElementById('grid-subs').value  || 5;
+    buildGrid(size, divs, thick, subs);
+    primaryGrid.visible   = gridOn;
+    secondaryGrid.visible = gridOn;
 
-  const enabled = gridOn && document.getElementById('fade-on').checked;
-  const start   = +document.getElementById('fade-start').value || 45;
-  const exp     = +document.getElementById('fade-exp').value   || 2;
-  buildFadeMask(size / 2, start, exp, enabled);
+    const enabled = gridOn && document.getElementById('fade-on').checked;
+    const start   = +document.getElementById('fade-start').value || 45;
+    const exp     = +document.getElementById('fade-exp').value   || 2;
+    buildFadeMask(size / 2, start, exp, enabled);
+    // Offset DESPUÉS de buildFadeMask: mueve grid+fade al nivel correcto
+    // (con rooftop activo, el grid baja a z=-Hs y la fadeMask también debe bajar)
+    _applyGridRooftopOffset();
+
+    // Actualizar indicador de tamaño en el botón para retroalimentación visual inmediata
+    const btn = document.getElementById('grid-cfg-btn');
+    if (btn && btn._gp_indicator) btn._gp_indicator.textContent = size + 'm';
+  } catch(e) {
+    console.error('refreshGrid error:', e);
+    showToast('Error en malla: ' + e.message, 'warn', 4000);
+  }
 }
 
 // Boot — inicia limpio sin torre
 document.getElementById('s-fecha').value = new Date().toISOString().slice(0,10);
 buildSectionRows(8);
 refreshGrid();
+// Listeners programáticos como respaldo a los oninput/onchange inline del panel de malla
+// (en algunas versiones de QWebEngineView los atributos inline no disparan correctamente)
+['grid-size','grid-divs','grid-thick','grid-subs','fade-start','fade-exp',
+ 'grid-on','fade-on'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input',  refreshGrid);
+  el.addEventListener('change', refreshGrid);
+});
 loadAppSettings();
 loadSteelGrades();
 loadProfileCatalogs();
@@ -18239,7 +19199,7 @@ function _pickMember(e) {
   );
   _raycaster.setFromCamera(ndc, activeCamera);
   const targets = towerGroup.children.filter(c =>
-    (c instanceof THREE.LineSegments || c instanceof THREE.InstancedMesh) &&
+    (c instanceof THREE.LineSegments || c instanceof THREE.InstancedMesh || c instanceof THREE.Mesh) &&
     c.userData.members && c.userData.members.length
   );
   const hits = _raycaster.intersectObjects(targets, false);
@@ -18247,7 +19207,9 @@ function _pickMember(e) {
   const hit    = hits[0];
   const segIdx = hit.object instanceof THREE.InstancedMesh
     ? hit.instanceId
-    : Math.floor(hit.index / 2);
+    : hit.object instanceof THREE.Mesh
+      ? 0  // fuste sólido — un miembro por cilindro
+      : Math.floor(hit.index / 2);
   const member = hit.object.userData.members[segIdx];
   if (!member) { closeMemberInfo(); return; }
   _highlightMember(member);
@@ -18457,7 +19419,7 @@ function showMemberInfo(m, cx, cy) {
   // En Monopolo no hay "piernas" (un solo fuste central, no varias columnas) — pedido
   // explícito del usuario (2026-06-28).
   const isMonoTower = document.getElementById('ttype')?.value === 'monopole';
-  const typeNames = {leg: isMonoTower ? 'FUSTE' : 'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', puntal:'PUNTAL', tensor:'TENSOR', horizPuntal:'HORIZONTAL PUNTAL', horizTensor:'HORIZONTAL TENSOR', monothk:'PARED (ESPESOR)'};
+  const typeNames = {leg: isMonoTower ? 'FUSTE' : 'PIERNA', diagonal:'DIAGONAL', horizontal:'HORIZONTAL', guy:'GUY WIRE', planbrace:'PLAN BRACING', hipbrace:'HIP BRACING', stabarm:'BRAZO ESTABILIZADOR', puntal:'PUNTAL', 'mast-strut':'PUNTAL', tensor:'TENSOR', horizPuntal:'HORIZONTAL PUNTAL', horizTensor:'HORIZONTAL TENSOR', monothk:'PARED (ESPESOR)'};
   document.getElementById('mi-type').textContent = typeNames[m.type] || m.type.toUpperCase();
   const { profile, calidadName, isCableCal, isPrincipal, sec } = getMemberProfile(m);
   const calidadText = isCableCal ? (calidadName || '—') : calLabelText(calidadName, false);
