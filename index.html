@@ -4351,7 +4351,6 @@ function towerBounds() {
   if (!_towerData || !_towerData.nodes.length) return null;
   const box = new THREE.Box3();
   const nodes = _towerData.nodes;
-  // Respeta el tramo aislado (aislarTramoSec) igual que lo hace renderTower.
   const usedNI = aislarTramoSec !== null
     ? new Set(_towerData.members.filter(m => m.sec === aislarTramoSec).flatMap(m => [m.ni, m.nj]))
     : null;
@@ -4359,6 +4358,12 @@ function towerBounds() {
     if (!usedNI || usedNI.has(i)) box.expandByPoint(new THREE.Vector3(n.x, n.y, n.z));
   });
   if (box.isEmpty()) return null;
+  // Incluir el edificio de azotea (z = -Hs a 0) en el encuadre
+  if (windData && windData.rooftop && windData.rooftopHs > 0) {
+    const Ws = windData.rooftopWs || 15;
+    box.expandByPoint(new THREE.Vector3(-Ws / 2, -Ws / 2, -windData.rooftopHs));
+    box.expandByPoint(new THREE.Vector3( Ws / 2,  Ws / 2, 0));
+  }
   return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()) };
 }
 // Fallback: si no hay nodos de torre (solo edificio de azotea visible), usa los objetos
@@ -5256,8 +5261,8 @@ function updateTowerNameLabel() {
 
 function _buildRooftopBuilding() {
   const wd = windData;
-  if (!wd.rooftop || !(wd.rooftopHs > 0) || !(wd.rooftopWs > 0)) return;
-  const Hs = wd.rooftopHs, Ws = wd.rooftopWs;
+  if (!wd.rooftop || !(wd.rooftopHs > 0)) return;
+  const Hs = wd.rooftopHs, Ws = wd.rooftopWs || 15;
   const _qZ = new THREE.Quaternion().setFromUnitVectors(
     new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
 
@@ -6939,7 +6944,7 @@ function _tiaKsRooftop(wd, zAbsoluteM) {
   if (!wd.rooftop || !(wd.rooftopHs > 0)) return 1.0;
   if (!wd.rooftopCond1 && !wd.rooftopCond2) return 1.0;  // ninguna condición activa
   const Hs = wd.rooftopHs;
-  const Ws = wd.rooftopWs || Hs;
+  const Ws = wd.rooftopWs || 15;
   const Hp = wd.rooftopHp || 0;
   const Ks_zona = Math.max(1.10, 1 + 0.3 * Math.min(Ws / Hs, 1.0));
   const zr = zAbsoluteM - Hs;   // altura sobre la azotea (incluye dado si lo hay)
@@ -7542,7 +7547,8 @@ function _renderWindAngleTable_Monopole(cfg) {
   const r0 = (cfg.baseW || 1) / 2, r1 = (cfg.topW || 0.3) / 2;
   const taperR = zT => { const t = zIncTot > 0 ? Math.min(zT / zIncTot, 1) : 1; return r0 + (r1 - r0) * t; };
   _monoSecW = {};
-  let zBase = dadoHeight, zTower = 0;
+  const _rooftopZm2 = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZm2 + dadoHeight, zTower = 0;
   let total = 0;
   const rowsHtml = [];
   for (let i = 0; i < secData.length; i++) {
@@ -7697,7 +7703,8 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
   const Gh   = _tiaGh(cfg.height, cfg.type);
   const results = [];
-  let zBase = dadoHeight;
+  const _rooftopZf = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZf + dadoHeight;
   for (let i = 0; i < nsec; i++) {
     const h    = +secData[i]?.h || (cfg.height / nsec);
     const zBot = zBase, zTop = zBase + h, zMid = zBase + h / 2;
@@ -7812,7 +7819,8 @@ function _onWindAngleSelect(val) {
   _selectedWindAngle = +val;
   const cfg = getConfig();
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
-  let zBase = dadoHeight, zBaseTower = 0;
+  const _rooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZ + dadoHeight, zBaseTower = 0;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +secData[i]?.h || (cfg.height / nsec);
@@ -7855,20 +7863,48 @@ function _calcPvRooftopSummaryHtml(wd) {
     'Ks en H₁…H₂ = <b style="color:var(--accent)">' + Ks_z.toFixed(3) + '</b>&emsp;Fuera: Ks = 1.000' +
     towerNote;
 }
+function _updateQzTableBody() {
+  const tbody = document.getElementById('qz-tbody');
+  if (!tbody) return;
+  const cfg = getConfig();
+  const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
+  const fmt = v => (v == null ? '—' : (+v).toFixed(3));
+  const _rooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZ + dadoHeight, zBaseTower = 0;
+  const rows = [];
+  for (let i = 0; i < nsec; i++) {
+    const h = +secData[i]?.h || (cfg.height / nsec);
+    const z = zBase + h / 2;
+    rows.push({
+      sec: i + 1, z,
+      Kz:  _tiaKz(z, windData.catExposicion),
+      K3:  _tiaKztDetail(z, windData).K3,
+      Kzt: _tiaKzt(z, windData),
+      qz:  calcWindPressure(cfg, windData, z),
+    });
+    zBase += h; zBaseTower += h;
+  }
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`
+  ).join('');
+}
 function _onPvRooftopInput() {
   const g = id => document.getElementById(id);
+  const prevHs = windData.rooftopHs;
   if (g('pv-rooftop-hs')) windData.rooftopHs = +g('pv-rooftop-hs').value || null;
   if (g('pv-rooftop-ws')) windData.rooftopWs = +g('pv-rooftop-ws').value || null;
   if (g('pv-rooftop-hp')) windData.rooftopHp = +g('pv-rooftop-hp').value || 0;
   if (g('pv-rooftop-xb')) windData.rooftopXb = +g('pv-rooftop-xb').value || null;
   _applyGridRooftopOffset();
-  // Actualizar solo las partes dinámicas — no recrear los inputs (evita reset del cursor)
+  _updateQzTableBody();
   const condOk = windData.rooftopCond1 || windData.rooftopCond2;
   const zone = g('pv-rooftop-ks-zone');
-  if (zone) { zone.style.opacity = condOk ? '1' : '0.35'; zone.style.pointerEvents = condOk ? 'all' : 'none'; }
+  if (zone) zone.style.display = condOk ? 'grid' : 'none';
   const summary = g('pv-rooftop-summary');
   if (summary) summary.innerHTML = _calcPvRooftopSummaryHtml(windData);
+  const hsChanged = prevHs !== windData.rooftopHs;
   refresh();
+  if (hsChanged && windData.rooftopHs > 0) fitView();
   _unsavedChanges = true;
 }
 function _onPvRooftopCondChange() {
@@ -7886,10 +7922,13 @@ function _buildPvRooftopSection() {
   const sumHtml = _calcPvRooftopSummaryHtml(wd);
   const iBase = `class="ctrl-input" type="number" min="0" oninput="_onPvRooftopInput()" style="width:100%;"`;
   const lbl = t => `<span style="font-size:10px;color:var(--txt-sec);display:block;margin-bottom:2px;">${t}</span>`;
-  const zoneOpacity = condOk ? '1' : '0.35';
-  const zonePE = condOk ? 'all' : 'none';
+  const zoneDisplay = condOk ? 'grid' : 'none';
   return `
     <div class="sect-title" style="margin:0 0 8px;padding:0;">AZOTEA — §2.6.7</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:10px;">
+      <div>${lbl('Hs — Altura edificio (m)')}
+        <input ${iBase} id="pv-rooftop-hs" value="${Hs||''}" placeholder="ej. 20"></div>
+    </div>
     <div style="font-size:10px;color:var(--txt-sec);font-style:italic;margin-bottom:6px;">
       Aplica Ks si se cumple al menos una condición:
     </div>
@@ -7909,12 +7948,7 @@ function _buildPvRooftopSection() {
         </span>
       </label>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:6px;">
-      <div>${lbl('Hs — Altura edificio (m)')}
-        <input ${iBase} id="pv-rooftop-hs" value="${Hs||''}" placeholder="ej. 20"></div>
-    </div>
-    <div id="pv-rooftop-ks-zone" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;
-         opacity:${zoneOpacity};pointer-events:${zonePE};transition:opacity .2s;margin-bottom:8px;">
+    <div id="pv-rooftop-ks-zone" style="display:${zoneDisplay};grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:8px;">
       <div>${lbl('Ws — Ancho barlovento (m)')}
         <input ${iBase} id="pv-rooftop-ws" value="${Ws||''}" placeholder="ej. 30"></div>
       <div>${lbl('Hp — Pretil (m)')}
@@ -7942,14 +7976,12 @@ function buildCargasVientoPanel() {
   // Arranca en dadoHeight (no en 0) — el tramo 1 no nace al nivel de terreno si hay un
   // dado/cimentación debajo, pedido explícito del usuario (2026-06-28: "esta altura se
   // debe sumar al z(m) del tramo 1 del análisis de viento").
-  let zBase = dadoHeight, zBaseTower = 0;
+  const _rooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZ + dadoHeight, zBaseTower = 0;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +secData[i]?.h || (cfg.height / nsec);
     const z = zBase + h / 2;
-    // zTower: elevación SOLO dentro de la torre (sin dadoHeight) — la fórmula de
-    // ahusamiento de ancho de cara (_faceWidthAt) es relativa a la base de la torre, no
-    // al nivel de terreno.
     const zTower = zBaseTower + h / 2;
     const faceWidth = _faceWidthAt(cfg, zTower);
     rows.push({
@@ -8006,7 +8038,7 @@ function buildCargasVientoPanel() {
     <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">PRESIÓN POR SECCIÓN (qz)</div>
     <table class="ret-table wind-table-center">
       <thead><tr><th>Sec.</th><th>z (m)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (kg/m²)</th></tr></thead>
-      <tbody>
+      <tbody id="qz-tbody">
         ${rows.map(r => `<tr><td>${r.sec}</td><td>${r.z.toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${(r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
       </tbody>
     </table>
@@ -9163,9 +9195,12 @@ function buildMonoAperturasList() {
   // por el usuario si quiere reducir en algún tramo (ver ejemplo embebido MONOPOLO).
   // En "Escalonado" (nInc=0) no hay cono separado: se interpola base→tope a través de
   // los nRectos tramos, como antes.
-  const dDefault = i => nInc > 0
-    ? +topW.toFixed(2)
-    : +(baseW + (topW - baseW) * i / nRectos).toFixed(2);
+  const _mastDiamDefaults = [1.0, 0.6, 0.4, 0.3, 0.25, 0.2, 0.15];
+  const dDefault = i => isMast
+    ? (_mastDiamDefaults[i] ?? _mastDiamDefaults[_mastDiamDefaults.length - 1])
+    : nInc > 0
+      ? +topW.toFixed(2)
+      : +(baseW + (topW - baseW) * i / nRectos).toFixed(2);
   monoAperturas = Array.from({length: nRectos}, (_, i) =>
     (prev[i] !== undefined && prev[i] !== null) ? prev[i] : dDefault(i));
   // Layout vertical: una fila por tramo con etiqueta "Tramo N" a la izquierda
@@ -14240,8 +14275,8 @@ function _memChapter2Html(cfg) {
 // le pasa.
 function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   const nsec = (cfg.nInc + cfg.nStr) || cfg.secData.length || 1;
-  // Arranca en dadoHeight (no en 0) — ver mismo criterio en buildCargasVientoPanel().
-  let zBase = dadoHeight;
+  const _rooftopZrep = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let zBase = _rooftopZrep + dadoHeight;
   const rows = [];
   for (let i = 0; i < nsec; i++) {
     const h = +cfg.secData[i]?.h || (cfg.height / nsec);
@@ -15467,7 +15502,8 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
 
   // ── Cap. 6 — Análisis de Carga de Viento ──────────────────────────────────
   function windAngleTables(vKmhOverride) {
-    let zBase = dadoHeight, zBaseTower = 0;
+    const _rooftopZwt = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+    let zBase = _rooftopZwt + dadoHeight, zBaseTower = 0;
     const rows = [];
     for (let i = 0; i < nsec; i++) {
       const h  = +secData[i]?.h || (cfg.height / nsec);
