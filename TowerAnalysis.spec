@@ -1,0 +1,68 @@
+# -*- mode: python ; coding: utf-8 -*-
+
+block_cipher = None
+
+a = Analysis(
+    ['main.py'],
+    pathex=['.'],
+    binaries=[],
+    datas=[
+        ('app/web', 'app/web'),
+        ('assets',  'assets'),
+    ],
+    hiddenimports=[
+        'PySide6.QtWebEngineWidgets',
+        'PySide6.QtWebEngineCore',
+        'PySide6.QtWebChannel',
+        'PySide6.QtNetwork',
+        'PySide6.QtPrintSupport',
+        'PySide6.QtOpenGL',
+        'PySide6.QtOpenGLWidgets',
+        'PySide6.QtSvg',
+        'app.tower.model',
+        'app.tower.generator',
+        'app.bridge',
+        'app.panels.right_panel',
+        'app.main_window',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=['tkinter', 'matplotlib'],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='TSA',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='assets/icon.ico',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='TSA',
+)
