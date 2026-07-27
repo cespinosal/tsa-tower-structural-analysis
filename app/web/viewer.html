@@ -4180,41 +4180,6 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
   }
   return {legL, legR, hipPts};
 }
-function addMembers(nodes, members, lnodes, nLegs, nsec, patterns) {
-  for (let lv=0; lv<nsec; lv++) {
-    for (let j=0; j<nLegs; j++)
-      members.push({ni:lnodes[lv][j], nj:lnodes[lv+1][j], type:'leg', sec:lv});
-
-    const pat = patterns ? (patterns[lv] || 'X') : 'X';
-    for (let f=0; f<nLegs; f++) {
-      const a=f, b=(f+1)%nLegs;
-      if (pat === 'Z') {
-        // Diagonal simple alternando dirección por tramo
-        if (lv % 2 === 0)
-          members.push({ni:lnodes[lv][a],   nj:lnodes[lv+1][b], type:'diagonal', sec:lv});
-        else
-          members.push({ni:lnodes[lv+1][a], nj:lnodes[lv][b],   type:'diagonal', sec:lv});
-      } else if (pat === 'K') {
-        // K-brace: diagonales hacia punto medio del horizontal superior
-        const nA = nodes[lnodes[lv+1][a]], nB = nodes[lnodes[lv+1][b]];
-        const midId = addNode(nodes, (nA.x+nB.x)/2, (nA.y+nB.y)/2, (nA.z+nB.z)/2);
-        members.push({ni:lnodes[lv][a], nj:midId, type:'diagonal', sec:lv});
-        members.push({ni:lnodes[lv][b], nj:midId, type:'diagonal', sec:lv});
-        members.push({ni:midId, nj:lnodes[lv+1][a], type:'diagonal', sec:lv});
-        members.push({ni:midId, nj:lnodes[lv+1][b], type:'diagonal', sec:lv});
-      } else {
-        // X-brace (default)
-        members.push({ni:lnodes[lv][a],   nj:lnodes[lv+1][b], type:'diagonal', sec:lv});
-        members.push({ni:lnodes[lv+1][a], nj:lnodes[lv][b],   type:'diagonal', sec:lv});
-      }
-    }
-    for (let f=0; f<nLegs; f++)
-      members.push({ni:lnodes[lv+1][f], nj:lnodes[lv+1][(f+1)%nLegs], type:'horizontal', sec:lv});
-  }
-  for (let f=0; f<nLegs; f++)
-    members.push({ni:lnodes[0][f], nj:lnodes[0][(f+1)%nLegs], type:'horizontal', sec:0});
-}
-
 // ══════════════════════════════════════════════════════════════════
 //  THREE.JS
 // ══════════════════════════════════════════════════════════════════
@@ -9262,7 +9227,13 @@ function buildStrutList() {
       <input title="Azimut (°)" type="number" step="1" min="0" max="360" value="${+s.az||0}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].az=+this.value;buildSetupPreview()">
       <input title="Alcance horizontal (m)" type="number" step="0.1" min="0.1" value="${+s.r||3}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].r=+this.value;buildSetupPreview()">
       <input title="z del punto fijo (m)" type="number" step="0.1" value="${+s.zFixed||0}" style="width:36px;font-size:9px;" class="tf-input" oninput="strutData[${i}].zFixed=+this.value;buildSetupPreview()">
-      <span style="font-size:9px;color:var(--txt-sec);flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${profLbl}">${profLbl}</span>
+      <button onclick="_openStrutProfilePicker(${i})" title="Elegir perfil del catálogo"
+        style="flex:1;min-width:60px;background:var(--bg-alt,rgba(255,255,255,.06));border:1px solid var(--border);border-radius:2px;color:${s.designacion?'var(--txt-pri)':'var(--txt-sec)'};font-size:9px;padding:2px 4px;cursor:pointer;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        ${profLbl || '— perfil —'}</button>
+      <select title="Calidad del acero" class="tf-input" style="font-size:9px;padding:1px 2px;width:80px;"
+        onchange="strutData[${i}].cal=this.value;buildSetupPreview()">
+        ${steelGradeOptions(s.cal||'-')}
+      </select>
       <button onclick="removeStrutItem(${i})" style="background:none;border:none;color:#cc4444;cursor:pointer;font-size:11px;padding:0 2px;">✕</button>
     </div>`;
   }).join('');
@@ -9270,7 +9241,7 @@ function buildStrutList() {
 
 function addStrutItem() {
   const h = +document.getElementById('s-height')?.value || 30;
-  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3});
+  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3, cal: '-'});
   buildStrutList();
 }
 
@@ -9304,7 +9275,7 @@ function removeStrutRpanel(i) {
 // ── Mástil Apuntalado: modal editar puntal ────────────────────────────────────────────
 function openStrutAddModal() {
   const h = secData.reduce((s, d) => s + (+d.h || 0), 0) || 10;
-  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3});
+  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3, cal: '-'});
   openStrutEditModal(strutData.length - 1);
 }
 
@@ -9337,22 +9308,6 @@ function openStrutEditModal(i) {
     </div>
   </div>`;
   document.body.appendChild(overlay);
-}
-
-function _strutEditUpdateDims(i, profile) {
-  const s = strutData[i] || {};
-  const dimsEl = document.getElementById('se-dims');
-  if (!dimsEl) return;
-  if (profile === 'tube')
-    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Diámetro d (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-d" value="${+s.d||89}"></div>
-      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||5.3}"></div>`;
-  else if (profile === 'LI')
-    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Ala b (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b" value="${+s.b||76}"></div>
-      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||6.4}"></div>`;
-  else
-    dimsEl.innerHTML = `<div class="frow"><span class="flbl">Ala mayor b1 (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b1" value="${+s.b1||100}"></div>
-      <div class="frow"><span class="flbl">Ala menor b2 (mm)</span><input class="ctrl-input" type="number" step="1" min="1" id="se-b2" value="${+s.b2||75}"></div>
-      <div class="frow"><span class="flbl">Espesor t (mm)</span><input class="ctrl-input" type="number" step="0.5" min="0.5" id="se-t" value="${+s.t||6.4}"></div>`;
 }
 
 function _openStrutProfilePicker(i) {
@@ -9406,6 +9361,8 @@ function _strutApplyProfile(idx, designation) {
   if (desSel) desSel.value = designation;
   const dimsInfo = document.getElementById('se-dims-info');
   if (dimsInfo) dimsInfo.textContent = _strutDimsLabel(strutData[idx]);
+  buildStrutList();
+  buildSetupPreview();
 }
 
 function _saveStrutEdit(i) {
@@ -10452,13 +10409,6 @@ function _nearestLegNodeByAz(antZ, antAzDeg, nodes, legSet) {
   return best;
 }
 
-function addAntenaRow() {
-  const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null, herraje: 'ninguno' };
-  _calcEPA(a);
-  antenasData.push(a);
-  _renderAntenasTable();
-}
-
 function deleteAntenaRow(i) {
   const removed = antenasData[i];
   antenasData.splice(i, 1);
@@ -10739,8 +10689,6 @@ function _lcDelete(id) {
 }
 
 // Getter público para usar en cálculos
-function getLcActivas() { return _lcCombis.filter(c => c.activa); }
-
 // ── Feeders / Coaxiales ───────────────────────────────────────────────────────
 const _FD_TIPOS = [
   {tipo:'1/8"',   diam:3.3,   peso:0.02},
@@ -10929,12 +10877,6 @@ function closeFeedersPanel() {
   closeFdPlanWin();
 }
 
-function toggleFdPlanWin() {
-  const win = document.getElementById('fd-plan-win');
-  const isOpen = win.classList.toggle('open');
-  document.getElementById('fd-plan-win-btn')?.classList.toggle('active', isOpen);
-  if (isOpen) _fdDrawPlan();
-}
 function closeFdPlanWin() {
   document.getElementById('fd-plan-win')?.classList.remove('open');
   document.getElementById('fd-plan-win-btn')?.classList.remove('active');
@@ -13771,92 +13713,6 @@ function _reportSectionPropsTable(cfg, secIdxList) {
 // Genera la tabla de propiedades de sección como SVG puro (texto rotado con transform)
 // para embeberla como imagen en el Word — evita los problemas de textDirection en tablas Word.
 // Mismos anchos de columna y alturas de fila que _reportSectionVerticalTable.
-function _reportSectionTableSvg(cfg, secIdxList) {
-  const weights    = _reportSectionWeights();
-  const isGuyed    = cfg.type === 'guyed';
-  const totalH     = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
-  const PX_BUDGET  = _reportPxBudget(isGuyed);
-  const v          = val => (val && val !== '-') ? String(val) : '';
-  const esc        = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const order      = secIdxList || cfg.secData.map((_, i) => i).reverse();
-  const padTop = 90, padBottom = 16;
-  const BLU = '#1B3A6B', WHT = '#FFFFFF', GRY = '#F4F6F8', DRK = '#1A1A1A';
-
-  let cols, colW;
-  if (cfg.type === 'monopole') {
-    cols = [
-      ['Tipo',          s => (+s.monoSides || 0) >= 24 ? 'Redondo' : 'Poligonal'],
-      ['Lados',         s => (+s.monoSides || 0) >= 24 ? '—' : v(s.monoSides)],
-      ['Espesor (mm)',  s => s.monoThk === '-' ? '' : v(s.monoThk)],
-      ['Calidad',       s => { const g = steelGrades.find(x => x.name === s.monoFy); return g ? g.name : ''; }],
-    ];
-    colW = [22, 30, 28, 40, 50];
-  } else {
-    cols = [
-      ['Piernas',         s => v(s.M)],
-      ['Diagonales',      s => v(s.D)],
-      ['Horizontales',    s => v(s.topH ? s.Htop : (s.bayTopH ? s.Hbay : null))],
-      ['Diag. Sec.',      s => v(s.Ds)],
-      ['Horiz. Sec.',     s => v(s.Hs)],
-      ['Diag. Internas',  s => v(s.HhipD)],
-      ['Horiz. Internas', s => v(s.HhipH)],
-      ['Plan-Bracing',    s => v(s.planTop !== 'none' ? s.PbTop : (s.planBay !== 'none' ? s.PbBay : null))],
-      ['Diafragma',       s => v(s.planTop === 'A-A' ? s.PbTop2 : (s.planBay === 'A-A' ? s.PbBay2 : null))],
-    ];
-    colW = [22, ...cols.map(() => 20), 22];
-  }
-  const headers    = cfg.type === 'monopole'
-    ? ['Tramo', ...cols.map(c => c[0])]
-    : ['Sección', ...cols.map(c => c[0]), 'Peso (Kg)'];
-  const W          = colW.reduce((a, b) => a + b, 0);
-  const getRowH    = i => Math.max(85, Math.round((+(cfg.secData[i]?.h || 0)) / totalH * PX_BUDGET));
-  const totalDataH = order.reduce((a, i) => a + getRowH(i), 0);
-  const H          = padTop + totalDataH + padBottom;
-
-  const p = [];
-  p.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">`);
-  p.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${WHT}"/>`);
-
-  // Encabezado con fondo azul y texto rotado hacia arriba (rotate -90°)
-  p.push(`<rect x="0" y="0" width="${W}" height="${padTop}" fill="${BLU}"/>`);
-  let cx = 0;
-  headers.forEach((hdr, ci) => {
-    const cw = colW[ci];
-    const mx = +(cx + cw / 2).toFixed(2), my = +(padTop / 2).toFixed(2);
-    if (ci > 0) p.push(`<line x1="${cx}" y1="0" x2="${cx}" y2="${padTop}" stroke="rgba(255,255,255,0.25)" stroke-width="0.5"/>`);
-    p.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="7" font-weight="bold" fill="${WHT}">${esc(hdr)}</text>`);
-    cx += cw;
-  });
-  p.push(`<line x1="0" y1="${padTop}" x2="${W}" y2="${padTop}" stroke="${WHT}" stroke-width="1"/>`);
-
-  // Filas de datos con texto rotado hacia arriba
-  let y = padTop;
-  order.forEach((i, ri) => {
-    const s   = cfg.secData[i] || {};
-    const rh  = getRowH(i);
-    const bg  = ri % 2 === 0 ? WHT : GRY;
-    p.push(`<rect x="0" y="${y}" width="${W}" height="${rh}" fill="${bg}"/>`);
-    const vals = cfg.type === 'monopole'
-      ? [String(i + 1), ...cols.map(([, fn]) => fn(s))]
-      : [String(i + 1), ...cols.map(([, fn]) => fn(s)), weights[i] != null ? weights[i].toFixed(1) : ''];
-    cx = 0;
-    vals.forEach((val, ci) => {
-      const cw = colW[ci];
-      if (ci > 0) p.push(`<line x1="${cx}" y1="${y}" x2="${cx}" y2="${y + rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
-      if (val) {
-        const mx = +(cx + cw / 2).toFixed(2), my = +(y + rh / 2).toFixed(2);
-        p.push(`<text x="${mx}" y="${my}" transform="rotate(-90,${mx},${my})" text-anchor="middle" dominant-baseline="central" font-family="Segoe UI,Arial" font-size="6.5" fill="${DRK}">${esc(val)}</text>`);
-      }
-      cx += cw;
-    });
-    p.push(`<line x1="0" y1="${y + rh}" x2="${W}" y2="${y + rh}" stroke="#CCCCCC" stroke-width="0.5"/>`);
-    y += rh;
-  });
-
-  p.push(`<rect x="0" y="0" width="${W}" height="${padTop + totalDataH}" fill="none" stroke="#AAAAAA" stroke-width="1"/>`);
-  p.push('</svg>');
-  return p.join('');
-}
 // SVG combinado elevación + tabla de secciones en una SOLA imagen para Word.
 // Ambas partes comparten las mismas alturas de fila (getRowH) garantizando alineación
 // perfecta — la elevación adapta sus coordenadas Y a esas alturas en vez de usar
@@ -14990,28 +14846,6 @@ ${_memFooterHtml()}
 // position:fixed en printToPdf() de Chromium headless solo se renderiza en el primer
 // viewport y no se repite por hoja → páginas en blanco y saltos incorrectos.
 // body fondo gris (#525659) del modo pantalla produce bandas oscuras entre hojas en PDF.
-function _buildPdfHtml(cfg) {
-  const css = document.querySelector('style')?.textContent || '';
-  const pagesHtml = _buildMemoriaPages(cfg);
-  return `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${_assetFileBase(cfg)}</title>
-<style>${css}
-html, body { height: auto !important; overflow: visible !important; }
-body { background: #fff !important; color: #1a1a1a !important; padding: 0; display: block; }
-.report-doc { background: #fff !important; color: #1a1a1a !important; }
-.mem-cover-block { position: relative !important; z-index: 10 !important; }
-.mem-header-fixed, .mem-footer-fixed { display: none !important; }
-@page { size: letter portrait; margin: 20mm; }
-</style></head>
-<body>
-${_memHeaderHtml(cfg)}
-<div class="report-doc">
-${pagesHtml}
-</div>
-${_memFooterHtml()}
-</body></html>`;
-}
-
 function printReport() {
   if (!projectGenerated) { showToast('⚠  Genere una torre antes de crear el reporte.'); return; }
   const cfg = getConfig();
@@ -17593,9 +17427,6 @@ async function _writeHandle(handle) {
 
 // ── Cierre del .exe: Python (closeEvent) llama estas dos funciones vía
 // page().runJavaScript() para preguntar "¿Guardar cambios?" antes de cerrar la ventana.
-function hasUnsavedChanges() {
-  return _unsavedChanges;
-}
 async function triggerSaveForClose() {
   return await saveProject();
 }
@@ -19359,6 +19190,12 @@ function getMemberProfile(m) {
     const cd = guyCableData[(m.guyLevel ?? 1) - 1];
     profile = (cd && cd.brazoPerfil && cd.brazoPerfil !== '-') ? cd.brazoPerfil : '—';
     calidadName = cd?.brazoPerfilCal || null;
+  } else if (m.type === 'mast-strut') {
+    const s = (typeof strutData !== 'undefined') ? strutData[m.strutIdx] : null;
+    if (s) {
+      profile = s.designacion || _strutDimsLabel(s) || '—';
+      calidadName = s.cal || null;
+    }
   } else if (m.type === 'puntal') {
     const cd = guyCableData[(m.guyLevel ?? 1) - 1];
     profile = (cd && cd.estabPuntalPerfil && cd.estabPuntalPerfil !== '-') ? cd.estabPuntalPerfil : '—';
@@ -19495,7 +19332,7 @@ function showMemberInfo(m, cx, cy) {
 }
 
 function _profileId(m) {
-  const typeLetter  = {leg:'M', diagonal:'D', horizontal:'H', guy:'G', planbrace:'PB', hipbrace:'HB', stabarm:'BE', puntal:'PT', tensor:'TS', horizPuntal:'HP', horizTensor:'HT', monothk:'ESP'}[m.type] || 'X';
+  const typeLetter  = {leg:'M', diagonal:'D', horizontal:'H', guy:'G', planbrace:'PB', hipbrace:'HB', stabarm:'BE', puntal:'PT', 'mast-strut':'PT', tensor:'TS', horizPuntal:'HP', horizTensor:'HT', monothk:'ESP'}[m.type] || 'X';
   const isSecondary = m.principal === false;
   // Numeración independiente: secundarios se cuentan aparte de los principales del mismo tipo+tramo
   const sameGroup = mm => mm.type === m.type && (m.sec != null ? mm.sec === m.sec : true)
