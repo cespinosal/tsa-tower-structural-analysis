@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<defs>
+  <pattern id="grid" width="13" height="13" patternUnits="userSpaceOnUse">
+    <path d="M13,0 L0,0 L0,13" fill="none" stroke="#1A3A8A" stroke-width="0.4"/>
+  </pattern>
+</defs>
+
+<!-- Background -->
+<rect width="256" height="256" rx="40" fill="#0C2266"/>
+<rect width="256" height="256" rx="40" fill="url(#grid)" opacity="0.55"/>
+
+<!-- Double border -->
+<rect x="8" y="8" width="240" height="240" rx="34" fill="none" stroke="white" stroke-width="3" opacity="0.88"/>
+<rect x="16" y="16" width="224" height="224" rx="27" fill="none" stroke="white" stroke-width="1.2" opacity="0.38"/>
+
+<!-- ═══════════════ TORRE ═══════════════ -->
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+  <!-- Piernas traseras (faint depth) -->
+  <polyline points="108,78 97,100 84,124 69,150 54,178 41,206 33,225 21,238"
+    stroke="white" stroke-width="2" opacity="0.38"/>
+  <polyline points="148,78 159,100 172,124 187,150 202,178 215,206 223,225 235,238"
+    stroke="white" stroke-width="2" opacity="0.38"/>
+
+  <!-- Conectores profundidad izq (front→back) -->
+  <line x1="103" y1="78"  x2="108" y2="78"  stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="92"  y1="100" x2="97"  y2="100" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="79"  y1="124" x2="84"  y2="124" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="64"  y1="150" x2="69"  y2="150" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="49"  y1="178" x2="54"  y2="178" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <!-- Conectores profundidad der -->
+  <line x1="153" y1="78"  x2="148" y2="78"  stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="164" y1="100" x2="159" y2="100" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="177" y1="124" x2="172" y2="124" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="192" y1="150" x2="187" y2="150" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  <line x1="207" y1="178" x2="202" y2="178" stroke="white" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- Piernas frontales -->
+  <polyline points="103,78 92,100 79,124 64,150 49,178 36,206 28,225 16,238"
+    stroke="white" stroke-width="5.5"/>
+  <polyline points="153,78 164,100 177,124 192,150 207,178 220,206 228,225 240,238"
+    stroke="white" stroke-width="5.5"/>
+
+  <!-- Horizontales -->
+  <line x1="103" y1="78"  x2="153" y2="78"  stroke="white" stroke-width="4.2"/>
+  <line x1="92"  y1="100" x2="164" y2="100" stroke="white" stroke-width="4"/>
+  <line x1="79"  y1="124" x2="177" y2="124" stroke="white" stroke-width="4"/>
+  <line x1="64"  y1="150" x2="192" y2="150" stroke="white" stroke-width="4"/>
+  <line x1="49"  y1="178" x2="207" y2="178" stroke="white" stroke-width="4"/>
+  <line x1="36"  y1="206" x2="220" y2="206" stroke="white" stroke-width="4"/>
+  <line x1="28"  y1="225" x2="228" y2="225" stroke="white" stroke-width="4"/>
+  <line x1="16"  y1="238" x2="240" y2="238" stroke="white" stroke-width="3.8"/>
+
+  <!-- X-bracing -->
+  <g stroke="white" stroke-width="3">
+    <line x1="103" y1="78"  x2="164" y2="100"/>
+    <line x1="153" y1="78"  x2="92"  y2="100"/>
+    <line x1="92"  y1="100" x2="177" y2="124"/>
+    <line x1="164" y1="100" x2="79"  y2="124"/>
+    <line x1="79"  y1="124" x2="192" y2="150"/>
+    <line x1="177" y1="124" x2="64"  y2="150"/>
+    <line x1="64"  y1="150" x2="207" y2="178"/>
+    <line x1="192" y1="150" x2="49"  y2="178"/>
+    <line x1="49"  y1="178" x2="220" y2="206"/>
+    <line x1="207" y1="178" x2="36"  y2="206"/>
+    <line x1="36"  y1="206" x2="228" y2="225"/>
+    <line x1="220" y1="206" x2="28"  y2="225"/>
+    <line x1="28"  y1="225" x2="240" y2="238"/>
+    <line x1="228" y1="225" x2="16"  y2="238"/>
+  </g>
+
+  <!-- ─── Mástil central ─── -->
+  <line x1="128" y1="78" x2="128" y2="30" stroke="white" stroke-width="4"/>
+  <line x1="114" y1="57" x2="142" y2="57" stroke="white" stroke-width="3"/>
+  <line x1="119" y1="44" x2="137" y2="44" stroke="white" stroke-width="2.5"/>
+
+  <!-- Caja de equipo en mástil -->
+  <rect x="120" y="40" width="16" height="20" stroke="white" stroke-width="3.2" rx="1.5"/>
+
+  <!-- ─── Antena parabólica (IZQUIERDA) ─── -->
+  <!-- Brazo horizontal desde mástil -->
+  <line x1="114" y1="62" x2="92"  y2="62" stroke="white" stroke-width="3"/>
+  <!-- Soporte vertical -->
+  <line x1="92"  y1="52" x2="92"  y2="73" stroke="white" stroke-width="2.5"/>
+  <!-- Disco -->
+  <circle cx="68" cy="62" r="24" stroke="white" stroke-width="4.5"/>
+  <!-- Retícula interior del disco -->
+  <line x1="44"  y1="62" x2="92"  y2="62" stroke="white" stroke-width="2"/>
+  <line x1="68"  y1="38" x2="68"  y2="86" stroke="white" stroke-width="2"/>
+  <!-- Montura del disco -->
+  <rect x="87" y="57" width="10" height="10" stroke="white" stroke-width="2.5" rx="1"/>
+
+  <!-- ─── Paneles de antena (DERECHA) ─── -->
+  <!-- Brazo horizontal desde mástil -->
+  <line x1="142" y1="57" x2="164" y2="57" stroke="white" stroke-width="3"/>
+  <!-- Panel 1 (grande) -->
+  <rect x="163" y="40" width="19" height="34" stroke="white" stroke-width="4" rx="1.5"/>
+  <!-- Panel 2 (mediano) -->
+  <rect x="184" y="47" width="15" height="22" stroke="white" stroke-width="3.5" rx="1.5"/>
+  <!-- Soporte vertical paneles -->
+  <line x1="163" y1="57" x2="163" y2="74" stroke="white" stroke-width="2.5"/>
+  <line x1="172" y1="74" x2="163" y2="74" stroke="white" stroke-width="2"/>
+
+</g>
+
+<!-- ─── Nodos en juntas ─── -->
+<circle cx="64"  cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="192" cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="49"  cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="207" cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+<circle cx="128" cy="238" r="5.5" fill="#0C2266" stroke="white" stroke-width="2.5"/>
+
+<!-- Baliza en cima -->
+<circle cx="128" cy="30" r="4"   fill="white"/>
+<circle cx="128" cy="30" r="7.5" fill="none" stroke="white" stroke-width="1.5" opacity="0.45"/>
+
+</svg>

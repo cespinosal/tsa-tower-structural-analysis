@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  width:720px; height:900px; overflow:hidden;
+  background: radial-gradient(ellipse at 50% 42%, #0D3490 0%, #0A1F72 45%, #071460 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-family: 'Arial Black', 'Franklin Gothic Heavy', 'Arial', sans-serif;
+  position:relative;
+  user-select:none;
+}
+
+/* ── Torres fantasma de fondo ─────────────────────────────── */
+.bg-tower {
+  position:absolute; top:50%; transform:translateY(-50%);
+  opacity:0.13; pointer-events:none;
+}
+.bg-tower.left  { left:-28px; }
+.bg-tower.right { right:-28px; transform:translateY(-50%) scaleX(-1); }
+
+/* ── Contenido central ────────────────────────────────────── */
+.center {
+  display:flex; flex-direction:column; align-items:center;
+  gap:0; z-index:10; position:relative;
+}
+
+/* Caja del ícono */
+.icon-box {
+  width:336px; height:336px;
+  background:#0C2266;
+  border-radius:42px;
+  border:3.5px solid rgba(255,255,255,0.88);
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:26px;
+  box-shadow:
+    0 0 60px rgba(30,80,200,0.35),
+    0 0 120px rgba(20,60,180,0.2);
+}
+.icon-box::after {
+  content:'';
+  position:absolute; inset:9px;
+  border-radius:33px;
+  border:1.2px solid rgba(255,255,255,0.32);
+  pointer-events:none;
+}
+
+/* Textos */
+.tsa {
+  font-family:'Arial Black','Franklin Gothic Heavy',Impact,sans-serif;
+  font-size:108px; font-weight:900;
+  color:#FFFFFF;
+  letter-spacing:6px;
+  line-height:1; margin-bottom:6px;
+  text-shadow: 0 2px 30px rgba(80,140,255,0.4);
+}
+
+.subtitle {
+  font-family:'Arial','Helvetica',sans-serif;
+  font-size:16px; font-weight:700;
+  color:#E87B0C;
+  letter-spacing:4px;
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+
+.divider {
+  width:280px; height:2.5px;
+  background:linear-gradient(90deg, transparent, #E87B0C 20%, #E87B0C 80%, transparent);
+  margin-bottom:16px;
+}
+
+.author {
+  font-family:'Arial','Helvetica',sans-serif;
+  font-size:15px; font-weight:400;
+  color:rgba(255,255,255,0.88);
+  letter-spacing:0.5px;
+  margin-bottom:8px;
+}
+
+.version {
+  font-family:'Arial Black','Franklin Gothic Heavy',sans-serif;
+  font-size:30px; font-weight:900;
+  color:#5B8EF8;
+  letter-spacing:3px;
+}
+
+/* Grid sutil de fondo */
+body::before {
+  content:'';
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size:26px 26px;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<!-- Torres de fondo (izquierda) -->
+<div class="bg-tower left">
+<svg width="240" height="680" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g stroke="white" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="103,78 92,100 79,124 64,150 49,178 36,206 28,225 16,238" stroke-width="5.5"/>
+<polyline points="153,78 164,100 177,124 192,150 207,178 220,206 228,225 240,238" stroke-width="5.5"/>
+<line x1="103" y1="78"  x2="153" y2="78"  stroke-width="4"/>
+<line x1="92"  y1="100" x2="164" y2="100" stroke-width="3.8"/>
+<line x1="79"  y1="124" x2="177" y2="124" stroke-width="3.8"/>
+<line x1="64"  y1="150" x2="192" y2="150" stroke-width="3.8"/>
+<line x1="49"  y1="178" x2="207" y2="178" stroke-width="3.8"/>
+<line x1="36"  y1="206" x2="220" y2="206" stroke-width="3.8"/>
+<line x1="28"  y1="225" x2="228" y2="225" stroke-width="3.8"/>
+<line x1="16"  y1="238" x2="240" y2="238" stroke-width="3.8"/>
+<g stroke-width="3">
+<line x1="103" y1="78"  x2="164" y2="100"/>
+<line x1="153" y1="78"  x2="92"  y2="100"/>
+<line x1="92"  y1="100" x2="177" y2="124"/>
+<line x1="164" y1="100" x2="79"  y2="124"/>
+<line x1="79"  y1="124" x2="192" y2="150"/>
+<line x1="177" y1="124" x2="64"  y2="150"/>
+<line x1="64"  y1="150" x2="207" y2="178"/>
+<line x1="192" y1="150" x2="49"  y2="178"/>
+<line x1="49"  y1="178" x2="220" y2="206"/>
+<line x1="207" y1="178" x2="36"  y2="206"/>
+<line x1="36"  y1="206" x2="228" y2="225"/>
+<line x1="220" y1="206" x2="28"  y2="225"/>
+<line x1="28"  y1="225" x2="240" y2="238"/>
+<line x1="228" y1="225" x2="16"  y2="238"/>
+</g>
+<line x1="128" y1="78" x2="128" y2="30" stroke-width="4"/>
+<line x1="114" y1="57" x2="142" y2="57" stroke-width="3"/>
+<circle cx="68" cy="62" r="24" stroke-width="4.5"/>
+<rect x="163" y="40" width="19" height="34" stroke-width="4" rx="1.5"/>
+<rect x="184" y="47" width="15" height="22" stroke-width="3.5" rx="1.5"/>
+<circle cx="128" cy="30" r="4" fill="white"/>
+</g>
+</svg>
+</div>
+
+<!-- Torres de fondo (derecha) -->
+<div class="bg-tower right">
+<svg width="240" height="680" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g stroke="white" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="103,78 92,100 79,124 64,150 49,178 36,206 28,225 16,238" stroke-width="5.5"/>
+<polyline points="153,78 164,100 177,124 192,150 207,178 220,206 228,225 240,238" stroke-width="5.5"/>
+<line x1="103" y1="78"  x2="153" y2="78"  stroke-width="4"/>
+<line x1="92"  y1="100" x2="164" y2="100" stroke-width="3.8"/>
+<line x1="79"  y1="124" x2="177" y2="124" stroke-width="3.8"/>
+<line x1="64"  y1="150" x2="192" y2="150" stroke-width="3.8"/>
+<line x1="49"  y1="178" x2="207" y2="178" stroke-width="3.8"/>
+<line x1="36"  y1="206" x2="220" y2="206" stroke-width="3.8"/>
+<line x1="28"  y1="225" x2="228" y2="225" stroke-width="3.8"/>
+<line x1="16"  y1="238" x2="240" y2="238" stroke-width="3.8"/>
+<g stroke-width="3">
+<line x1="103" y1="78"  x2="164" y2="100"/>
+<line x1="153" y1="78"  x2="92"  y2="100"/>
+<line x1="92"  y1="100" x2="177" y2="124"/>
+<line x1="164" y1="100" x2="79"  y2="124"/>
+<line x1="79"  y1="124" x2="192" y2="150"/>
+<line x1="177" y1="124" x2="64"  y2="150"/>
+<line x1="64"  y1="150" x2="207" y2="178"/>
+<line x1="192" y1="150" x2="49"  y2="178"/>
+<line x1="49"  y1="178" x2="220" y2="206"/>
+<line x1="207" y1="178" x2="36"  y2="206"/>
+<line x1="36"  y1="206" x2="228" y2="225"/>
+<line x1="220" y1="206" x2="28"  y2="225"/>
+<line x1="28"  y1="225" x2="240" y2="238"/>
+<line x1="228" y1="225" x2="16"  y2="238"/>
+</g>
+<line x1="128" y1="78" x2="128" y2="30" stroke-width="4"/>
+<line x1="114" y1="57" x2="142" y2="57" stroke-width="3"/>
+<circle cx="68" cy="62" r="24" stroke-width="4.5"/>
+<rect x="163" y="40" width="19" height="34" stroke-width="4" rx="1.5"/>
+<rect x="184" y="47" width="15" height="22" stroke-width="3.5" rx="1.5"/>
+<circle cx="128" cy="30" r="4" fill="white"/>
+</g>
+</svg>
+</div>
+
+<!-- Contenido central -->
+<div class="center">
+
+  <!-- Caja del ícono -->
+  <div class="icon-box">
+    <svg width="296" height="296" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="white" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Back legs -->
+    <polyline points="108,78 97,100 84,124 69,150 54,178 41,206 33,225 21,238" stroke-width="2" opacity="0.38"/>
+    <polyline points="148,78 159,100 172,124 187,150 202,178 215,206 223,225 235,238" stroke-width="2" opacity="0.38"/>
+    <!-- Front legs -->
+    <polyline points="103,78 92,100 79,124 64,150 49,178 36,206 28,225 16,238" stroke-width="5.5"/>
+    <polyline points="153,78 164,100 177,124 192,150 207,178 220,206 228,225 240,238" stroke-width="5.5"/>
+    <!-- Horizontals -->
+    <line x1="103" y1="78"  x2="153" y2="78"  stroke-width="4.2"/>
+    <line x1="92"  y1="100" x2="164" y2="100" stroke-width="4"/>
+    <line x1="79"  y1="124" x2="177" y2="124" stroke-width="4"/>
+    <line x1="64"  y1="150" x2="192" y2="150" stroke-width="4"/>
+    <line x1="49"  y1="178" x2="207" y2="178" stroke-width="4"/>
+    <line x1="36"  y1="206" x2="220" y2="206" stroke-width="4"/>
+    <line x1="28"  y1="225" x2="228" y2="225" stroke-width="4"/>
+    <line x1="16"  y1="238" x2="240" y2="238" stroke-width="3.8"/>
+    <!-- X-bracing -->
+    <g stroke-width="3">
+    <line x1="103" y1="78"  x2="164" y2="100"/>
+    <line x1="153" y1="78"  x2="92"  y2="100"/>
+    <line x1="92"  y1="100" x2="177" y2="124"/>
+    <line x1="164" y1="100" x2="79"  y2="124"/>
+    <line x1="79"  y1="124" x2="192" y2="150"/>
+    <line x1="177" y1="124" x2="64"  y2="150"/>
+    <line x1="64"  y1="150" x2="207" y2="178"/>
+    <line x1="192" y1="150" x2="49"  y2="178"/>
+    <line x1="49"  y1="178" x2="220" y2="206"/>
+    <line x1="207" y1="178" x2="36"  y2="206"/>
+    <line x1="36"  y1="206" x2="228" y2="225"/>
+    <line x1="220" y1="206" x2="28"  y2="225"/>
+    <line x1="28"  y1="225" x2="240" y2="238"/>
+    <line x1="228" y1="225" x2="16"  y2="238"/>
+    </g>
+    <!-- Mast -->
+    <line x1="128" y1="78" x2="128" y2="30" stroke-width="4"/>
+    <line x1="114" y1="57" x2="142" y2="57" stroke-width="3"/>
+    <line x1="119" y1="44" x2="137" y2="44" stroke-width="2.5"/>
+    <!-- Equipment box -->
+    <rect x="120" y="40" width="16" height="20" stroke-width="3.2" rx="1.5"/>
+    <!-- Dish arm + dish -->
+    <line x1="114" y1="62" x2="92"  y2="62" stroke-width="3"/>
+    <line x1="92"  y1="52" x2="92"  y2="73" stroke-width="2.5"/>
+    <circle cx="68" cy="62" r="24" stroke-width="4.5"/>
+    <line x1="44"  y1="62" x2="92"  y2="62" stroke-width="2"/>
+    <line x1="68"  y1="38" x2="68"  y2="86" stroke-width="2"/>
+    <rect x="87" y="57" width="10" height="10" stroke-width="2.5" rx="1"/>
+    <!-- Panels -->
+    <line x1="142" y1="57" x2="164" y2="57" stroke-width="3"/>
+    <rect x="163" y="40" width="19" height="34" stroke-width="4" rx="1.5"/>
+    <rect x="184" y="47" width="15" height="22" stroke-width="3.5" rx="1.5"/>
+    <line x1="163" y1="57" x2="163" y2="74" stroke-width="2.5"/>
+    <line x1="172" y1="74" x2="163" y2="74" stroke-width="2"/>
+    </g>
+    <!-- Nodes -->
+    <circle cx="64"  cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+    <circle cx="192" cy="150" r="6.5" fill="#0C2266" stroke="white" stroke-width="3"/>
+    <circle cx="49"  cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+    <circle cx="207" cy="178" r="6"   fill="#0C2266" stroke="white" stroke-width="3"/>
+    <circle cx="128" cy="238" r="5.5" fill="#0C2266" stroke="white" stroke-width="2.5"/>
+    <!-- Beacon -->
+    <circle cx="128" cy="30" r="4" fill="white"/>
+    <circle cx="128" cy="30" r="7.5" fill="none" stroke="white" stroke-width="1.5" opacity="0.45"/>
+    </svg>
+  </div>
+
+  <div class="tsa">TSA</div>
+  <div class="subtitle">Tower Structural Analysis</div>
+  <div class="divider"></div>
+  <div class="author">Ing. Juan Christian Espinosa López</div>
+  <div class="version">V1.0</div>
+</div>
+
+</body>
+</html>
