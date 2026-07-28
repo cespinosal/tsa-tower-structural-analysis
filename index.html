@@ -1977,9 +1977,9 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <div class="tf-row"><span class="tf-lbl">ALTURA (m)</span>
           <input class="tf-input" type="number" id="s-height" value="30" min="1" max="999" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-base"><span class="tf-lbl" id="s-baseW-lbl">APERTURA INICIAL (m)</span>
-          <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
+          <input class="tf-input" type="number" id="s-baseW" value="4" min="0.5" max="99" oninput="onMonoBaseDiamChange()"></div>
         <div class="tf-row" id="s-row-top"><span class="tf-lbl" id="s-topW-lbl">APERTURA FINAL (m)</span>
-          <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="buildMonoAperturasList(); buildSetupPreview();"></div>
+          <input class="tf-input" type="number" id="s-topW" value="2" min="0.5" max="99" oninput="onMonoBaseDiamChange()"></div>
         <div class="tf-row" id="s-row-altInc"><span class="tf-lbl">ALTURA INCLINADA (m)</span>
           <input class="tf-input" type="number" id="s-altInc" value="24" min="0" step="0.5" oninput="buildSetupPreview()"></div>
         <div class="tf-row" id="s-row-altConst" style="display:none;"><span class="tf-lbl">ALTURA CONSTANTE INICIAL (m)</span>
@@ -2543,12 +2543,22 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <!-- Longitud del brazo y Perfil: definen el vértice V (compartido por Puntal y
            Tensor) y el miembro principal del brazo — activos en los 3 tipos, no solo Simple. -->
       <div class="sm-field" style="margin-bottom:14px;">
-        <label class="sm-lbl">Longitud del brazo (m)</label>
+        <label class="sm-lbl" id="estab-brazoLen-label">Longitud del brazo (m)</label>
         <input class="sm-inp" type="number" step="0.1" min="0.1" id="estab-brazoLen">
       </div>
       <div class="sm-field" style="margin-bottom:14px;">
-        <label class="sm-lbl">Perfil</label>
+        <label class="sm-lbl">Perfil — brazo</label>
         <div class="ret-cable-cell" id="estab-perfil-cell" onclick="openEstabPerfilPicker()">Seleccionar…</div>
+      </div>
+      <div id="estab-lado-fields" style="display:none;">
+        <div class="sm-field" style="margin-bottom:14px;">
+          <label class="sm-lbl">Ángulo del triángulo (°) — vértice en 0° como referencia</label>
+          <input class="sm-inp" type="number" step="1" min="0" max="360" id="estab-trianguloAngulo">
+        </div>
+        <div class="sm-field" style="margin-bottom:14px;">
+          <label class="sm-lbl">Perfil — travesaño</label>
+          <div class="ret-cable-cell" id="estab-lado-perfil-cell" onclick="openEstabPerfilPicker('lado')">Seleccionar…</div>
+        </div>
       </div>
       <div id="estab-complex-fields" style="display:none;">
         <label class="sm-chk-row" style="margin-bottom:10px;justify-content:flex-start;">
@@ -3153,30 +3163,36 @@ function _genMastGuyed(cfg) {
     const useAnchors = (cd?.nodes && cd.nodes.length) ? cd.nodes : anchorDefs.map((_, i) => i);
 
     if (cd?.triangulo) {
-      // Vértices del triángulo estabilizador, a brazoLen del eje en los azimuts de cada anclaje
-      const brazoLen = +cd.brazoLen || 1.5;
-      const vIds = anchorDefs.slice(0, 3).map(a => {
-        const rad = (a.azimut + 270) * Math.PI / 180;
-        return addNode(nodes, brazoLen * Math.cos(rad), brazoLen * Math.sin(rad), shaftZ);
+      // Triángulo equilátero: brazoLen = L (lado). Radio circunscrito = L / √3.
+      const ladoL   = +cd.brazoLen || 3.0;
+      const vertexR = ladoL / Math.sqrt(3);
+      const angBase = ((cd.trianguloAngulo ?? 180) - 90) * Math.PI / 180;
+      const vIds = [0, 1, 2].map(k => {
+        const rad = angBase + k * 2 * Math.PI / 3;
+        return addNode(nodes, vertexR * Math.cos(rad), vertexR * Math.sin(rad), shaftZ);
       });
-      // Cables: anclaje → vértice más cercano por azimut
+      // Cables: anclaje → 2 vértices más cercanos (por distancia XY real)
       useAnchors.forEach(ai => {
         const aid = ancIds[ai];
         if (aid == null) return;
-        const azRad = (anchorDefs[ai].azimut + 270) * Math.PI / 180;
-        const nx = Math.cos(azRad), ny = Math.sin(azRad);
-        let bestV = 0, bestDot = -Infinity;
-        vIds.forEach((vid, k) => {
+        const an = nodes[aid];
+        const ranked = vIds.map((vid, k) => {
           const vn = nodes[vid];
-          const dot = (-nx) * vn.x + (-ny) * vn.y; // compensar negación de addNode
-          if (dot > bestDot) { bestDot = dot; bestV = k; }
+          const dx = vn.x - an.x, dy = vn.y - an.y;
+          return { k, dist2: dx * dx + dy * dy };
+        }).sort((a, b) => a.dist2 - b.dist2);
+        ranked.slice(0, 2).forEach(({ k }, ci) => {
+          if (!deletedSet.has(`mgy_${g}_${ai}_${ci}`))
+            members.push({ni: aid, nj: vIds[k], type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id: `mgy_${g}_${ai}_${ci}`});
         });
-        if (!deletedSet.has(`mgy_${g}_${ai}_0`))
-          members.push({ni: aid, nj: vIds[bestV], type: 'guy', guyLevel: g + 1, anchorIdx: ai, _id: `mgy_${g}_${ai}_0`});
       });
-      // Brazos estabilizador: eje → vértice
-      vIds.forEach((vid, k) => {
+      // Brazos: eje → vértice
+      vIds.forEach(vid => {
         members.push({ni: shaftNi, nj: vid, type: 'stabarm', guyLevel: g + 1});
+      });
+      // Lados del triángulo: vértice → vértice (elementos en verde)
+      vIds.forEach((vid, k) => {
+        members.push({ni: vid, nj: vIds[(k + 1) % 3], type: 'stabarm', guyLevel: g + 1, isTriSide: true});
       });
       // Cables adicionales
       (cd.addedCables || []).forEach(({_id, anchorIdx: ai}) => {
@@ -5653,6 +5669,22 @@ function _calcMastStrutWeight() {
   return kg;
 }
 
+function _calcStabArmWeight() {
+  if (!_towerData) return 0;
+  let kg = 0;
+  _towerData.members.forEach(m => {
+    if (m.type !== 'stabarm') return;
+    const gp = getMemberProfile(m);
+    if (!gp || gp.profile === '—') return;
+    const wpM = _profileWeightPerMeter(gp.profile);
+    if (wpM == null) return;
+    const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+    if (!ni || !nj) return;
+    kg += wpM * Math.hypot(nj.x - ni.x, nj.y - ni.y, nj.z - ni.z);
+  });
+  return kg;
+}
+
 function _updateSectionWeights() {
   const bySec   = _reportSectionWeights();
   const fmtKg   = kg => kg.toFixed(1) + ' kg';
@@ -5665,6 +5697,7 @@ function _updateSectionWeights() {
     total += _calcMonopoleShaftWeight();
     if (_mastType === 'mast-strut') total += _calcMastStrutWeight();
   }
+  total += _calcStabArmWeight();
 
   const fvalEl  = document.getElementById('info-peso-total');
   if (fvalEl) fvalEl.textContent = total > 0 ? fmtKg(total) : '—';
@@ -9131,6 +9164,16 @@ function _monoNInc() {
   return 0;   // escalonado: ninguno
 }
 
+// Llamado desde s-baseW / s-topW: fuerza recálculo de diámetros por tramo.
+function onMonoBaseDiamChange() {
+  const tipo = document.getElementById('s-monoTipo')?.value;
+  if (tipo === 'escalonado' || tipo === 'combinado' || tipo === 'mast-guyed' || tipo === 'mast-strut') {
+    monoAperturas = [];
+  }
+  buildMonoAperturasList();
+  buildSetupPreview();
+}
+
 // Lista dinámica "Diámetro de cada tramo recto" — solo para Escalonado/Combinado.
 // Escalonado: un input por cada uno de los N tramos (todos son rectos, numerados desde 1).
 // Combinado: un input por cada tramo recto, numerados DESPUÉS de los tramos inclinados.
@@ -9160,12 +9203,9 @@ function buildMonoAperturasList() {
   // por el usuario si quiere reducir en algún tramo (ver ejemplo embebido MONOPOLO).
   // En "Escalonado" (nInc=0) no hay cono separado: se interpola base→tope a través de
   // los nRectos tramos, como antes.
-  const _mastDiamDefaults = [1.0, 0.6, 0.4, 0.3, 0.25, 0.2, 0.15];
-  const dDefault = i => isMast
-    ? (_mastDiamDefaults[i] ?? _mastDiamDefaults[_mastDiamDefaults.length - 1])
-    : nInc > 0
-      ? +topW.toFixed(2)
-      : +(baseW + (topW - baseW) * i / nRectos).toFixed(2);
+  const dDefault = i => nInc > 0
+    ? +topW.toFixed(2)
+    : +(baseW + (topW - baseW) * (nRectos > 1 ? i / (nRectos - 1) : 0)).toFixed(2);
   monoAperturas = Array.from({length: nRectos}, (_, i) =>
     (prev[i] !== undefined && prev[i] !== null) ? prev[i] : dDefault(i));
   // Layout vertical: una fila por tramo con etiqueta "Tramo N" a la izquierda
@@ -9241,7 +9281,10 @@ function buildStrutList() {
 
 function addStrutItem() {
   const h = +document.getElementById('s-height')?.value || 30;
-  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3, cal: '-'});
+  const prev = strutData.length ? strutData[strutData.length - 1] : null;
+  strutData.push(prev
+    ? { ...prev }
+    : { h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: null, designacion: '', cal: '-' });
   buildStrutList();
 }
 
@@ -9275,7 +9318,10 @@ function removeStrutRpanel(i) {
 // ── Mástil Apuntalado: modal editar puntal ────────────────────────────────────────────
 function openStrutAddModal() {
   const h = secData.reduce((s, d) => s + (+d.h || 0), 0) || 10;
-  strutData.push({h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: 'tube', d: 89, t: 5.3, cal: '-'});
+  const prev = strutData.length ? strutData[strutData.length - 1] : null;
+  strutData.push(prev
+    ? { ...prev }
+    : { h: +(h * 0.7).toFixed(1), az: 0, r: 3, zFixed: 0, profile: null, designacion: '', cal: '-' });
   openStrutEditModal(strutData.length - 1);
 }
 
@@ -9314,8 +9360,8 @@ function _openStrutProfilePicker(i) {
   const s = strutData[i] || {};
   openProfilePicker('_strut_' + i, {
     currentValue: s.designacion || null,
-    currentCal: '-',
-    onPick: (des) => _strutApplyProfile(i, des)
+    currentCal: s.cal || '-',
+    onPick: (des, cal) => _strutApplyProfile(i, des, cal)
   });
 }
 
@@ -9326,7 +9372,7 @@ function _strutDimsLabel(s) {
   return `LD ${+s.b1||0} × ${+s.b2||0} × ${+s.t||0} mm`;
 }
 
-function _strutApplyProfile(idx, designation) {
+function _strutApplyProfile(idx, designation, cal) {
   if (!designation) return;
   let loc = _findProfileLocation(designation);
   if (!loc) return;
@@ -9355,6 +9401,7 @@ function _strutApplyProfile(idx, designation) {
     dims.b2 = +(isAisc ? row.leg2 * 25.4 : row.leg2 * 10).toFixed(1);
     dims.t  = +(isAisc ? row.espesor * 25.4 : row.espesor).toFixed(2);
   }
+  if (cal && cal !== '-') dims.cal = cal;
   strutData[idx] = { ...strutData[idx], ...dims };
   // Actualizar campos del modal si está abierto
   const desSel = document.getElementById('se-designacion');
@@ -9460,6 +9507,9 @@ function openRetenidasModal() {
       estabTensorHorizOn: prevCable[i]?.estabTensorHorizOn ?? false,
       estabTensorHorizPerfil: prevCable[i]?.estabTensorHorizPerfil ?? '-',
       estabTensorHorizPerfilCal: prevCable[i]?.estabTensorHorizPerfilCal ?? '-',
+      trianguloLadoPerfil: prevCable[i]?.trianguloLadoPerfil ?? '-',
+      trianguloLadoPerfilCal: prevCable[i]?.trianguloLadoPerfilCal ?? '-',
+      trianguloAngulo: prevCable[i]?.trianguloAngulo ?? 180,
     };
   });
   // Anclajes por defecto: uno por pierna (azimut 0°/120°/240°), o lo que ya hubiera guardado
@@ -9511,7 +9561,9 @@ function addLevelRow() {
     estabPuntalOn: false, estabPuntalAltura: 0, estabPuntalPerfil: '-', estabPuntalPerfilCal: '-',
     estabPuntalHorizOn: false, estabPuntalHorizPerfil: '-', estabPuntalHorizPerfilCal: '-',
     estabTensorOn: false, estabTensorAltura: 0, estabTensorPerfil: '-', estabTensorPerfilCal: '-',
-    estabTensorHorizOn: false, estabTensorHorizPerfil: '-', estabTensorHorizPerfilCal: '-'});
+    estabTensorHorizOn: false, estabTensorHorizPerfil: '-', estabTensorHorizPerfilCal: '-',
+    trianguloLadoPerfil: '-', trianguloLadoPerfilCal: '-',
+    trianguloAngulo: 180});
   renderRetTable();
 }
 // ── Modal: Estabilizadores (3 tipos: Simple / Puntal-Tensor / Cuadrado, por nivel) ──
@@ -9540,8 +9592,11 @@ function openEstabilizadorModal(i) {
 }
 function _buildEstabTipoGrid() {
   const c = guyCableData[estabLevelIdx];
+  const isMastGuyed = _mastType === 'mast-guyed';
+  const tipos = isMastGuyed ? ESTAB_TIPOS.filter(t => t.key === 'simple') : ESTAB_TIPOS;
+  if (isMastGuyed) c.estabTipo = 'simple';
   const grid = document.getElementById('estab-tipo-grid');
-  grid.innerHTML = ESTAB_TIPOS.map(t => `
+  grid.innerHTML = tipos.map(t => `
     <div class="diag-icon-btn${c.estabTipo===t.key?' selected':''}" data-tipo="${t.key}" title="${t.label}">
       ${_estabTipoIconSVG(t.key)}
       <span>${t.label}</span>
@@ -9561,13 +9616,19 @@ function _renderEstabFields() {
   // Mástil Arriostrado: solo brazos simples — puntales y tensores no aplican (son de celosía)
   const isMastGuyed = _mastType === 'mast-guyed';
   document.getElementById('estab-complex-fields').style.display = (isSimple || isMastGuyed) ? 'none' : '';
-  // Longitud del brazo y Perfil — compartidos por los 3 tipos: definen el vértice V que
-  // usan tanto el brazo simple como Puntal/Tensor.
+  document.getElementById('estab-brazoLen-label').textContent = isMastGuyed ? 'Lado del triángulo L (m)' : 'Longitud del brazo (m)';
   const lenInput = document.getElementById('estab-brazoLen');
-  lenInput.value = c.brazoLen ?? 1.5;
-  lenInput.oninput = () => { guyCableData[estabLevelIdx].brazoLen = +lenInput.value || 1.5; };
+  lenInput.value = c.brazoLen ?? (isMastGuyed ? 3.0 : 1.5);
+  lenInput.oninput = () => { guyCableData[estabLevelIdx].brazoLen = +lenInput.value || (isMastGuyed ? 3.0 : 1.5); };
   _renderEstabPerfilCell();
-  if (isSimple) return;
+  document.getElementById('estab-lado-fields').style.display = isMastGuyed ? '' : 'none';
+  if (isMastGuyed) {
+    const angInput = document.getElementById('estab-trianguloAngulo');
+    angInput.value = c.trianguloAngulo ?? 180;
+    angInput.oninput = () => { guyCableData[estabLevelIdx].trianguloAngulo = +angInput.value || 0; buildSetupPreview(); };
+    _renderEstabPerfilCell('lado');
+  }
+  if (isSimple || isMastGuyed) return;
   const puntalChk = document.getElementById('estab-puntal-chk');
   puntalChk.checked = !!c.estabPuntalOn;
   puntalChk.onchange = () => { guyCableData[estabLevelIdx].estabPuntalOn = puntalChk.checked; _renderEstabFields(); };
@@ -9608,6 +9669,7 @@ function _renderEstabPerfilCell(which) {
     tensor:  ['estab-tensor-perfil-cell', 'estabTensorPerfil'],
     puntalH: ['estab-puntal-horiz-perfil-cell', 'estabPuntalHorizPerfil'],
     tensorH: ['estab-tensor-horiz-perfil-cell', 'estabTensorHorizPerfil'],
+    lado:    ['estab-lado-perfil-cell', 'trianguloLadoPerfil'],
   };
   const [elId, key] = map[which] || ['estab-perfil-cell', 'brazoPerfil'];
   document.getElementById(elId).textContent = (!c[key] || c[key] === '-') ? 'Seleccionar…' : c[key];
@@ -9619,6 +9681,7 @@ function openEstabPerfilPicker(which) {
     tensor:  ['estabTensorPerfil', 'estabTensorPerfilCal'],
     puntalH: ['estabPuntalHorizPerfil', 'estabPuntalHorizPerfilCal'],
     tensorH: ['estabTensorHorizPerfil', 'estabTensorHorizPerfilCal'],
+    lado:    ['trianguloLadoPerfil', 'trianguloLadoPerfilCal'],
   };
   const [valKey, calKey] = keyMap[which] || ['brazoPerfil', 'brazoPerfilCal'];
   const currentValue = c[valKey], currentCal = c[calKey];
@@ -9781,6 +9844,8 @@ function selectDiam(diamIdx) {
   guyCableData[_diamTargetIdx].diamData = d;
   document.getElementById('diam-modal-overlay').classList.remove('open');
   renderRetTable();
+  if (document.getElementById('tabla-retenidas-overlay')?.classList.contains('open'))
+    renderTablaRetenidas();
 }
 
 // ── Generar Torre desde el setup ───────────────────────────────
@@ -13015,7 +13080,9 @@ function toggleExportDD(e) {
 }
 function toggleTablaMenu(e) {
   e.stopPropagation();
-  document.getElementById('tabla-menu-retenidas').style.display = getConfig().type === 'guyed' ? '' : 'none';
+  const cfg = getConfig();
+  const hasGuys = cfg.type === 'guyed' || (cfg.type === 'monopole' && cfg.mastType === 'mast-guyed');
+  document.getElementById('tabla-menu-retenidas').style.display = hasGuys ? '' : 'none';
   document.getElementById('tabla-menu').classList.toggle('open');
 }
 
@@ -16286,14 +16353,21 @@ function _tablaRetenidasRows(unlocked) {
     const ni = nodes[m.ni], nj = nodes[m.nj];
     const len = Math.hypot(nj.x-ni.x, nj.y-ni.y, nj.z-ni.z);
     const gp = getMemberProfile(m);
+    const lvlIdx = (m.guyLevel ?? 1) - 1;
+    const cableLabel = gp.profile !== '—' ? gp.profile : 'Seleccionar…';
+    const calLabel   = gp.calidadName || '—';
+    const cableCell  = unlocked
+      ? `<div class="ret-cable-cell" onclick="event.stopPropagation();openDiamModal(${lvlIdx})"
+              style="min-width:90px;max-width:140px;white-space:normal;line-height:1.2;">${cableLabel}</div>`
+      : `<span style="color:var(--txt-sec);font-size:11px;">${cableLabel}</span>`;
     return `<tr class="ret-row-clickable" data-idx="${i}" onclick="blinkMemberAt(_towerData.members[${i}]);_highlightTableRow(this)">
       <td>${newId[i]}</td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.ni]}" style="width:48px;" ${dis}
             onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'ni',this.value)"></td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.nj]}" style="width:48px;" ${dis}
             onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'nj',this.value)"></td>
-      <td><input type="text" value="${gp.profile || '—'}" disabled style="width:64px;"></td>
-      <td><input type="text" value="${gp.calidadName || '—'}" disabled style="width:64px;"></td>
+      <td onclick="event.stopPropagation()">${cableCell}</td>
+      <td><span style="color:var(--txt-sec);font-size:11px;">${calLabel}</span></td>
       <td>${len.toFixed(3)}</td>
       <td style="text-align:center;">
         <button class="row-del" title="Eliminar retenida" ${m.anchorIdx == null ? 'disabled' : ''}
@@ -16319,9 +16393,9 @@ function renderTablaRetenidas() {
     <table class="ret-table db-table">
       <colgroup>
         <col style="width:46px;"><col style="width:62px;"><col style="width:62px;">
-        <col style="width:78px;"><col style="width:78px;"><col style="width:64px;"><col style="width:40px;">
+        <col style="width:140px;"><col style="width:56px;"><col style="width:64px;"><col style="width:40px;">
       </colgroup>
-      <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Long. (m)</th><th></th></tr></thead>
+      <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Cable (Ø)</th><th>Cal.</th><th>Long. (m)</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>${addBtn}`;
 }
@@ -19188,8 +19262,13 @@ function getMemberProfile(m) {
     isCableCal = true;
   } else if (m.type === 'stabarm') {
     const cd = guyCableData[(m.guyLevel ?? 1) - 1];
-    profile = (cd && cd.brazoPerfil && cd.brazoPerfil !== '-') ? cd.brazoPerfil : '—';
-    calidadName = cd?.brazoPerfilCal || null;
+    if (m.isTriSide) {
+      profile = (cd && cd.trianguloLadoPerfil && cd.trianguloLadoPerfil !== '-') ? cd.trianguloLadoPerfil : '—';
+      calidadName = cd?.trianguloLadoPerfilCal || null;
+    } else {
+      profile = (cd && cd.brazoPerfil && cd.brazoPerfil !== '-') ? cd.brazoPerfil : '—';
+      calidadName = cd?.brazoPerfilCal || null;
+    }
   } else if (m.type === 'mast-strut') {
     const s = (typeof strutData !== 'undefined') ? strutData[m.strutIdx] : null;
     if (s) {
