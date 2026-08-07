@@ -3007,6 +3007,20 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   </div>
 </div>
 
+<!-- ── Modal Render 3D (Vista Extruida) ─────────────────────── -->
+<div class="sec-modal-overlay" id="render-overlay" onclick="closeRenderOverlay(event)" style="z-index:600;">
+  <div style="width:90vw;max-width:1200px;height:88vh;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-hdr);border-bottom:1px solid var(--border);font-size:12px;font-weight:700;letter-spacing:.5px;flex-shrink:0;">
+      <span>RENDER 3D — Vista Extruida</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" onclick="_renderFitCamera()" style="font-size:11px;padding:4px 10px;">Encuadrar</button>
+        <button onclick="closeRenderOverlay()">✕</button>
+      </div>
+    </div>
+    <div id="render-canvas-wrap" style="flex:1;position:relative;background:#0a1628;overflow:hidden;"></div>
+  </div>
+</div>
+
 <!-- ── Three.js ──────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -8128,7 +8142,7 @@ function setupKeyboardShortcuts() {
     if (e.shiftKey && e.key.toLowerCase() === 'x') { e.preventDefault(); toggleProfileLabels(); return; }
     if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); toggleApoyosLabels(); return; }
     if (e.key === 'f' || e.key === 'F') { refitView(); }
-    else if (e.key === 'Escape') { closeMemberInfo(); }
+    else if (e.key === 'Escape') { closeMemberInfo(); _disposeRenderScene(); document.getElementById('render-overlay').classList.remove('open'); }
   });
 }
 
@@ -13027,11 +13041,207 @@ function nuevoProyecto() {
   document.getElementById('tower-name').textContent = 'TIPO DE ESTRUCTURA';
 }
 
-// Botón "Render" del toolbar — la vista extruida (similar a STAAD.Pro) será una ventana
-// aparte (mismo patrón que openHelp(): window.open), NO una pestaña embebida en la
-// interfaz principal. Placeholder hasta implementar la extrusión real de perfiles.
+// ── Render 3D con secciones extruidas (ExtrudeGeometry, mismo enfoque que Fast Site) ──
+let _renderScene = null, _renderRenderer = null, _renderControls = null;
+let _renderRAF   = null, _renderCamera   = null;
+
+function _shapeGenericRender() {
+  const s = new THREE.Shape(), h = 0.012;
+  s.moveTo(-h,-h); s.lineTo(h,-h); s.lineTo(h,h); s.lineTo(-h,h); s.closePath();
+  return s;
+}
+
+// Devuelve { fam, row, toM, toMThk } — unidades según catálogo (IMCA: cm/mm; AISC: in)
+function _getRenderProfileDims(designacion) {
+  const loc = _findProfileLocation(designacion);
+  if (!loc) return null;
+  let cat, fam, row;
+  if (loc.cat === 'user') {
+    const u = userProfiles.find(r => r.designacion === designacion);
+    if (!u) return null;
+    cat = u.origenCat || 'imca'; fam = u.origenFam || 'li'; row = u;
+  } else if (loc.cat === 'sectionbuilder') {
+    return null;
+  } else {
+    cat = loc.cat; fam = loc.fam;
+    row = profileCatalogs[cat]?.[fam]?.find(r => r.designacion === designacion);
+  }
+  if (!row) return null;
+  const isAISC = cat === 'aisc';
+  return { fam, row, toM: isAISC ? 0.0254 : 0.01, toMThk: isAISC ? 0.0254 : 0.001 };
+}
+
+function _buildExtrudeShape(dims) {
+  if (!dims) return _shapeGenericRender();
+  const { fam, row, toM, toMThk } = dims;
+  if (fam === 'li' || fam === 'ld') {
+    const l1 = (row.leg1 || 0) * toM, l2 = (row.leg2 || row.leg1 || 0) * toM;
+    const t  = (row.espesor || 0) * toMThk;
+    if (!(l1 > 0 && l2 > 0 && t > 0)) return _shapeGenericRender();
+    const s = new THREE.Shape();
+    s.moveTo(0,0); s.lineTo(l2,0); s.lineTo(l2,t); s.lineTo(t,t); s.lineTo(t,l1); s.lineTo(0,l1);
+    s.closePath(); return s;
+  }
+  if (fam === 'oc') {
+    const R = (row.diametro || 0) * toM / 2, t = (row.espesor || 0) * toMThk;
+    if (!(R > 0)) return _shapeGenericRender();
+    const s = new THREE.Shape(); s.absarc(0, 0, R, 0, Math.PI * 2, false);
+    const r = R - t;
+    if (r > 0.001) { const hole = new THREE.Path(); hole.absarc(0,0,r,0,Math.PI*2,true); s.holes.push(hole); }
+    return s;
+  }
+  if (fam === 'os') {
+    const R = (row.diametro || 0) * toM / 2;
+    if (!(R > 0)) return _shapeGenericRender();
+    const s = new THREE.Shape(); s.absarc(0, 0, R, 0, Math.PI * 2, false); return s;
+  }
+  if (fam === 'c') {
+    const d = (row.d || 0) * toM, bf = (row.bf || 0) * toM;
+    const tw = (row.tw || 0) * toMThk, tf = (row.tf || 0) * toMThk;
+    if (!(d > 0 && bf > 0 && tw > 0 && tf > 0)) return _shapeGenericRender();
+    const hd = d / 2, s = new THREE.Shape();
+    s.moveTo(0,-hd); s.lineTo(bf,-hd); s.lineTo(bf,-hd+tf); s.lineTo(tw,-hd+tf);
+    s.lineTo(tw,hd-tf); s.lineTo(bf,hd-tf); s.lineTo(bf,hd); s.lineTo(0,hd);
+    s.closePath(); return s;
+  }
+  return _shapeGenericRender();
+}
+
+function _disposeRenderScene() {
+  if (_renderRAF)      { cancelAnimationFrame(_renderRAF); _renderRAF = null; }
+  if (_renderScene)    {
+    _renderScene.traverse(o => {
+      o.geometry?.dispose();
+      if (o.material) { Array.isArray(o.material) ? o.material.forEach(m => m.dispose()) : o.material.dispose(); }
+    });
+    _renderScene = null;
+  }
+  if (_renderRenderer) { _renderRenderer.dispose(); _renderRenderer = null; }
+  if (_renderControls) { _renderControls.dispose(); _renderControls = null; }
+  _renderCamera = null;
+  const wrap = document.getElementById('render-canvas-wrap');
+  if (wrap) wrap.innerHTML = '';
+}
+
+function _buildRenderScene() {
+  _disposeRenderScene();
+  const wrap = document.getElementById('render-canvas-wrap');
+  const W = wrap.clientWidth || 800, H = wrap.clientHeight || 600;
+  const cfg = getConfig(), towerH = cfg.height || 30;
+
+  _renderScene = new THREE.Scene();
+  _renderScene.background = new THREE.Color(0x0a1628);
+
+  _renderCamera = new THREE.PerspectiveCamera(45, W / H, 0.1, 5000);
+  _renderCamera.position.set(towerH * 1.8, -towerH * 1.4, towerH * 0.7);
+
+  _renderRenderer = new THREE.WebGLRenderer({ antialias: true });
+  _renderRenderer.setPixelRatio(devicePixelRatio);
+  _renderRenderer.setSize(W, H);
+  wrap.appendChild(_renderRenderer.domElement);
+
+  _renderControls = new THREE.OrbitControls(_renderCamera, _renderRenderer.domElement);
+  _renderControls.enableDamping = true; _renderControls.dampingFactor = 0.07;
+  _renderControls.target.set(0, 0, towerH / 2);
+  _renderCamera.lookAt(0, 0, towerH / 2);
+
+  _renderScene.add(new THREE.AmbientLight(0xffffff, 0.40));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(50, -30, 80); _renderScene.add(sun);
+  const fill = new THREE.DirectionalLight(0x88aaff, 0.25);
+  fill.position.set(-40, 40, 30); _renderScene.add(fill);
+
+  const gridH = new THREE.GridHelper(Math.max(50, cfg.baseW * 6), 12, 0x1a3a6a, 0x1a3a6a);
+  gridH.rotation.x = Math.PI / 2; _renderScene.add(gridH);
+
+  const data = _towerData, nodes = data.nodes;
+  const isSolidMono = !!(data.monoProf && data.monoProf.length > 1);
+  const SKIP = new Set(['monothk', 'guy', 'tensor', 'horizTensor']);
+  if (isSolidMono) { SKIP.add('leg'); SKIP.add('horizontal'); }
+
+  const Z_AXIS = new THREE.Vector3(0, 0, 1);
+  const matCache = {};
+  const getMat = hex => (matCache[hex] = matCache[hex] || new THREE.MeshStandardMaterial({ color: hex, metalness: 0.5, roughness: 0.35 }));
+
+  data.members.forEach(m => {
+    if (SKIP.has(m.type)) return;
+    const ni = nodes[m.ni], nj = nodes[m.nj];
+    if (!ni || !nj) return;
+    const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-6) return;
+
+    const gp   = getMemberProfile(m);
+    const dims  = (gp.profile && gp.profile !== '—') ? _getRenderProfileDims(gp.profile) : null;
+    const shape = _buildExtrudeShape(dims);
+    const geo   = new THREE.ExtrudeGeometry(shape, { bevelEnabled: false, steps: 1, depth: len });
+
+    let color = 0x4488cc;
+    if (m.type==='leg'||m.type==='diagonal') color = C_LEG();
+    else if (m.type==='horizontal')          color = C_RING();
+    else if (m.type==='stabarm')             color = C_STABARM();
+    else if (m.type==='mast-strut')          color = 0x4488CC;
+    else if (m.type==='puntal')              color = 0x9AA7B2;
+    else if (m.type==='planbrace'||m.type==='hipbrace') color = C_PLANBRACE;
+
+    const mesh = new THREE.Mesh(geo, getMat(color));
+    mesh.quaternion.setFromUnitVectors(Z_AXIS, new THREE.Vector3(dx/len, dy/len, dz/len));
+    mesh.position.set(ni.x, ni.y, ni.z);
+    _renderScene.add(mesh);
+  });
+
+  // Monopolo sólido: cilindros por segmento
+  if (isSolidMono) {
+    const prof = data.monoProf;
+    const qY2Z = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), Z_AXIS);
+    const matMono = getMat(C_LEG());
+    for (let i = 0; i < prof.length - 1; i++) {
+      const p0 = prof[i], p1 = prof[i+1];
+      if (Math.abs(p1.z-p0.z) < 1e-6) continue;
+      const geo  = new THREE.CylinderGeometry(p1.r, p0.r, p1.z-p0.z, Math.max(4, p0.sides||12), 1);
+      const mesh = new THREE.Mesh(geo, matMono);
+      mesh.quaternion.copy(qY2Z);
+      mesh.position.set(0, 0, (p0.z+p1.z)/2);
+      _renderScene.add(mesh);
+    }
+  }
+
+  const animate = () => {
+    _renderRAF = requestAnimationFrame(animate);
+    _renderControls.update();
+    _renderRenderer.render(_renderScene, _renderCamera);
+  };
+  animate();
+
+  const obs = new ResizeObserver(() => {
+    if (!_renderRenderer || !_renderCamera) return;
+    const w = wrap.clientWidth, h2 = wrap.clientHeight;
+    _renderCamera.aspect = w / h2;
+    _renderCamera.updateProjectionMatrix();
+    _renderRenderer.setSize(w, h2);
+  });
+  obs.observe(wrap);
+}
+
 function openRenderTab() {
-  showToast('Vista extruida (Render) — en desarrollo. Se abrirá en una ventana aparte.');
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  document.getElementById('render-overlay').classList.add('open');
+  _buildRenderScene();
+}
+
+function closeRenderOverlay(e) {
+  if (e && e.target !== document.getElementById('render-overlay')) return;
+  _disposeRenderScene();
+  document.getElementById('render-overlay').classList.remove('open');
+}
+
+function _renderFitCamera() {
+  if (!_renderCamera || !_renderControls) return;
+  const cfg = getConfig(), h = cfg.height || 30, d = h * 2;
+  _renderCamera.position.set(d, -d * 0.8, h * 0.5);
+  _renderCamera.lookAt(0, 0, h / 2);
+  _renderControls.target.set(0, 0, h / 2);
+  _renderControls.update();
 }
 
 // Tab click
