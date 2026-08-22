@@ -2499,7 +2499,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal: Editar Retenidas (RETENIDAS + ANCLAJES) ───────────────── -->
-<div class="sec-modal-overlay" id="ret-modal-overlay" onclick="closeRetenidasModal(event)">
+<div class="sec-modal-overlay" id="ret-modal-overlay">
   <div class="sec-modal" style="width:1020px;max-height:88vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>EDITAR RETENIDAS</span>
@@ -2537,7 +2537,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Sub-modal: Estabilizadores (longitud + perfil del brazo, por nivel) ──────── -->
-<div class="sec-modal-overlay" id="estabilizador-modal-overlay" onclick="closeEstabilizadorModal(event)" style="z-index:280;">
+<div class="sec-modal-overlay" id="estabilizador-modal-overlay" style="z-index:280;">
   <div class="sec-modal" style="width:360px;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>TRIÁNGULO ESTABILIZADOR</span>
@@ -2622,7 +2622,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Sub-modal: Diámetros de cable ─────────────────────────────── -->
-<div class="sec-modal-overlay" id="diam-modal-overlay" onclick="closeDiamModal(event)" style="z-index:300;">
+<div class="sec-modal-overlay" id="diam-modal-overlay" style="z-index:300;">
   <div class="sec-modal" style="width:420px;max-height:80vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>DIÁMETROS</span>
@@ -2642,7 +2642,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Sub-modal: Nodos conectados (checklist por nivel) ───────────── -->
-<div class="sec-modal-overlay" id="nodes-modal-overlay" onclick="closeNodesModal(event)" style="z-index:300;">
+<div class="sec-modal-overlay" id="nodes-modal-overlay" style="z-index:300;">
   <div class="sec-modal" style="width:380px;max-height:80vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>NODOS CONECTADOS</span>
@@ -2665,7 +2665,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal: Feedback (encuesta embebida — se manda por mailto:, sin servicio externo) ── -->
-<div class="sec-modal-overlay" id="feedback-modal-overlay" onclick="closeFeedbackModal(event)">
+<div class="sec-modal-overlay" id="feedback-modal-overlay">
   <div class="sec-modal" style="width:480px;max-height:88vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>FEEDBACK — TSA</span>
@@ -2730,7 +2730,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal: Bases de Datos (placeholder — Calidades de Acero / Perfiles IMCA / AISC) ── -->
-<div class="sec-modal-overlay" id="database-modal-overlay" onclick="closeDatabaseModal(event)">
+<div class="sec-modal-overlay" id="database-modal-overlay">
   <div class="sec-modal" style="width:1180px;max-width:96vw;max-height:88vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>BASES DE DATOS</span>
@@ -2757,7 +2757,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal: Picker de Perfil + Calidad (catálogo IMCA/AISC) ──────────────────── -->
-<div class="sec-modal-overlay" id="profile-picker-overlay" onclick="closeProfilePicker(event)" style="z-index:300;">
+<div class="sec-modal-overlay" id="profile-picker-overlay" style="z-index:300;">
   <div class="sec-modal" style="width:680px;max-height:84vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>ELEGIR PERFIL</span>
@@ -2787,7 +2787,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal: Configuración ─────────────────────────────────────────── -->
-<div class="sec-modal-overlay" id="settings-modal-overlay" onclick="closeSettingsModal(event)">
+<div class="sec-modal-overlay" id="settings-modal-overlay">
   <div class="sec-modal" style="width:560px;max-height:88vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>CONFIGURACIÓN</span>
@@ -2857,7 +2857,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Sub-modal: Atajos de teclado ───────────────────────────────── -->
-<div class="sec-modal-overlay" id="shortcuts-modal-overlay" onclick="closeShortcutsModal(event)" style="z-index:300;">
+<div class="sec-modal-overlay" id="shortcuts-modal-overlay" style="z-index:300;">
   <div class="sec-modal" style="width:380px;max-height:80vh;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>ATAJOS DE TECLADO</span>
@@ -2991,7 +2991,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
 </div>
 
 <!-- ── Modal de ubicación (Leaflet + OpenStreetMap) ─────────────── -->
-<div class="sec-modal-overlay" id="loc-modal-overlay" onclick="closeLocationModal(event)">
+<div class="sec-modal-overlay" id="loc-modal-overlay">
   <div class="sec-modal" style="width:640px;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr">
       <span>UBICACIÓN DEL PROYECTO</span>
@@ -3638,30 +3638,18 @@ function genGuyed(cfg) {
         members.push({ni:lnodes[gLv][k], nj:vIds[k],       type:'stabarm', guyLevel:g});
         members.push({ni:lnodes[gLv][k], nj:vIds[(k+2)%3], type:'stabarm', guyLevel:g});
       }
-      // Puntales/Tensores — miembros ADICIONALES, no sustituyen al triángulo estabilizador
-      // de arriba (ese nunca se quita). Cada uno conecta el MISMO par de piernas que su
-      // vértice Vk, pero desde un nivel distinto a gLv: Tensor siempre hacia arriba
-      // (altura positiva), Puntal siempre hacia abajo (negativa) — forzado al nodo de
-      // bahía real más cercano a la altura pedida por el usuario (los niveles no son
-      // uniformes entre tramos, así que no se puede usar una distancia fija).
-      // reqAbsH es la ALTURA MÍNIMA — el nivel debe estar al menos esa distancia por
-      // encima (dir>0, tensor) o por debajo (dir<0, puntal) del nivel del estabilizador.
-      // Entre los niveles válidos se elige el más cercano al mínimo (no el primero
-      // encontrado), para minimizar la longitud del miembro. Si reqAbsH>0 y el mejor
-      // nivel está más de max(reqAbsH*5, 10) m por encima del mínimo, se devuelve -1
-      // para evitar tensores/puntales desproporcionados; cuando reqAbsH=0 no hay límite.
+      // Puntales/Tensores: snapping al nodo de bahía más cercano a la altura pedida
+      // en la dirección correcta (dir=1 tensor→arriba, dir=-1 puntal→abajo).
       const _nearestLevel = (reqAbsH, dir) => {
         let best = -1, bestDiff = Infinity;
-        const maxAllowed = reqAbsH > 0 ? Math.max(reqAbsH * 5, 10) : Infinity;
         for (let lv = 0; lv < levelHeights.length; lv++) {
           const rel = levelHeights[lv] - levelHeights[gLv];
           const absRel = dir > 0 ? rel : -rel;
-          if (absRel <= 0) continue;                      // lado incorrecto
-          if (reqAbsH > 0 && absRel < reqAbsH) continue;  // no llega al mínimo
-          const diff = absRel - reqAbsH;                  // siempre >= 0
+          if (absRel <= 0) continue;
+          const diff = Math.abs(absRel - reqAbsH);
           if (diff < bestDiff) { bestDiff = diff; best = lv; }
         }
-        return (best >= 0 && bestDiff <= maxAllowed) ? best : -1;
+        return best;
       };
       if (cd.estabPuntalOn) {
         const lv = _nearestLevel(Math.abs(+cd.estabPuntalAltura) || 0, -1);
@@ -3671,8 +3659,6 @@ function genGuyed(cfg) {
             members.push({ni:lnodes[lv][k], nj:vIds[k], type:'puntal', guyLevel:g});
             members.push({ni:lnodes[lv][j], nj:vIds[k], type:'puntal', guyLevel:g});
           }
-          // Horizontal — check anidado bajo Puntal: cierra el anillo L1-L2-L3-L1 al MISMO
-          // nivel ya forzado por el puntal (no agrega un nivel nuevo).
           if (cd.estabPuntalHorizOn) for (let k = 0; k < 3; k++) {
             members.push({ni:lnodes[lv][k], nj:lnodes[lv][(k+1)%3], type:'horizPuntal', guyLevel:g});
           }
@@ -5469,7 +5455,7 @@ function renderTower(data) {
   });
 
   // Cables/alambres siguen como líneas; el resto de la geometría estructural usa tubos con metalness.
-  const _lineTypeSet = new Set(['guy','tensor','horizTensor','monothk']);
+  const _lineTypeSet = new Set(['guy','monothk']);
   const _upVec = new THREE.Vector3(0, 1, 0);
   const _dm    = new THREE.Object3D();
   Object.entries(batches).forEach(([key, list]) => {
@@ -9595,13 +9581,57 @@ const ESTAB_TIPOS = [
   { key: 'cuadrado',      label: 'Cuadrado' },
 ];
 function _estabTipoIconSVG(key) {
-  const legSvg = `<line x1="18" y1="42" x2="18" y2="6" stroke="#3B82F6" stroke-width="1.4"/>`;
-  const shapes = {
-    simple:        `<line x1="18" y1="20" x2="30" y2="10" stroke="#22C55E" stroke-width="1.2"/>`,
-    'puntal-tensor': `<line x1="18" y1="14" x2="30" y2="6" stroke="#22C55E" stroke-width="1.2"/><line x1="18" y1="28" x2="30" y2="20" stroke="#EF4444" stroke-width="1.2"/>`,
-    cuadrado:      `<rect x="20" y="6" width="10" height="10" fill="none" stroke="#22C55E" stroke-width="1.1"/><line x1="18" y1="14" x2="20" y2="11" stroke="#94A3B8" stroke-width="1"/>`,
-  };
-  return `<svg viewBox="0 0 36 48" width="30" height="40">${legSvg}${shapes[key] || ''}</svg>`;
+  const S = 'viewBox="0 0 36 48" width="30" height="40"';
+  const ln = (x1,y1,x2,y2,s,w=1.1) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${s}" stroke-width="${w}"/>`;
+  const ci = (cx,cy,r=2.8,f='#3B82F6') =>
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${f}"/>`;
+
+  // Vista en planta para los 3 tipos.
+  // Simple y Puntal-Tensor: patrón estrella-de-David (piernas a 90°/210°/330°,
+  // vértices del anillo rotados 60° → 150°/270°/30°). Las piernas quedan fuera
+  // del triángulo del anillo; los brazos cruzan el contorno del polígono.
+  if (key === 'simple') {
+    return `<svg ${S}>
+      <polygon points="7,17 18,37 29,17" fill="none" stroke="#22C55E" stroke-width="1.4"/>
+      ${ln(18,14, 7,17,'#22C55E')}${ln(18,14,29,17,'#22C55E')}
+      ${ln( 9,29, 7,17,'#22C55E')}${ln( 9,29,18,37,'#22C55E')}
+      ${ln(27,29,18,37,'#22C55E')}${ln(27,29,29,17,'#22C55E')}
+      ${ci(18,14)}${ci(9,29)}${ci(27,29)}
+    </svg>`;
+  }
+
+  if (key === 'puntal-tensor') {
+    // Igual que Simple + ticks de elevación en cada pierna:
+    // verde↑ = tensor (pierna conecta al vértice desde arriba)
+    // gris↓  = puntal (pierna conecta al vértice desde abajo)
+    return `<svg ${S}>
+      <polygon points="7,17 18,37 29,17" fill="none" stroke="#22C55E" stroke-width="1.4"/>
+      ${ln(18,11,18, 6,'#22C55E',1.5)}${ln(18,17,18,22,'#94A3B8',1.5)}
+      ${ln( 9,26, 9,21,'#22C55E',1.5)}${ln( 9,32, 9,36,'#94A3B8',1.5)}
+      ${ln(27,26,27,21,'#22C55E',1.5)}${ln(27,32,27,36,'#94A3B8',1.5)}
+      ${ln(18,14, 7,17,'#22C55E')}${ln(18,14,29,17,'#22C55E')}
+      ${ln( 9,29, 7,17,'#22C55E')}${ln( 9,29,18,37,'#22C55E')}
+      ${ln(27,29,18,37,'#22C55E')}${ln(27,29,29,17,'#22C55E')}
+      ${ci(18,14)}${ci(9,29)}${ci(27,29)}
+    </svg>`;
+  }
+
+  if (key === 'cuadrado') {
+    // Anillo cuadrado: piernas en el interior, vértices en las 4 esquinas.
+    // Cada pierna tiene 2 brazos diagonales hacia las esquinas adyacentes.
+    // L1 arriba, L2 der, L3 abajo, L4 izq.
+    return `<svg ${S}>
+      <polygon points="8,14 28,14 28,34 8,34" fill="none" stroke="#22C55E" stroke-width="1.4"/>
+      ${ln(18,18, 8,14,'#22C55E')}${ln(18,18,28,14,'#22C55E')}
+      ${ln(24,24,28,14,'#22C55E')}${ln(24,24,28,34,'#22C55E')}
+      ${ln(18,30,28,34,'#22C55E')}${ln(18,30, 8,34,'#22C55E')}
+      ${ln(12,24, 8,34,'#22C55E')}${ln(12,24, 8,14,'#22C55E')}
+      ${ci(18,18)}${ci(24,24)}${ci(18,30)}${ci(12,24)}
+    </svg>`;
+  }
+
+  return `<svg ${S}></svg>`;
 }
 let estabLevelIdx = null;
 function openEstabilizadorModal(i) {
@@ -13061,7 +13091,7 @@ function _prepareRenderPayload() {
   const data = _towerData, nodes = data.nodes;
   const cfg = getConfig(), towerH = cfg.height || 30;
   const isSolidMono = !!(data.monoProf && data.monoProf.length > 1);
-  const SKIP = new Set(['monothk', 'guy', 'tensor', 'horizTensor']);
+  const SKIP = new Set(['monothk']);
   if (isSolidMono) { SKIP.add('leg'); SKIP.add('horizontal'); }
   const members = [];
   data.members.forEach(m => {
@@ -13069,8 +13099,13 @@ function _prepareRenderPayload() {
     const ni = nodes[m.ni], nj = nodes[m.nj];
     if (!ni || !nj) return;
     if (Math.hypot(nj.x-ni.x, nj.y-ni.y, nj.z-ni.z) < 1e-6) return;
-    const gp  = getMemberProfile(m);
-    const dims = (gp.profile && gp.profile !== '—') ? _getRenderProfileDims(gp.profile) : null;
+    let dims;
+    if (m.type === 'guy') {
+      dims = { fam: 'os', row: { diametro: 14 }, toM: 0.001, toMThk: 0.001 };
+    } else {
+      const gp = getMemberProfile(m);
+      dims = (gp.profile && gp.profile !== '—') ? _getRenderProfileDims(gp.profile) : null;
+    }
     members.push({ ni:{x:ni.x,y:ni.y,z:ni.z}, nj:{x:nj.x,y:nj.y,z:nj.z}, dims, type:m.type });
   });
   let monoSegments = null;
@@ -13216,9 +13251,10 @@ function _buildRenderScene(prePayload) {
 
   const Z_AXIS  = new THREE.Vector3(0, 0, 1);
   const steelMat = new THREE.MeshStandardMaterial({ color: 0xB8C4CC, metalness: 0.6, roughness: 0.22 });
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0x5A6268, metalness: 0.75, roughness: 0.28 });
   const edgeMat  = new THREE.LineBasicMaterial({ color: 0x1A2530 });
 
-  members.forEach(({ ni, nj, dims }) => {
+  members.forEach(({ ni, nj, dims, type }) => {
     const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
     const len = Math.hypot(dx, dy, dz);
     if (len < 1e-6) return;
@@ -13232,20 +13268,23 @@ function _buildRenderScene(prePayload) {
     // Ángulos LI/LD: eje local X = -secRight y eje Y = -secUp → vértice apunta hacia
     // afuera, ala superior en la parte de arriba, otra ala paralela a la cara de la torre
     const isAngle = dims?.fam === 'li' || dims?.fam === 'ld';
+    const isGuy   = type === 'guy';
     const lX = isAngle ? secRight.clone().negate() : secRight;
     const lY = isAngle ? secUp.clone().negate() : secUp;
     const q = new THREE.Quaternion().setFromRotationMatrix(
       new THREE.Matrix4().makeBasis(lX, lY, dir));
     const c2d = _computeShapeCentroid(shape);
     const centOff = lX.clone().multiplyScalar(c2d.x).add(lY.clone().multiplyScalar(c2d.y));
-    const mesh = new THREE.Mesh(geo, steelMat);
+    const mesh = new THREE.Mesh(geo, isGuy ? cableMat : steelMat);
     mesh.quaternion.copy(q);
     mesh.position.set(ni.x - centOff.x, ni.y - centOff.y, ni.z - centOff.z);
     _renderScene.add(mesh);
-    const edgeLine = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 15), edgeMat);
-    edgeLine.quaternion.copy(q);
-    edgeLine.position.copy(mesh.position);
-    _renderScene.add(edgeLine);
+    if (!isGuy) {
+      const edgeLine = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 15), edgeMat);
+      edgeLine.quaternion.copy(q);
+      edgeLine.position.copy(mesh.position);
+      _renderScene.add(edgeLine);
+    }
   });
 
   if (isSolidMono && monoSegments) {
