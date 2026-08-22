@@ -332,6 +332,12 @@ body {
   padding: 1px 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;
   transform: translate(-50%, -50%);
 }
+.sec-height-label {
+  position: absolute;
+  color: #86EFAC; font-size: 9px; font-weight: 600; background: rgba(10,22,40,.8);
+  padding: 1px 5px; border-radius: 3px; white-space: nowrap; pointer-events: none;
+  transform: translate(4px, -50%);
+}
 .wind-force-label {
   position: absolute;
   color: #FFA500; font-size: 9px; font-weight: 700; background: rgba(10,22,40,.75);
@@ -1615,7 +1621,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <button class="icon-btn" id="vbtn-nodelabels" onclick="toggleNodeLabels()">🏷<span class="icon-tip">Nodos</span></button>
       <button class="icon-btn" id="vbtn-staadlabels" onclick="toggleStaadLabels()">#<span class="icon-tip">Barras</span></button>
       <button class="icon-btn" id="vbtn-profilelabels" onclick="toggleProfileLabels()">𝐃<span class="icon-tip">Perfiles</span></button>
-      <button class="icon-btn" id="vbtn-apoyoslabels" onclick="toggleApoyosLabels()">⏚<span class="icon-tip">Apoyos</span></button>
+      <button class="icon-btn" id="vbtn-secheightlabels" onclick="toggleSecHeightLabels()">↕<span class="icon-tip">Alturas de Sección</span></button>
+      <button class="icon-btn" id="vbtn-apoyoslabels" onclick="toggleApoyosLabels()"><svg viewBox="0 0 16 17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:15px;"><path d="M8 1L1 13h14Z" stroke-width="1.4"/><line x1="0" y1="13" x2="16" y2="13" stroke-width="1.4"/><line x1="0" y1="16.5" x2="3.5" y2="13" stroke-width="1.2"/><line x1="4.5" y1="16.5" x2="8" y2="13" stroke-width="1.2"/><line x1="9" y1="16.5" x2="12.5" y2="13" stroke-width="1.2"/><line x1="13" y1="16.5" x2="16.5" y2="13" stroke-width="1.2"/></svg><span class="icon-tip">Apoyos</span></button>
       <div style="position:relative;display:inline-flex">
         <button class="icon-btn" id="vbtn-windforcelabels" onclick="toggleWindForceLabels()">Σ<span class="icon-tip">Etiquetas de Fuerza de Viento</span></button>
         <div id="wfl-cascade" style="display:none;position:absolute;top:calc(100% + 3px);right:0;background:#0D1E35;border:1px solid #1E3A5F;border-radius:6px;z-index:300;padding:4px 3px;box-shadow:0 4px 12px rgba(0,0,0,.65);min-width:90px;flex-direction:column;gap:2px">
@@ -3509,10 +3516,15 @@ function genGuyed(cfg) {
   // la base (z=0) y se abren hasta la Apertura normal (R0) al final de esa sección.
   const pivotSecH = cfg.guyPivot ? secH(0) : 0;
   const radiusAt = z => (cfg.guyPivot && pivotSecH > 0 && z < pivotSecH) ? R0 * (z / pivotSecH) : R0;
-  const levelAt = z => ANG.map(a => {
+  const levelAt = z => {
     const R = radiusAt(z);
-    return addNode(nodes, R*Math.cos(a), R*Math.sin(a), z);
-  });
+    if (R < 1e-6) {
+      // Ápice del pivote: todas las piernas convergen a un único nodo
+      const apexIdx = addNode(nodes, 0, 0, z);
+      return ANG.map(() => apexIdx);
+    }
+    return ANG.map(a => addNode(nodes, R*Math.cos(a), R*Math.sin(a), z));
+  };
 
   const levelHeights = [0];
   const secForLevel = [];
@@ -4259,10 +4271,12 @@ let staadLabelsOn = false;
 let apoyosLabelsOn = false;
 let windForcesOn = false;
 let windForceLabelsOn = false;
+let secHeightLabelsOn = false;
 const profileLabelsGroup = new THREE.Group();
 const staadLabelsGroup = new THREE.Group();
 const nodeLabelsGroup = new THREE.Group();
 const apoyosLabelsGroup = new THREE.Group();
+const secHeightLabelsGroup = new THREE.Group();
 const windForcesGroup = new THREE.Group();
 
 // Grids — rebuilt by buildGrid()
@@ -4272,7 +4286,8 @@ let _gridZ = 0;
 let _towerData = null;   // datos del último renderTower (nodes, members)
 let _hlMesh    = [];   // LineSegments del elemento(s) seleccionado(s) — normalmente 1, pero
                         // varios para la pared del monopolo (ver _highlightMember)
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xffffff, 0.5);
 sun.position.set(40,40,80);
 scene.add(sun);
@@ -4333,6 +4348,54 @@ renderer.domElement.addEventListener('pointerup',   e => {
   if (Math.abs(e.clientX - _mouseDownPos.x) > 5 || Math.abs(e.clientY - _mouseDownPos.y) > 5) return;
   try { _pickMember(e); } catch (err) { showToast('Error selección: ' + err.message); }
 });
+
+// Ctrl + botón derecho arrastrar → girar SOLO en azimut (eje Z de la torre, centrado en el origen).
+// Se intercepta con capture:true antes que OrbitControls, se deshabilita controls mientras dura el arrastre.
+{
+  let _azimRotActive = false, _azimRotLastX = 0;
+  const _azimEl = renderer.domElement;
+
+  _azimEl.addEventListener('pointerdown', e => {
+    if (!e.ctrlKey || e.button !== 2 || !controls.enableRotate) return;
+    e.stopPropagation();
+    e.preventDefault();
+    _azimRotActive = true;
+    _azimRotLastX = e.clientX;
+    _azimEl.setPointerCapture(e.pointerId);
+    controls.enabled = false;
+    _azimEl.style.cursor = 'ew-resize';
+  }, { capture: true });
+
+  window.addEventListener('pointermove', e => {
+    if (!_azimRotActive) return;
+    const dx = e.clientX - _azimRotLastX;
+    _azimRotLastX = e.clientX;
+    if (Math.abs(dx) < 0.5) return;
+    const dTheta = -2 * Math.PI * dx / _azimEl.clientWidth * (controls.rotateSpeed || 1.0);
+    const cosA = Math.cos(dTheta), sinA = Math.sin(dTheta);
+    const p = activeCamera.position;
+    const nx = p.x * cosA - p.y * sinA;
+    const ny = p.x * sinA + p.y * cosA;
+    p.x = nx; p.y = ny;
+    const t = controls.target;
+    const tx = t.x * cosA - t.y * sinA;
+    const ty = t.x * sinA + t.y * cosA;
+    t.x = tx; t.y = ty;
+    controls.update();
+  });
+
+  const _stopAzimRot = () => {
+    if (!_azimRotActive) return;
+    _azimRotActive = false;
+    controls.enabled = true;
+    _azimEl.style.cursor = '';
+  };
+  window.addEventListener('pointerup',     _stopAzimRot);
+  window.addEventListener('pointercancel', _stopAzimRot);
+
+  // Suprimir el menú contextual del navegador cuando Ctrl está presionado
+  _azimEl.addEventListener('contextmenu', e => { if (e.ctrlKey) e.preventDefault(); });
+}
 
 
 function towerBounds() {
@@ -4606,6 +4669,39 @@ function toggleStaadLabels() {
   staadLabelsOn = !staadLabelsOn;
   document.getElementById('vbtn-staadlabels').classList.toggle('active', staadLabelsOn);
   if (staadLabelsOn) _buildStaadLabels(); else _clearStaadLabels();
+}
+
+// ── Etiquetas de alturas de sección (botón "↕ Sección") ──────────────────────────────
+function _clearSecHeightLabels() {
+  secHeightLabelsGroup.children.slice().forEach(c => secHeightLabelsGroup.remove(c));
+}
+function _buildSecHeightLabels() {
+  _clearSecHeightLabels();
+  if (!_towerData || typeof secData === 'undefined' || !secData.length) return;
+  const cfg   = typeof getConfig === 'function' ? getConfig() : {};
+  const baseZ = Math.min(..._towerData.nodes.map(n => n.z));
+  // Offset lateral = radio base del mástil + margen pequeño (evita usar nodos de anclaje
+  // de retenidas que estarían a 15+ m del centro y sacarían las etiquetas de vista).
+  const xOff  = (cfg.baseW || 2) / 2 + 0.5;
+  let zAcc = baseZ;
+  let hAcc = 0;
+  secData.forEach(s => {
+    const h = +s.h || 0;
+    zAcc += h;
+    hAcc += h;
+    if (h < 1e-6) return;
+    const div = document.createElement('div');
+    div.className = 'sec-height-label';
+    div.textContent = `${fmtNum(hAcc)} m`;
+    const obj = new THREE.CSS2DObject(div);
+    obj.position.set(xOff, 0, zAcc);
+    secHeightLabelsGroup.add(obj);
+  });
+}
+function toggleSecHeightLabels() {
+  secHeightLabelsOn = !secHeightLabelsOn;
+  document.getElementById('vbtn-secheightlabels').classList.toggle('active', secHeightLabelsOn);
+  if (secHeightLabelsOn) _buildSecHeightLabels(); else _clearSecHeightLabels();
 }
 
 // ── Etiquetas de Apoyos (botón "Apoyos") — marca con PINNED/FIXED los nodos de soporte,
@@ -5219,6 +5315,7 @@ scene.add(nodeLabelsGroup);
 scene.add(profileLabelsGroup);
 scene.add(staadLabelsGroup);
 scene.add(apoyosLabelsGroup);
+scene.add(secHeightLabelsGroup);
 scene.add(windForcesGroup);
 
 // Piernas/anillos/guys/brazos son configurables (menú Configuración) — se leen de
@@ -5407,6 +5504,7 @@ function _buildDadoBlocks(data, cfg) {
 }
 
 function renderTower(data) {
+  if (_mainRenderModeOn) _exitMainRenderMode();
   // Corta diagonales que se cruzan geométricamente (X simple, etc.) en un nodo
   // compartido real — mismo criterio que ya usa el export STAAD (_splitCrossingDiagonals),
   // ahora también aquí para que el visor, las tablas Nodos/Barras y la selección por clic
@@ -5606,6 +5704,7 @@ function renderTower(data) {
   if (profileLabelsOn) _buildProfileLabels();
   if (staadLabelsOn) _buildStaadLabels();
   if (apoyosLabelsOn) _buildApoyosLabels();
+  if (secHeightLabelsOn) _buildSecHeightLabels();
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
   // Si alguna tabla (Nodos/Barras/Retenidas/Apoyos) está abierta, se vuelve a pintar con
   // los datos frescos de _towerData — si no, quedaba mostrando la numeración VIEJA tras
@@ -5799,7 +5898,9 @@ function resizeRenderer() {
   axisCamera.lookAt(0,0,0);
   axisRenderer.render(axisScene, axisCamera);
   updateAxisLabels();
-  if (nodeLabelsOn || profileLabelsOn || staadLabelsOn || windForcesOn || windForceLabelsOn) labelRenderer.render(scene, camera);
+  if (nodeLabelsOn || profileLabelsOn || staadLabelsOn || secHeightLabelsOn || windForcesOn || windForceLabelsOn) {
+    labelRenderer.render(scene, camera);
+  }
 })();
 
 new ResizeObserver(resizeRenderer).observe(wrap);
@@ -12891,10 +12992,10 @@ function renderAntenas3D() {
         const rfhKey = `${az.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
         if (!_renderedRFH.has(rfhKey)) {
           _renderedRFH.add(rfhKey);
-          _addHerraje3D('RF_H', az, halfW, +a.z || 0, 0, _faceFn);
+          _addHerraje3D('RF_H', az, halfW, +a.z || 0, 0, _faceFn, _antTotalH);
         }
       } else {
-        _addHerraje3D(a.herraje, az, halfW, +a.z || 0, perp, _faceFn);
+        _addHerraje3D(a.herraje, az, halfW, +a.z || 0, perp, _faceFn, _antTotalH);
       }
     }
   });
@@ -12904,9 +13005,11 @@ function renderAntenas3D() {
 // az: azimuth radians; halfW: tower half-width at pz; pz: antenna z (m)
 // perp: lateral offset of the antenna (T direction); 0 for RF_H (rendered once per group)
 // hwAt: optional fn(z)→halfW — if provided, arms start at real tower face at their height
-function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt) {
+// zMax: tower top height — arms and posts are clamped so they don't exceed it
+function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt, zMax = Infinity) {
   if (!herrId || herrId === 'ninguno') return;
   const sinA = Math.sin(az), cosA = Math.cos(az);
+  const czMax = z => Math.min(z, zMax);   // clampear extremo superior al tope de la torre
 
   // Cara real de la torre a una altura absoluta
   const hw = z => (hwAt ? hwAt(z) : halfW);
@@ -12925,7 +13028,9 @@ function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt) {
     absZ
   );
 
-  const mat = new THREE.MeshBasicMaterial({ color: 0x55BBDD });
+  const mat = _mainRenderModeOn
+    ? new THREE.MeshStandardMaterial({ color: 0x55BBDD, metalness: 0.45, roughness: 0.35, emissive: 0x0A3A5A, emissiveIntensity: 0.25 })
+    : new THREE.MeshBasicMaterial({ color: 0x55BBDD });
 
   const mkTube = (p1, p2, r) => {
     const dir = new THREE.Vector3().subVectors(p2, p1);
@@ -12939,33 +13044,36 @@ function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt) {
   if (herrId === 'MW') {
     // Poste a 60cm de la cara baja del brazo inferior (pz-0.72)
     const R = hw(pz - 0.72) + 0.60;
+    const zTop = czMax(pz + 0.72);
     // BRAZOS PTR 3" — parten de la cara real a su propia altura y llegan al poste
-    mkTube(ptFace(pz + 0.72, 0), ptRad(R, 0, pz + 0.72), 0.038);
+    mkTube(ptFace(zTop, 0), ptRad(R, 0, zTop), 0.038);
     mkTube(ptFace(pz - 0.72, 0), ptRad(R, 0, pz - 0.72), 0.038);
-    // POSTE OC 4" (r=57mm), L=1.50m — posición radial fija R
+    // POSTE OC 4" (r=57mm), L=1.50m — longitud fija, sin recortar
     mkTube(ptRad(R, 0, pz - 0.75), ptRad(R, 0, pz + 0.75), 0.057);
 
   } else if (herrId === 'RF_simple') {
     // Poste a 60cm de la cara baja del brazo inferior (pz-0.80)
     const R = hw(pz - 0.80) + 0.60;
+    const zTop = czMax(pz + 0.80);
     // BRAZOS PTR 3" — parten de la cara real a su propia altura
-    mkTube(ptFace(pz + 0.80, 0), ptRad(R, 0, pz + 0.80), 0.038);
+    mkTube(ptFace(zTop, 0), ptRad(R, 0, zTop), 0.038);
     mkTube(ptFace(pz - 0.80, 0), ptRad(R, 0, pz - 0.80), 0.038);
-    // POSTE OC 2" (r=30mm), L=2.20m
+    // POSTE OC 2" (r=30mm), L=2.20m — longitud fija, sin recortar
     mkTube(ptRad(R, 0, pz - 1.10), ptRad(R, 0, pz + 1.10), 0.030);
 
   } else if (herrId === 'RF_H') {
     const sT = 0.60;
     // Poste a 60cm de la cara en el brazo inferior (pz-0.55) — referencia fija
     const R = hw(pz - 0.55) + 0.60;
+    const zTop = czMax(pz + 0.55);
     // BRAZOS PTR 3" al poste central (lT=0), parten de cara real a su altura
-    mkTube(ptFace(pz + 0.55, 0), ptRad(R, 0,   pz + 0.55), 0.038);
+    mkTube(ptFace(zTop, 0), ptRad(R, 0,   zTop), 0.038);
     mkTube(ptFace(pz - 0.55, 0), ptRad(R, 0,   pz - 0.55), 0.038);
-    // POSTES OC 2" (r=30mm) — todos al mismo R radial, distintos lT
+    // POSTES OC 2" (r=30mm) — longitud fija, sin recortar
     mkTube(ptRad(R, 0,   pz - 1.0), ptRad(R, 0,   pz + 1.0), 0.030);  // central
     mkTube(ptRad(R, +sT, pz - 1.0), ptRad(R, +sT, pz + 1.0), 0.030);  // exterior +
     mkTube(ptRad(R, -sT, pz - 1.0), ptRad(R, -sT, pz + 1.0), 0.030);  // exterior -
-    // TRAVESAÑOS LI 3" (r=13mm) — en el plano de los postes
+    // TRAVESAÑOS LI 3" (r=13mm) — posición fija pz±0.55 independiente del clamping del brazo
     mkTube(ptRad(R, -sT, pz + 0.55), ptRad(R, +sT, pz + 0.55), 0.013);
     mkTube(ptRad(R, -sT, pz - 0.55), ptRad(R, +sT, pz - 0.55), 0.013);
   }
@@ -13118,7 +13226,12 @@ function _prepareRenderPayload() {
       monoSegments.push({ r0:p0.r, r1:p1.r, z0:p0.z, z1:p1.z, sides:p0.sides||12 });
     }
   }
-  return { towerH, gridSize: Math.max(50, (cfg.baseW || 5) * 6), isSolidMono, members, monoSegments };
+  const supRaw = _computeSupportNodes(cfg, data.nodes, data.members);
+  const supportNodes = supRaw.map(s => {
+    const n = data.nodes[s.idx];
+    return { x: n.x, y: n.y, z: n.z, type: s.type };
+  });
+  return { towerH, gridSize: Math.max(50, (cfg.baseW || 5) * 6), isSolidMono, members, monoSegments, supportNodes };
 }
 
 function _shapeGenericRender() {
@@ -13237,6 +13350,69 @@ function _buildRenderScene(prePayload) {
   _renderRenderer.setSize(W, H);
   wrap.appendChild(_renderRenderer.domElement);
 
+  // Prevenir menú contextual del browser para que el clic derecho (ROTATE) funcione
+  _renderRenderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Grupo de controles flotante — mismo patrón que el visor principal
+  _renderPanActive = false;
+  const _rctlPanSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
+  const _rctl = document.createElement('div');
+  _rctl.className = 'viewctl-group'; _rctl.id = 'render-viewctl';
+  _rctl.innerHTML = `
+    <button class="icon-btn" onclick="_renderZoom(0.8)">⊕<span class="icon-tip">Zoom In</span></button>
+    <button class="icon-btn" onclick="_renderZoom(1.25)">⊖<span class="icon-tip">Zoom Out</span></button>
+    <button class="icon-btn" id="rvbtn-zoomwin" onclick="_startRenderZoomWindow()">⛶<span class="icon-tip">Zoom Window</span></button>
+    <button class="icon-btn" id="rvbtn-pan"   onclick="_toggleRenderPan()">${_rctlPanSVG}<span class="icon-tip">Pan</span></button>
+    <button class="icon-btn" onclick="_renderFitCamera()">⤢<span class="icon-tip">Encuadrar</span></button>
+    <button class="icon-btn" id="rvbtn-orbit" onclick="_toggleRenderOrbit()">&#8635;<span class="icon-tip">Orbitar</span></button>
+  `;
+  wrap.appendChild(_rctl);
+
+  // Zoom window — recuadro de selección sobre el canvas del render.
+  // Usa e.offsetX/Y (relativo al canvas mismo) + setPointerCapture para que las
+  // coordenadas sean siempre relativas al canvas sin depender de getBoundingClientRect
+  // del wrap (evita el desfase por el header del modal).
+  _renderZoomWinActive = false;
+  _renderRenderer.domElement.addEventListener('pointerdown', e => {
+    if (!_renderZoomWinActive) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    _renderZoomWinStart = { x: e.offsetX, y: e.offsetY };
+    _renderZoomWinBox = document.createElement('div');
+    _renderZoomWinBox.style.cssText = 'position:absolute;border:1px dashed #00D4FF;background:rgba(0,212,255,.12);pointer-events:none;z-index:500;left:'+e.offsetX+'px;top:'+e.offsetY+'px;width:0;height:0;';
+    wrap.appendChild(_renderZoomWinBox);
+  });
+  _renderRenderer.domElement.addEventListener('pointermove', e => {
+    if (!_renderZoomWinActive || !_renderZoomWinStart) return;
+    const ex = e.offsetX, ey = e.offsetY;
+    const x = Math.min(_renderZoomWinStart.x, ex), y = Math.min(_renderZoomWinStart.y, ey);
+    _renderZoomWinBox.style.left = x+'px'; _renderZoomWinBox.style.top = y+'px';
+    _renderZoomWinBox.style.width = Math.abs(ex - _renderZoomWinStart.x)+'px';
+    _renderZoomWinBox.style.height = Math.abs(ey - _renderZoomWinStart.y)+'px';
+  });
+  _renderRenderer.domElement.addEventListener('pointerup', e => {
+    if (!_renderZoomWinActive || !_renderZoomWinStart) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const ex = e.offsetX, ey = e.offsetY;
+    const w = Math.abs(ex - _renderZoomWinStart.x), h = Math.abs(ey - _renderZoomWinStart.y);
+    if (w > 5 && h > 5) {
+      const cx = (_renderZoomWinStart.x + ex) / 2, cy = (_renderZoomWinStart.y + ey) / 2;
+      const cW = _renderRenderer.domElement.clientWidth, cH = _renderRenderer.domElement.clientHeight;
+      const ndc = new THREE.Vector2((cx / cW)*2-1, -(cy / cH)*2+1);
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(ndc, _renderCamera);
+      const dist = _renderCamera.position.distanceTo(_renderControls.target) || 1;
+      const newTarget = ray.ray.at(dist, new THREE.Vector3());
+      const factor = Math.max(w / cW, h / cH, 0.05);
+      _renderControls.target.copy(newTarget);
+      const dir = _renderCamera.position.clone().sub(_renderControls.target).normalize();
+      _renderCamera.position.copy(newTarget).addScaledVector(dir, dist * factor);
+      _renderControls.update();
+    }
+    if (_renderZoomWinBox) { wrap.removeChild(_renderZoomWinBox); _renderZoomWinBox = null; }
+    _renderZoomWinStart = null;
+    _exitRenderZoomWindow();
+  });
+
   _renderControls = new THREE.OrbitControls(_renderCamera, _renderRenderer.domElement);
   _renderControls.enableDamping = true; _renderControls.dampingFactor = 0.07;
   _renderControls.target.set(0, 0, towerH / 2);
@@ -13315,8 +13491,116 @@ function _buildRenderScene(prePayload) {
   obs.observe(wrap);
 }
 
+// ── Modo Render en el canvas principal (Opción B) ────────────────────────────────────
+let _mainRenderModeOn = false;
+const _renderModeGroup = new THREE.Group();
+_renderModeGroup.visible = false;
+scene.add(_renderModeGroup);
+
+let _rmSavedBg        = null;
+let _rmSavedAmbient   = 0.6;
+let _rmSavedSunInt    = 0.5;
+let _rmSavedSunPos    = null;
+let _rmFillLight      = null;
+
+function _buildMainRenderGeometry(payload) {
+  _renderModeGroup.children.slice().forEach(c => {
+    c.geometry?.dispose();
+    (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m?.dispose());
+    _renderModeGroup.remove(c);
+  });
+  const { members, isSolidMono, monoSegments } = payload;
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0xAABDCC, metalness: 0.55, roughness: 0.25, emissive: 0x3A5A78, emissiveIntensity: 0.25 });
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0xD4AA50, metalness: 0.6,  roughness: 0.35, emissive: 0x6A4A10, emissiveIntensity: 0.2  });
+  members.forEach(({ ni, nj, dims, type }) => {
+    const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-6) return;
+    const shape = _buildExtrudeShape(dims);
+    const geo   = new THREE.ExtrudeGeometry(shape, { bevelEnabled: false, steps: 1, depth: len });
+    const dir = new THREE.Vector3(dx/len, dy/len, dz/len);
+    let secUp = new THREE.Vector3(0,0,1).sub(dir.clone().multiplyScalar(dir.z));
+    if (secUp.lengthSq() < 1e-6) secUp.set(0, 1, 0);
+    secUp.normalize();
+    const secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
+    const isAngle = dims?.fam === 'li' || dims?.fam === 'ld';
+    const lX = isAngle ? secRight.clone().negate() : secRight;
+    const lY = isAngle ? secUp.clone().negate() : secUp;
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(lX, lY, dir));
+    const c2d = _computeShapeCentroid(shape);
+    const centOff = lX.clone().multiplyScalar(c2d.x).add(lY.clone().multiplyScalar(c2d.y));
+    const mesh = new THREE.Mesh(geo, type === 'guy' ? cableMat : steelMat);
+    mesh.quaternion.copy(q);
+    mesh.position.set(ni.x - centOff.x, ni.y - centOff.y, ni.z - centOff.z);
+    _renderModeGroup.add(mesh);
+  });
+  if (isSolidMono && monoSegments) {
+    const qY2Z = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,1));
+    const monoMat = steelMat.clone();
+    monoSegments.forEach(seg => {
+      const geo  = new THREE.CylinderGeometry(seg.r1, seg.r0, seg.z1-seg.z0, Math.max(4, seg.sides), 1);
+      const mesh = new THREE.Mesh(geo, monoMat);
+      mesh.quaternion.copy(qY2Z); mesh.position.set(0, 0, (seg.z0+seg.z1)/2);
+      _renderModeGroup.add(mesh);
+    });
+  }
+}
+
+function _enterMainRenderMode() {
+  if (!_towerData) { showToast('Genere una torre primero.'); return; }
+  const payload = _prepareRenderPayload();
+  if (!payload) return;
+  _mainRenderModeOn = true;
+  document.getElementById('btn-render').classList.add('active');
+  // Ocultar vista estructural y labels
+  towerGroup.visible = false; dadoGroup.visible = false;
+  [nodeLabelsGroup, profileLabelsGroup, staadLabelsGroup, secHeightLabelsGroup].forEach(g => g.visible = false);
+  if (primaryGrid) primaryGrid.visible = false;
+  if (secondaryGrid) secondaryGrid.visible = false;
+  // Construir geometría extruida en el grupo de render
+  _buildMainRenderGeometry(payload);
+  _renderModeGroup.visible = true;
+  // Re-renderizar herrajes con MeshStandardMaterial (usa _mainRenderModeOn = true)
+  renderAntenas3D();
+  // Mejorar iluminación (fondo sin cambio)
+  scene.fog = null;
+  _rmSavedAmbient = ambientLight.intensity;  ambientLight.intensity = 2.0;
+  _rmSavedSunInt  = sun.intensity;           sun.intensity = 1.4;
+  _rmSavedSunPos  = sun.position.clone();    sun.position.set(40, -25, 70);
+  _rmFillLight = new THREE.DirectionalLight(0xCCDDFF, 0.8);
+  _rmFillLight.position.set(-30, 40, 50);
+  scene.add(_rmFillLight);
+}
+
+function _exitMainRenderMode() {
+  _mainRenderModeOn = false;
+  document.getElementById('btn-render').classList.remove('active');
+  // Restaurar vista estructural
+  _renderModeGroup.visible = false;
+  _renderModeGroup.children.slice().forEach(c => {
+    c.geometry?.dispose();
+    (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m?.dispose());
+    _renderModeGroup.remove(c);
+  });
+  towerGroup.visible = true; dadoGroup.visible = true;
+  nodeLabelsGroup.visible     = true;
+  profileLabelsGroup.visible  = true;
+  staadLabelsGroup.visible    = true;
+  secHeightLabelsGroup.visible = true;
+  if (primaryGrid) primaryGrid.visible = !apoyosLabelsOn;
+  if (secondaryGrid) secondaryGrid.visible = !apoyosLabelsOn;
+  // Re-renderizar herrajes con MeshBasicMaterial (usa _mainRenderModeOn = false)
+  renderAntenas3D();
+  // Restaurar iluminación y niebla
+  scene.fog = new THREE.FogExp2(appSettings.bgColor, _BASE_FOG_DENSITY);
+  ambientLight.intensity = _rmSavedAmbient;
+  sun.intensity = _rmSavedSunInt;
+  if (_rmSavedSunPos) sun.position.copy(_rmSavedSunPos);
+  if (_rmFillLight) { scene.remove(_rmFillLight); _rmFillLight = null; }
+}
+
 function openRenderTab() {
-  _renderPopOut();
+  if (_mainRenderModeOn) _exitMainRenderMode(); else _enterMainRenderMode();
 }
 
 function closeRenderOverlay() {
@@ -13331,6 +13615,50 @@ function _renderFitCamera() {
   _renderCamera.lookAt(0, 0, h / 2);
   _renderControls.target.set(0, 0, h / 2);
   _renderControls.update();
+}
+function _renderZoom(factor) {
+  if (!_renderCamera || !_renderControls) return;
+  const dir = _renderCamera.position.clone().sub(_renderControls.target);
+  _renderCamera.position.copy(_renderControls.target).addScaledVector(dir, factor);
+  _renderControls.update();
+}
+let _renderZoomWinActive = false, _renderZoomWinStart = null, _renderZoomWinBox = null;
+const _RENDER_CROSSHAIR_CURSOR = (() => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><line x1="16" y1="2" x2="16" y2="30" stroke="white" stroke-width="3"/><line x1="2" y1="16" x2="30" y2="16" stroke="white" stroke-width="3"/><line x1="16" y1="2" x2="16" y2="30" stroke="black" stroke-width="1.5"/><line x1="2" y1="16" x2="30" y2="16" stroke="black" stroke-width="1.5"/></svg>`;
+  return `url('data:image/svg+xml,${encodeURIComponent(svg)}') 16 16, crosshair`;
+})();
+function _startRenderZoomWindow() {
+  if (_renderPanActive) _toggleRenderPan();
+  _renderZoomWinActive = true;
+  document.getElementById('rvbtn-zoomwin')?.classList.add('active');
+  document.body.style.cursor = _RENDER_CROSSHAIR_CURSOR;
+  if (_renderControls) _renderControls.enabled = false;
+}
+function _exitRenderZoomWindow() {
+  _renderZoomWinActive = false;
+  document.getElementById('rvbtn-zoomwin')?.classList.remove('active');
+  document.body.style.cursor = '';
+  if (_renderControls) _renderControls.enabled = true;
+}
+
+let _renderPanActive = false;
+function _toggleRenderPan() {
+  if (_renderZoomWinActive) _exitRenderZoomWindow();
+  _renderPanActive = !_renderPanActive;
+  if (_renderControls) {
+    _renderControls.mouseButtons = {
+      LEFT:   _renderPanActive ? THREE.MOUSE.PAN : undefined,
+      MIDDLE: THREE.MOUSE.PAN,
+      RIGHT:  THREE.MOUSE.ROTATE,
+    };
+  }
+  document.getElementById('rvbtn-pan')?.classList.toggle('active', _renderPanActive);
+}
+function _toggleRenderOrbit() {
+  if (!_renderControls) return;
+  _renderControls.autoRotate = !_renderControls.autoRotate;
+  _renderControls.autoRotateSpeed = 1.5;
+  document.getElementById('rvbtn-orbit')?.classList.toggle('active', _renderControls.autoRotate);
 }
 
 function _renderPopOut() {
@@ -13897,8 +14225,34 @@ function _reportElevationSvg(cfg, range) {
   // Declarado aquí (no donde se usa más abajo para los ticks) porque la etiqueta de
   // cada retenida también lo necesita, y ese bloque corre ANTES en el archivo.
   const tickHalfW = isGuyed ? 26 : (W / 2 - padX + 5);
+  // secZs se define aquí (antes del loop de miembros) para poder usarlo en las
+  // etiquetas de cable y en las anotaciones de estabilizador/puntal/tensor.
+  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
+  const secZs = [0];
+  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
+  const secOfZRel = zRel => {
+    for (let i = 0; i < secZs.length - 1; i++) {
+      if (zRel >= secZs[i] - 1e-6 && zRel <= secZs[i+1] + 1e-6) return i + 1;
+    }
+    return null;
+  };
+  // Mapa por nivel de retenida para colectar Z de stabarm/puntal/tensor
+  const _estabAnnot = {};
   let lines = '';
   data.members.forEach(m => {
+    // Colectar info de estabilizadores/puntales/tensores (antes del filtro ELEV_TYPES)
+    if (isGuyed && m.guyLevel) {
+      const lv = m.guyLevel;
+      if (!_estabAnnot[lv]) _estabAnnot[lv] = { stabZ: null, punts: new Set(), tens: new Set() };
+      const ni = data.nodes[m.ni];
+      if (m.type === 'stabarm' && _estabAnnot[lv].stabZ === null) {
+        _estabAnnot[lv].stabZ = ni.z;
+      } else if (m.type === 'puntal') {
+        _estabAnnot[lv].punts.add(+ni.z.toFixed(2));
+      } else if (m.type === 'tensor') {
+        _estabAnnot[lv].tens.add(+ni.z.toFixed(2));
+      }
+    }
     if (!ELEV_TYPES.has(m.type)) return;
     if (m.type === 'guy') {
       if (!isGuyed) return;
@@ -13914,12 +14268,16 @@ function _reportElevationSvg(cfg, range) {
     // recorta automáticamente lo que cae fuera.
     if (range && (Math.max(a.z, b.z) < zLo - 1e-6 || Math.min(a.z, b.z) > zHi + 1e-6)) return;
     lines += `<line x1="${px(a.x).toFixed(1)}" y1="${py(a.z).toFixed(1)}" x2="${px(b.x).toFixed(1)}" y2="${py(b.z).toFixed(1)}" stroke="${colorFor(m)}" stroke-width="0.7"/>`;
-    // Diámetro + calidad de la retenida, en texto paralelo a su línea — 1 por nivel,
+    // Diámetro + calidad de la retenida + tramo, en texto paralelo a su línea — 1 por nivel,
     // junto al punto de anclaje a la torre (m.nj, el extremo que SÍ cae en esta hoja
     // si el nivel pertenece a ella) — pedido explícito del usuario (2026-06-26).
     if (m.type === 'guy' && (!range || (b.z >= zLo - 1e-6 && b.z <= zHi + 1e-6))) {
       const cd = guyCableData[(m.guyLevel ?? 1) - 1];
-      const label = cd?.diamData ? `${cd.diamData.name}" ${cd.diamData.calidad}` : '';
+      const guyTramo = secOfZRel(b.z - globalMinZ);
+      const tramoSuffix = guyTramo != null ? `  T.${guyTramo}` : '';
+      const label = cd?.diamData
+        ? `${cd.diamData.name}" ${cd.diamData.calidad}${tramoSuffix}`
+        : tramoSuffix.trim();
       if (label) {
         const x1 = px(a.x), y1 = py(a.z), x2 = px(b.x), y2 = py(b.z);
         // La etiqueta empieza justo después de donde termina el texto de Apertura (no
@@ -13941,9 +14299,6 @@ function _reportElevationSvg(cfg, range) {
   // _reportSectionVerticalTable) — pedido explícito del usuario (2026-06-26). Elevación
   // a la izquierda, Apertura de la torre a esa altura a la DERECHA (antes vivían en la
   // tabla, ahora se mudan aquí, junto al dibujo, como en la hoja de referencia).
-  const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
-  const secZs = [0];
-  cfg.secData.forEach(s => secZs.push(secZs[secZs.length - 1] + (+s.h || 0)));
   const isMono = cfg.type === 'monopole';
   const apertura = (zAt, secIdx) => {
     if (isMono) {
@@ -13969,9 +14324,32 @@ function _reportElevationSvg(cfg, range) {
   // Leyendas de encabezado — "Altura" a la izquierda, "Apertura" a la derecha, justo
   // arriba de la marca de la sección más alta — pedido explícito del usuario
   // (2026-06-26).
-  const legendY = padTop - 8;
+  const legendY = padTop - 20;
   ticks += `<text x="${(cx - tickHalfW - 24).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Altura</text>`;
   ticks += `<text x="${(cx + tickHalfW + 4).toFixed(1)}" y="${legendY.toFixed(1)}" font-size="7" font-weight="700" fill="#333">Apertura</text>`;
+  // Anotaciones de tramo para estabilizador, puntales y tensores — posicionadas al
+  // margen derecho del SVG, fuera de la zona del cable y de la columna de Apertura.
+  const _annotX = W - 2;
+  Object.values(_estabAnnot).forEach(d => {
+    if (d.stabZ !== null && (!range || (d.stabZ >= zLo - 1e-6 && d.stabZ <= zHi + 1e-6))) {
+      const t = secOfZRel(d.stabZ - globalMinZ);
+      ticks += `<text x="${_annotX}" y="${(py(d.stabZ) - 5).toFixed(1)}" font-size="5" fill="#2E8B57" text-anchor="end">Est. T.${t ?? '?'}</text>`;
+    }
+    if (d.punts.size) {
+      const pZ = Math.min(...d.punts);
+      if (!range || (pZ >= zLo - 1e-6 && pZ <= zHi + 1e-6)) {
+        const t = secOfZRel(pZ - globalMinZ);
+        ticks += `<text x="${_annotX}" y="${(py(pZ) - 5).toFixed(1)}" font-size="5" fill="#1D4ED8" text-anchor="end">Punt. T.${t ?? '?'}</text>`;
+      }
+    }
+    if (d.tens.size) {
+      const tZ = Math.max(...d.tens);
+      if (!range || (tZ >= zLo - 1e-6 && tZ <= zHi + 1e-6)) {
+        const t = secOfZRel(tZ - globalMinZ);
+        ticks += `<text x="${_annotX}" y="${(py(tZ) - 5).toFixed(1)}" font-size="5" fill="#6B21A8" text-anchor="end">Ten. T.${t ?? '?'}</text>`;
+      }
+    }
+  });
   return `<svg xmlns="http://www.w3.org/2000/svg" class="rp-elev-svg" viewBox="0 0 ${W} ${H}" style="height:${H}px;"><rect width="${W}" height="${H}" fill="#fff"/>${ticks}${lines}</svg>`;
 }
 // Tabla vertical "planos llave" — una fila por sección, de arriba hacia abajo (igual
@@ -16021,7 +16399,12 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
     h1('8. Configuración de la Torre'),
     h2('8.1 Geometría de la Torre — Diagrama de Elevación y Perfiles'),
     ...elevPngs.flatMap((ep, pi) => buildElevBlock(ep, pi > 0)),
-    h2('8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)'),
+    new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      pageBreakBefore: true,
+      spacing: { before: 0, after: 120 },
+      children: [run('8.2 Propiedades de Sección (Tablas de Materiales y Perfiles)', { bold: true, size: SH2, color: BLUE })],
+    }),
     secPropsTable82,
     blank(),
     para([run('Calidades de Acero', { bold: true, size: SBD, color: BLUE })], { spacing: { before: 200, after: 120 } }),
@@ -17683,9 +18066,36 @@ async function _doExportSTAAD() {
 // ── Exportar DXF (AutoCAD) ──────────────────────────────────────
 // DXF es un dibujo, no un modelo de análisis — a diferencia de STAAD (que en monopolo
 // exporta solo el eje), aquí siempre se exporta la geometría visual COMPLETA (polígono/
-// anillos reales). Convención de ejes AutoCAD (WCS estándar): X horizontal, Y horizontal,
-// Z vertical (up), right-handed — coincide exactamente con la convención interna de TSA
-// (Z-up), así que NO se necesita el remapeo que sí hace falta para STAAD (que usa Y-up).
+// anillos reales). Convención por defecto Z-up (AutoCAD/TSA). Si el usuario elige
+// intercambiar ejes, se aplica Y-up: DXF_Y = TSA_Z, DXF_Z = TSA_Y.
+
+// Helper genérico: diálogo Sí/No modal sobre cualquier contenido.
+function _dlgYesNo(title, body) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'sec-modal-overlay';
+    ov.style.zIndex = '9999';
+    ov.innerHTML = `
+      <div class="sec-modal" style="width:300px;" onclick="event.stopPropagation()">
+        <div class="sec-modal-hdr"><span>${title}</span></div>
+        <div class="sec-modal-body" style="padding:14px 16px 6px;font-size:13px;line-height:1.55;color:var(--txt-sec)">${body}</div>
+        <div class="sec-modal-ftr">
+          <button class="btn-cancel" id="_dlgNo">No</button>
+          <button class="btn-apply"  id="_dlgSi">Sí</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('open'));
+    const close = val => {
+      ov.classList.remove('open');
+      setTimeout(() => document.body.removeChild(ov), 250);
+      resolve(val);
+    };
+    ov.querySelector('#_dlgSi').onclick = () => close(true);
+    ov.querySelector('#_dlgNo').onclick = () => close(false);
+  });
+}
+
 async function exportDXF() {
   document.getElementById('export-menu').classList.remove('open');
   if (!projectGenerated) {
@@ -17695,11 +18105,23 @@ async function exportDXF() {
     showToast(msg);
     return;
   }
+
+  const swapZY = await _dlgYesNo(
+    'EXPORTAR DXF',
+    'Por defecto se exporta con <b style="color:var(--txt)">Z vertical</b> (AutoCAD / TSA).<br><br>' +
+    '¿Cambiar eje Z por Y? <span style="font-size:11px">(convención Y-up usada en Revit, STAAD y otros)</span>'
+  );
+
   const cfg = getConfig();
   const tower = generateTower(cfg);
   const split = _splitCrossingDiagonals(tower.nodes, tower.members);
   const { nodes, members } = _dedupeNodes(split.nodes, split.members);
   const title = _assetFileBase(cfg).replace(/\s+/g, '_');
+
+  // swapZY → Y-up: DXF X=TSA_x, DXF Y=TSA_z (altura), DXF Z=TSA_y (horizontal)
+  const cx = n => n.x;
+  const cy = n => swapZY ? n.z : n.y;
+  const cz = n => swapZY ? n.y : n.z;
 
   let out = '';
   out += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSBASE\n10\n0.0\n20\n0.0\n30\n0.0\n0\nENDSEC\n';
@@ -17707,8 +18129,8 @@ async function exportDXF() {
   members.forEach(m => {
     const ni = nodes[m.ni], nj = nodes[m.nj];
     out += '0\nLINE\n8\n0\n';
-    out += `10\n${ni.x.toFixed(4)}\n20\n${ni.y.toFixed(4)}\n30\n${ni.z.toFixed(4)}\n`;
-    out += `11\n${nj.x.toFixed(4)}\n21\n${nj.y.toFixed(4)}\n31\n${nj.z.toFixed(4)}\n`;
+    out += `10\n${cx(ni).toFixed(4)}\n20\n${cy(ni).toFixed(4)}\n30\n${cz(ni).toFixed(4)}\n`;
+    out += `11\n${cx(nj).toFixed(4)}\n21\n${cy(nj).toFixed(4)}\n31\n${cz(nj).toFixed(4)}\n`;
   });
   out += '0\nENDSEC\n0\nEOF\n';
 
@@ -19560,7 +19982,23 @@ function _highlightRowIfOpen(panelId, idx) {
 // sección/nivel al que pertenece — única fuente de verdad, usada por el panel de
 // inspección (showMemberInfo) y por el reporte (steel takeoff).
 function getMemberProfile(m) {
-  const sec = m.sec ?? null;
+  let sec = m.sec ?? null;
+  // Guyed members (guy, stabarm, puntal, tensor, etc.) no tienen m.sec asignado —
+  // se deriva del Z del nodo superior (conexión al mástil) vs. los límites de secData.
+  if (sec === null && m.guyLevel != null && _towerData && typeof secData !== 'undefined' && secData.length) {
+    const ni = _towerData.nodes[m.ni], nj = _towerData.nodes[m.nj];
+    if (ni && nj) {
+      const nodeZ = Math.max(ni.z, nj.z);
+      const allZ  = _towerData.nodes.map(n => n.z);
+      const minZ  = Math.min(...allZ);
+      const zRel  = nodeZ - minZ;
+      const szs   = [0];
+      secData.forEach(s => szs.push(szs[szs.length - 1] + (+s.h || 0)));
+      for (let i = 0; i < szs.length - 1; i++) {
+        if (zRel >= szs[i] - 1e-6 && zRel <= szs[i + 1] + 1e-6) { sec = i; break; }
+      }
+    }
+  }
   const sd  = (sec != null && typeof secData !== 'undefined') ? secData[sec] : null;
   const isPrincipal = m.principal !== false;
   let profile = '—', calidadName = null, isCableCal = false;
