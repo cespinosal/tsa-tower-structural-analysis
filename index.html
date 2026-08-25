@@ -1788,7 +1788,8 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
                 <th style="min-width:120px">Descripción</th>
                 <th style="min-width:80px">Tipo</th>
                 <th style="min-width:60px" title="Altura del centroide de la antena">h centroide (m)</th>
-                <th style="min-width:52px">Az (°)</th>
+                <th style="min-width:52px">Az. antena (°)</th>
+                <th style="min-width:46px">Pierna</th>
                 <th style="min-width:60px" title="Altura de panel / Diámetro de microonda">Alto / D (m)</th>
                 <th style="min-width:60px">Ancho (m)</th>
                 <th style="min-width:56px">Esp (m)</th>
@@ -2342,6 +2343,11 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
               <option value="guyed">Arriostrada</option>
               <option value="monopole">Monopolo</option>
             </select>
+          </div>
+
+          <div class="frow" id="row-tower-az">
+            <span class="flbl">Azimut de torre (° desde Norte):</span>
+            <input class="ctrl-input" type="number" id="towerAzimuth" value="0" min="0" max="359" step="1" oninput="refresh()">
           </div>
 
           <div class="frow" id="row-m4-main" style="display:none;">
@@ -3478,15 +3484,22 @@ function genMixed(cfg, ANG, radiusFn) {
   const patterns = secData.map(s => s?.diag || 'X');
   const structNodes = nodes.length;   // nodos estructurales antes del bracing
   addMembersWithSecs(nodes, members, lnodes, nLegs, secForLevel, patterns);
+  nodes.forEach(n => { n.x = -n.x; n.y = -n.y; });
+  const _taz = (cfg.towerAzimuth || 0) * Math.PI / 180;
+  if (_taz) nodes.forEach(n => {
+    const cx = n.x * Math.cos(_taz) + n.y * Math.sin(_taz);
+    const cy = -n.x * Math.sin(_taz) + n.y * Math.cos(_taz);
+    n.x = cx; n.y = cy;
+  });
   return {nodes, members, structNodes};
 }
 
 // Ángulos originales [90,210,330] / [45,135,225,315] + 180° (sin el ajuste de +15° que se
 // había hecho antes para alinear una cara con la cámara — se quitó a pedido del usuario).
-// En la torre de 3 piernas, +180° no deja una cara limpia de frente (180° no es múltiplo de
-// los 120° de simetría triangular) — se acepta así a propósito.
+// Vértice apunta al Norte (0°/arriba): montantes en 90°, 210°, 330° (math) = 0°, 120°, 240° (brújula).
+// Normas de cara en 60°, 180°, 300° — alineadas con los defaults de azimut de antenas.
 function genTriangular(cfg) {
-  const ANG = [270,30,150].map(d => d*Math.PI/180);
+  const ANG = [90,210,330].map(d => d*Math.PI/180);
   return genMixed(cfg, ANG, t => (cfg.baseW+(cfg.topW-cfg.baseW)*t)/Math.sqrt(3));
 }
 
@@ -3704,6 +3717,12 @@ function genGuyed(cfg) {
       });
     }
   }
+  const _gtaz = (cfg.towerAzimuth || 0) * Math.PI / 180;
+  if (_gtaz) nodes.forEach(n => {
+    const cx = n.x * Math.cos(_gtaz) + n.y * Math.sin(_gtaz);
+    const cy = -n.x * Math.sin(_gtaz) + n.y * Math.cos(_gtaz);
+    n.x = cx; n.y = cy;
+  });
   return {nodes, members};
 }
 
@@ -4231,8 +4250,8 @@ scene.fog = new THREE.FogExp2(0x0A1628, _BASE_FOG_DENSITY);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
 camera.up.set(0, 0, 1);   // Z-up: la altura de la torre va en el eje Z
-// Azimut de cámara rotado 180° (de (50,50,25) a (-50,-50,25)) para que +X se vea hacia la
-// derecha y +Y hacia arriba en pantalla (y en el inset de ejes) — Z sigue siendo la altura.
+// Azimut 0 = Norte = +Y; cámara al SO para que +X quede a la derecha y +Y hacia arriba
+// en pantalla (mapa: Este=derecha, Norte=arriba). Z sigue siendo la altura.
 camera.position.set(-50, -50, 25);
 
 // Cámara ortográfica — usada SOLO por Planta XY / Alzado XZ / Alzado YZ (ver setView).
@@ -4427,9 +4446,7 @@ function _getSceneBounds() {
   return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()) };
 }
 
-// Regresa al ángulo de vista INICIAL (el mismo de siempre: posición (50,50,25) → target
-// (0,0,15), de fábrica), pero con la distancia calibrada al tamaño REAL de la torre actual
-// — así una torre de 120m no queda diminuta/lejana como con el ángulo fijo de siempre.
+// Dirección inicial de cámara: desde el SO mirando hacia NE (+X derecha, +Y hacia arriba).
 const _INITIAL_VIEW_DIR = new THREE.Vector3(-50, -50, 10).normalize();
 // dir opcional — dirección (desde el centro hacia la cámara) a encuadrar; por default
 // la vista isométrica de fábrica. Usada solo por la vista "3D" (ver setView) — Planta/
@@ -4992,7 +5009,7 @@ function _buildWindForceArrows() {
   // Agregar fuerzas de antenas/equipos como cargas puntuales
   if (Array.isArray(antenasData) && antenasData.length) {
     const wRad  = _selectedWindAngle * Math.PI / 180;
-    const dirXY = { x: Math.sin(wRad), y: Math.cos(wRad) };
+    const dirXY = { x: -Math.sin(wRad), y: -Math.cos(wRad) };
     const antForces = _calcAntennaForces(cfg, windData);
     if (cfg.type === 'monopole') {
       // Monopolo: posición puntual en la superficie a la z exacta de la antena
@@ -7345,7 +7362,7 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
 // en calcSectionWindForce).
 function _windDirFromAngle(angleDeg) {
   const r = (angleDeg || 0) * Math.PI / 180;
-  return { x: Math.sin(r), y: Math.cos(r) };   // 0°→+Y, 90°→+X
+  return { x: -Math.sin(r), y: -Math.cos(r) };  // 0°→-Y, 90°→-X
 }
 function _legColumnsUnionFind(nodes, members) {
   const parent = {};
@@ -8552,6 +8569,7 @@ function getConfig() {
     m4:             document.getElementById('m4')?.checked || false,
     altConst:       +(document.getElementById('altConst')?.value) || 0,
     altReduccion:   +(document.getElementById('altReduccion')?.value) || 0,
+    towerAzimuth:   +(document.getElementById('towerAzimuth')?.value) || 0,
   };
 }
 
@@ -8758,6 +8776,7 @@ function onTypeChange() {
   setDisp('topW',         !isGuyed);
   setDisp('row-apertura-top', isGuyed);
   setDisp('row-m4-main', v === 'square');
+  setDisp('row-tower-az', v !== 'monopole');
   setDisp('dim-lbl-valor',   !isGuyed);
   document.getElementById('dim-grid-main').classList.toggle('simple', isGuyed);
   if (isGuyed || isMastGuyed) ensureGuyHeights();
@@ -10362,6 +10381,23 @@ function _renderAntenasTable() {
         oninput="${updAll('desc',true)};if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows();}">
       ${linkSel}`;
 
+    // Celda de pierna
+    const _ttype = document.getElementById('ttype')?.value || 'triangular';
+    const _nLegs = _ttype === 'monopole' ? 0
+      : (_ttype === 'square' || (_ttype === 'guyed' && document.getElementById('guyShape')?.value === 'square')) ? 4 : 3;
+    let piernaCell;
+    if (isLinked || _nLegs === 0) {
+      piernaCell = `<span class="ant-inp" style="opacity:.35;text-align:center;display:block">—</span>`;
+    } else if (!isGroup) {
+      const _legOpts = Array.from({length: _nLegs}, (_, _li) =>
+        `<option value="${_li+1}"${a.pierna===_li+1?' selected':''}>P${_li+1}</option>`).join('');
+      piernaCell = `<select class="ant-sel" onchange="antenasData[${fi}].pierna=this.value?+this.value:null;renderAntenas3D()">
+        <option value=""${a.pierna==null?' selected':''}>—</option>${_legOpts}</select>`;
+    } else {
+      const _piTxt = indices.map(i => antenasData[i].pierna != null ? 'P'+antenasData[i].pierna : '—').join(' · ');
+      piernaCell = `<span style="color:var(--accent);font-size:9px">${_piTxt}</span>`;
+    }
+
     const headTr = document.createElement('tr');
     if (isLinked) headTr.style.background = 'rgba(0,100,180,0.08)';
     else if (isGroup && !collapsed) headTr.style.background = 'rgba(20,60,100,0.5)';
@@ -10370,6 +10406,7 @@ function _renderAntenasTable() {
       `<td>${tipoSel}</td>` +
       `<td>${zCell}</td>` +
       `<td>${azCell}</td>` +
+      `<td>${piernaCell}</td>` +
       `<td>${isDish?dimInpG('alto', a.alto, 0.05):dimInpG('alto', a.alto, 0.01)}</td>` +
       `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimInpG('ancho', a.ancho, 0.01)}</td>` +
       `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">—</span>`:dimInpG('espesor', a.espesor, 0.001)}</td>` +
@@ -10406,14 +10443,22 @@ function _renderAntenasTable() {
           ? `<td style="font-size:10px;padding-left:12px;color:var(--cyan)">↳ RRU ${ki+1}</td>`
           : `<td colspan="3" style="opacity:.35;font-size:10px;padding-left:12px">↳ Azimut ${ki+1}</td>`;
 
+        const _subLegOpts = Array.from({length: _nLegs}, (_, _li) =>
+          `<option value="${_li+1}"${sub.pierna===_li+1?' selected':''}>P${_li+1}</option>`).join('');
+        const _subPiernaCell = _nLegs === 0
+          ? `<td><span style="opacity:.35;text-align:center;display:block">—</span></td>`
+          : `<td><select class="ant-sel" onchange="antenasData[${idx}].pierna=this.value?+this.value:null;renderAntenas3D()">
+              <option value=""${sub.pierna==null?' selected':''}>—</option>${_subLegOpts}</select></td>`;
         subTr.innerHTML = labelCell +
           (isRRUSub
             ? `<td colspan="2">${subLinkSel}</td>` +
               `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
                   min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value;_syncLinkedRRUs();_renderAntenasTable()"></td>` +
+              `<td><span style="opacity:.35;text-align:center;display:block">—</span></td>` +
               `<td colspan="6"></td>`
             : `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
                   min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
+              _subPiernaCell +
               `<td colspan="7"></td>`) +
           `<td><button class="ant-del" onclick="deleteAntenaRow(${idx})">✕</button></td>`;
         tbody.appendChild(subTr);
@@ -10438,22 +10483,23 @@ function _esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;');
 function _updateAntAddAngles() {
   const n   = Math.max(1, +document.getElementById('ant-add-count').value || 1);
   const box = document.getElementById('ant-add-angles');
-  // Leer ángulos actuales para no perderlos al cambiar N
-  const prev = [...box.querySelectorAll('.ant-az-inp')].map(el => +el.value);
+  // Leer solo los valores modificados manualmente por el usuario
+  const prev = [...box.querySelectorAll('.ant-az-inp')].map(el => el.dataset.modified === '1' ? +el.value : null);
   box.innerHTML = '';
   const tipo = document.getElementById('ttype')?.value || '';
   const sqDef  = [45, 135, 225, 315];
-  const triDef = [0, 120, 240];
   for (let i = 0; i < n; i++) {
-    const defAz = (i < prev.length) ? prev[i]
-      : tipo === 'square'     ? (sqDef[i]  ?? Math.round(45  + (360/n)*i))
-      : (tipo === 'triangular' || tipo === 'monopole') ? (triDef[i] ?? Math.round((360/n)*i))
-      : Math.round((360/n)*i);
+    const defAz = (prev[i] != null) ? prev[i]
+      : tipo === 'square'      ? (sqDef[i] ?? Math.round((45 + 90 * i) % 360))
+      : tipo === 'triangular'  ? Math.round((60 + 120 * i) % 360)
+      : Math.round((360 / n) * i);
     const inp = document.createElement('input');
     inp.type = 'number'; inp.min = 0; inp.max = 359; inp.step = 1;
     inp.value = defAz;
     inp.className = 'ant-az-inp';
     inp.title = `Az antena ${i + 1}`;
+    if (prev[i] != null) inp.dataset.modified = '1';
+    inp.addEventListener('input', () => { inp.dataset.modified = '1'; });
     box.appendChild(inp);
     if (i < n - 1) { const sep = document.createElement('span'); sep.textContent = ','; sep.style.color = '#556'; box.appendChild(sep); }
   }
@@ -10463,7 +10509,7 @@ function _addAntenasMulti() {
   const n   = Math.max(1, +document.getElementById('ant-add-count').value || 1);
   const azs = [...document.getElementById('ant-add-angles').querySelectorAll('.ant-az-inp')].map(el => +el.value);
   for (let i = 0; i < n; i++) {
-    const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: azs[i] ?? 0, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null };
+    const a = { id: _antNextId++, desc: '', tipo: 'Panel', z: 0, azimuth: azs[i] ?? 0, pierna: null, ancho: 0.25, alto: 1.2, espesor: 0.06, peso: 0, epa0: 0, epa60: 0, epa90: 0, linkedTo: null };
     _calcEPA(a);
     antenasData.push(a);
   }
@@ -10774,6 +10820,7 @@ function toggleCombisPanel(e) {
     closeVientoFlyout?.();
     closeAntenasFlyout?.();
     closeFeedersPanel?.();
+    closeHerrajesPanel?.();
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   }
   fl?.classList.toggle('open', !wasOpen);
@@ -11075,6 +11122,7 @@ function toggleFeedersPanel(e) {
     closeVientoFlyout();
     closeAntenasFlyout();
     closeCombisPanel();
+    closeHerrajesPanel();
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   }
   fl.classList.toggle('open', !wasOpen);
@@ -12290,6 +12338,7 @@ function _renderFeeders3D() {
   if (feedersData.length === 0 && !cgoData.length && !escalData.length) return;
   const cfg = getConfig();
   if (!cfg) return;
+  const _tazFd = (cfg.towerAzimuth || 0) * Math.PI / 180;
 
   const totalH = cfg.height || 30;
 
@@ -12352,23 +12401,26 @@ function _renderFeeders3D() {
 
   // Face direction vectors: normal and tangent for each face type
   function faceVectors(face, hw) {
+    let nx, ny;
     if (towerType === 'triangular') {
-      // Normales a las caras reales (en escena, tras la negación de addNode):
-      // A(entre B-C)=150°, B(entre C-A)=30°, C(entre A-B)=270°
       const angles = {A: -Math.PI/2, B: Math.PI/6, C: 5*Math.PI/6};
       const ang = angles[face] ?? 0;
-      return { nx: Math.cos(ang), ny: Math.sin(ang) };
+      nx = Math.cos(ang); ny = Math.sin(ang);
+    } else if (towerType === 'monopole') {
+      nx = 0; ny = face === 'EXT' ? 1 : 0;
+    } else {
+      if      (face==='A') { nx=0;  ny=1;  }
+      else if (face==='B') { nx=1;  ny=0;  }
+      else if (face==='C') { nx=0;  ny=-1; }
+      else if (face==='D') { nx=-1; ny=0;  }
+      else                 { nx=0;  ny=0;  }
     }
-    if (towerType === 'monopole') {
-      // EXT = front face (y+), INT = center
-      return face === 'EXT' ? { nx: 0, ny: 1 } : { nx: 0, ny: 0 };
+    if (_tazFd) {
+      const rx = nx * Math.cos(_tazFd) + ny * Math.sin(_tazFd);
+      const ry = -nx * Math.sin(_tazFd) + ny * Math.cos(_tazFd);
+      nx = rx; ny = ry;
     }
-    // Square
-    if (face==='A') return { nx:0, ny:1 };
-    if (face==='B') return { nx:1, ny:0 };
-    if (face==='C') return { nx:0, ny:-1 };
-    if (face==='D') return { nx:-1, ny:0 };
-    return { nx:0, ny:0 }; // INT
+    return { nx, ny };
   }
 
   Object.entries(byFace).forEach(([face, instList]) => {
@@ -12681,7 +12733,9 @@ function renderAntenas3D() {
   {
     const grps = {};
     antenasData.forEach((a, i) => {
-      const k = `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
+      const k = a.pierna != null
+        ? `leg${a.pierna}_${(+a.z||0).toFixed(1)}`
+        : `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
       if (!grps[k]) grps[k] = { panels: [], rrus: [] };
       (a.tipo === 'RRU' ? grps[k].rrus : grps[k].panels).push(i);
     });
@@ -12781,6 +12835,14 @@ function renderAntenas3D() {
     const H  = +a.alto    || 1.2;
     const E  = +a.espesor || 0.06;
     const az    = (+a.azimuth || 0) * Math.PI / 180;
+    // posAz: ángulo de posición (para XY en 3D). Si pierna está definida, lo toma del nodo
+    // de la pierna correspondiente en _towerData; si no, coincide con el azimut de apuntamiento.
+    let posAz = az;
+    if (a.pierna != null && _towerData && _towerData.nodes && _towerData.nodes.length > 0) {
+      const _legNode = _towerData.nodes[Math.max(0, (+a.pierna || 1) - 1)];
+      if (_legNode && Math.hypot(_legNode.x, _legNode.y) > 1e-6)
+        posAz = Math.atan2(_legNode.x, _legNode.y);
+    }
     const halfW = _faceFn(+a.z || 0);   // cara real de la torre (corregida por tipo)
     const perp  = _perpOff[dataIdx];
 
@@ -12796,8 +12858,8 @@ function renderAntenas3D() {
       const radialOff = _hasHerrD
         ? _rPost(a.herraje, _pz0dish) + _postR(a.herraje)   // apex del dish tangente al poste
         : (halfW) + 0.30;
-      const px = Math.sin(az) * radialOff + perp * Math.cos(az);
-      const py = Math.cos(az) * radialOff - perp * Math.sin(az);
+      const px = Math.sin(posAz) * radialOff + perp * Math.cos(posAz);
+      const py = Math.cos(posAz) * radialOff - perp * Math.sin(posAz);
       const pz = _pz0dish;
 
       // Group con rotation.z=-az: el eje Y del grupo apunta hacia el azimut.
@@ -12965,8 +13027,8 @@ function renderAntenas3D() {
         : _hasHerr
           ? _rPost(a.herraje, _pz0) + _postR(a.herraje) + E / 2              // antena: cara exterior del poste
           : base + 0.60 + E / 2;                                              // sin herraje
-      const px = Math.sin(az) * radialOffset + perp * Math.cos(az);
-      const py = Math.cos(az) * radialOffset - perp * Math.sin(az);
+      const px = Math.sin(posAz) * radialOffset + perp * Math.cos(posAz);
+      const py = Math.cos(posAz) * radialOffset - perp * Math.sin(posAz);
       const pz = +a.z || 0;
       const shape = _antenaShape(W, E);
       const geo   = new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false });
@@ -12988,14 +13050,14 @@ function renderAntenas3D() {
     // Herraje de montaje (solo antenas no-RRU)
     if (a.tipo !== 'RRU' && a.herraje && a.herraje !== 'ninguno') {
       if (a.herraje === 'RF_H') {
-        // RF_H: renderizar UNA sola vez por grupo az/z (evitar duplicados)
-        const rfhKey = `${az.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
+        // RF_H: renderizar UNA sola vez por grupo posAz/z (evitar duplicados)
+        const rfhKey = `${posAz.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
         if (!_renderedRFH.has(rfhKey)) {
           _renderedRFH.add(rfhKey);
-          _addHerraje3D('RF_H', az, halfW, +a.z || 0, 0, _faceFn, _antTotalH);
+          _addHerraje3D('RF_H', posAz, halfW, +a.z || 0, 0, _faceFn, _antTotalH);
         }
       } else {
-        _addHerraje3D(a.herraje, az, halfW, +a.z || 0, perp, _faceFn, _antTotalH);
+        _addHerraje3D(a.herraje, posAz, halfW, +a.z || 0, perp, _faceFn, _antTotalH);
       }
     }
   });
@@ -13032,50 +13094,88 @@ function _addHerraje3D(herrId, az, halfW, pz, perp, hwAt, zMax = Infinity) {
     ? new THREE.MeshStandardMaterial({ color: 0x55BBDD, metalness: 0.45, roughness: 0.35, emissive: 0x0A3A5A, emissiveIntensity: 0.25 })
     : new THREE.MeshBasicMaterial({ color: 0x55BBDD });
 
+  // Poste OC — sección circular
   const mkTube = (p1, p2, r) => {
     const dir = new THREE.Vector3().subVectors(p2, p1);
     const L = dir.length(); if (L < 1e-5) return;
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 7), mat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 8), mat);
     m.position.copy(p1.clone().addScaledVector(dir.normalize(), L / 2));
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     herrajesGroup.add(m);
   };
 
+  // Base de orientación para miembros horizontales: eje Y local apunta al mundo Z
+  // (vertical) → una cara del perfil queda paralela al plano XY.
+  const _mkBasis = dn => {
+    const worldZ = new THREE.Vector3(0, 0, 1);
+    let right = new THREE.Vector3().crossVectors(worldZ, dn);
+    if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+    right.normalize();
+    const up = new THREE.Vector3().crossVectors(dn, right).normalize();
+    return new THREE.Quaternion().setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(right, up, dn)
+    );
+  };
+
+  // Brazo PTR cuadrado — BoxGeometry con cara horizontal paralela al plano XY
+  const PTR = 0.076;   // 3" = 76 mm lado
+  const mkBrazo = (p1, p2) => {
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const L = dir.length(); if (L < 1e-5) return;
+    const dn = dir.clone().normalize();
+    const m = new THREE.Mesh(new THREE.BoxGeometry(PTR, PTR, L), mat);
+    m.quaternion.copy(_mkBasis(dn));
+    m.position.copy(p1).addScaledVector(dn, L / 2);
+    herrajesGroup.add(m);
+  };
+
+  // Travesaño LI ángulo — dos cajas formando L (pierna = 76 mm, espesor = 6 mm)
+  // Flange horizontal en la parte superior (cara UP); flange vertical colgando hacia abajo.
+  const LI_leg = 0.076, LI_thk = 0.006;
+  const mkAngulo = (p1, p2) => {
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const L = dir.length(); if (L < 1e-5) return;
+    const dn = dir.clone().normalize();
+    const q   = _mkBasis(dn);
+    const mid = p1.clone().addScaledVector(dn, L / 2);
+    // Ala superior — se desplaza hacia la torre (−X local), + ½ diámetro del poste (30 mm)
+    const _liShift = LI_leg / 2 + 0.030;
+    const off1 = new THREE.Vector3(-_liShift, 0, 0).applyQuaternion(q);
+    const m1 = new THREE.Mesh(new THREE.BoxGeometry(LI_leg, LI_thk, L), mat);
+    m1.quaternion.copy(q); m1.position.copy(mid).add(off1);
+    herrajesGroup.add(m1);
+    // Ala vertical — cuelga del extremo exterior del ala superior (lado alejado de la torre)
+    const off2 = new THREE.Vector3(-0.030 + LI_thk / 2, -LI_leg / 2, 0).applyQuaternion(q);
+    const m2 = new THREE.Mesh(new THREE.BoxGeometry(LI_thk, LI_leg - LI_thk, L), mat);
+    m2.quaternion.copy(q); m2.position.copy(mid).add(off2);
+    herrajesGroup.add(m2);
+  };
+
   if (herrId === 'MW') {
-    // Poste a 60cm de la cara baja del brazo inferior (pz-0.72)
     const R = hw(pz - 0.72) + 0.60;
     const zTop = czMax(pz + 0.72);
-    // BRAZOS PTR 3" — parten de la cara real a su propia altura y llegan al poste
-    mkTube(ptFace(zTop, 0), ptRad(R, 0, zTop), 0.038);
-    mkTube(ptFace(pz - 0.72, 0), ptRad(R, 0, pz - 0.72), 0.038);
-    // POSTE OC 4" (r=57mm), L=1.50m — longitud fija, sin recortar
-    mkTube(ptRad(R, 0, pz - 0.75), ptRad(R, 0, pz + 0.75), 0.057);
+    mkBrazo(ptFace(zTop, 0),      ptRad(R, 0, zTop));
+    mkBrazo(ptFace(pz - 0.72, 0), ptRad(R, 0, pz - 0.72));
+    mkTube(ptRad(R, 0, pz - 0.75), ptRad(R, 0, pz + 0.75), 0.057);   // POSTE OC 4"
 
   } else if (herrId === 'RF_simple') {
-    // Poste a 60cm de la cara baja del brazo inferior (pz-0.80)
     const R = hw(pz - 0.80) + 0.60;
     const zTop = czMax(pz + 0.80);
-    // BRAZOS PTR 3" — parten de la cara real a su propia altura
-    mkTube(ptFace(zTop, 0), ptRad(R, 0, zTop), 0.038);
-    mkTube(ptFace(pz - 0.80, 0), ptRad(R, 0, pz - 0.80), 0.038);
-    // POSTE OC 2" (r=30mm), L=2.20m — longitud fija, sin recortar
-    mkTube(ptRad(R, 0, pz - 1.10), ptRad(R, 0, pz + 1.10), 0.030);
+    mkBrazo(ptFace(zTop, 0),      ptRad(R, 0, zTop));
+    mkBrazo(ptFace(pz - 0.80, 0), ptRad(R, 0, pz - 0.80));
+    mkTube(ptRad(R, 0, pz - 1.10), ptRad(R, 0, pz + 1.10), 0.030);   // POSTE OC 2"
 
   } else if (herrId === 'RF_H') {
     const sT = 0.60;
-    // Poste a 60cm de la cara en el brazo inferior (pz-0.55) — referencia fija
     const R = hw(pz - 0.55) + 0.60;
     const zTop = czMax(pz + 0.55);
-    // BRAZOS PTR 3" al poste central (lT=0), parten de cara real a su altura
-    mkTube(ptFace(zTop, 0), ptRad(R, 0,   zTop), 0.038);
-    mkTube(ptFace(pz - 0.55, 0), ptRad(R, 0,   pz - 0.55), 0.038);
-    // POSTES OC 2" (r=30mm) — longitud fija, sin recortar
-    mkTube(ptRad(R, 0,   pz - 1.0), ptRad(R, 0,   pz + 1.0), 0.030);  // central
-    mkTube(ptRad(R, +sT, pz - 1.0), ptRad(R, +sT, pz + 1.0), 0.030);  // exterior +
-    mkTube(ptRad(R, -sT, pz - 1.0), ptRad(R, -sT, pz + 1.0), 0.030);  // exterior -
-    // TRAVESAÑOS LI 3" (r=13mm) — posición fija pz±0.55 independiente del clamping del brazo
-    mkTube(ptRad(R, -sT, pz + 0.55), ptRad(R, +sT, pz + 0.55), 0.013);
-    mkTube(ptRad(R, -sT, pz - 0.55), ptRad(R, +sT, pz - 0.55), 0.013);
+    mkBrazo(ptFace(zTop, 0),       ptRad(R, 0, zTop));
+    mkBrazo(ptFace(pz - 0.55, 0),  ptRad(R, 0, pz - 0.55));
+    mkTube(ptRad(R,   0, pz - 1.0), ptRad(R,   0, pz + 1.0), 0.030);  // POSTE central OC 2"
+    mkTube(ptRad(R, +sT, pz - 1.0), ptRad(R, +sT, pz + 1.0), 0.030);  // POSTE exterior +
+    mkTube(ptRad(R, -sT, pz - 1.0), ptRad(R, -sT, pz + 1.0), 0.030);  // POSTE exterior −
+    mkAngulo(ptRad(R, -sT, pz + 0.55), ptRad(R, +sT, pz + 0.55));     // TRAVESAÑO LI superior
+    mkAngulo(ptRad(R, -sT, pz - 0.55), ptRad(R, +sT, pz - 0.55));     // TRAVESAÑO LI inferior
   }
 }
 
@@ -13096,6 +13196,7 @@ function switchToTorre() {
   closeAntenasFlyout();
   closeFeedersPanel();
   closeCombisPanel();
+  closeHerrajesPanel();
   // Ocultar la vista de Cargas de Viento al cambiar a Torre — si no, su clase "visible"
   // se queda pegada y compite con rpanel-info la próxima vez que se muestre el panel —
   // pedido explícito del usuario (2026-06-29: "rpanel-viento se debe ocultar al cambiar
