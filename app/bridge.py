@@ -9,19 +9,15 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from app.tower.model import TowerConfig
-from app.tower.generator import generate_tower
 
 DEFAULT_PROJECT_DIR = r"C:\Users\cespi\Downloads\TSA (Tower Structural Analysis)"
 
 
 class Bridge(QObject):
-    towerDataChanged = Signal(str)
     statusMessage = Signal(str)
 
     def __init__(self, parent=None, page=None):
         super().__init__(parent)
-        self.config = TowerConfig()
         self._page = page
 
     @Slot(result=bool)
@@ -146,27 +142,3 @@ class Bridge(QObject):
         except Exception as exc:
             return json.dumps({"cancelled": False, "error": str(exc)})
 
-    @Slot()
-    def viewerReady(self):
-        self.regenerate()
-
-    @Slot(str)
-    def updateConfig(self, json_str: str):
-        try:
-            self.config.update(json.loads(json_str))
-            self.regenerate()
-        except Exception as exc:
-            self.statusMessage.emit(f"Error: {exc}")
-
-    def regenerate(self):
-        nodes, members = generate_tower(self.config)
-        payload = {
-            "nodes":   [{"x": n.x, "y": n.y, "z": n.z} for n in nodes],
-            "members": [{"node_i": m.node_i, "node_j": m.node_j, "type": m.member_type}
-                        for m in members],
-        }
-        self.towerDataChanged.emit(json.dumps(payload))
-        self.statusMessage.emit(
-            f"Torre generada  |  Nodos: {len(nodes)}  |  "
-            f"Elementos: {len(members)}  |  Altura: {self.config.height:.1f} m"
-        )
