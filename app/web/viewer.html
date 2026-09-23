@@ -8452,6 +8452,9 @@ let strutData     = [];  // [{h, az, r, zFixed, profile, d, t, b, b1, b2}] — p
 let _mastType     = null; // 'mast-guyed' | 'mast-strut' | null — subtipo de monopolo activo
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
 let _unsavedChanges = false;  // true tras cualquier edición; false al abrir/nuevo/guardar — usado al cerrar la app (.exe)
+// Expuesta para closeEvent() en main_window.py, que consulta esto vía runJavaScript
+// antes de cerrar la ventana — sin esto el diálogo de "guardar cambios" nunca se dispara.
+window.hasUnsavedChanges = () => _unsavedChanges;
 // Override manual de posición de nodo, vía tabla Nodos — {idx: {x,y,z}}. Se reaplica
 // encima de la geometría generada (ver refresh()) cada vez que se regenera la torre;
 // si cambia el tipo/Nº de secciones, los índices pueden dejar de corresponder al mismo
