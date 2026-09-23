@@ -4,7 +4,7 @@ __pycache__/
 *.pyc
 *.spec.bak
 
-# Catálogos fuente (xlsx) — datos ya embebidos en TSA.html/index.html, no se publican
+# Catálogos fuente (xlsx) — datos ya embebidos en app/web/viewer.html, no se publican
 *.xlsx
 
 # Proyectos de ejemplo / datos locales

@@ -22,6 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Sincronizar página pública desde app/web (fuente de verdad)
+        # app/web/viewer.html es lo único que carga el .exe de escritorio; las copias
+        # en la raíz (index.html, Ayuda_TSA.html, docx.umd.js) son solo para servir el
+        # sitio estático de Pages, que no tiene build step. Se sobreescriben aquí en
+        # cada deploy para que nunca puedan desincronizarse en silencio (ya pasó una
+        # vez con TSA.html, que quedó publicado meses desactualizado) — el commit no
+        # se toca, solo el artefacto que se sube a Pages.
+        run: |
+          cp app/web/viewer.html index.html
+          cp app/web/Ayuda_TSA.html Ayuda_TSA.html
+          cp app/web/docx.umd.js docx.umd.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

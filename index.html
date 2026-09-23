@@ -659,7 +659,7 @@ body {
    todos los campos"). Solo afecta a #viento-flyout (selector por id, más específico que
    .torre-flyout) — Nueva Torre sigue en 268px. */
 #viento-flyout   { width: 380px; }
-#antenas-flyout  { width: 760px; }
+#antenas-flyout  { width: 840px; }
 
 /* ── Panel Antenas ──────────────────────────────────────────── */
 .ant-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -3499,12 +3499,12 @@ function genMixed(cfg, ANG, radiusFn) {
 // Vértice apunta al Norte (0°/arriba): montantes en 90°, 210°, 330° (math) = 0°, 120°, 240° (brújula).
 // Normas de cara en 60°, 180°, 300° — alineadas con los defaults de azimut de antenas.
 function genTriangular(cfg) {
-  const ANG = [90,210,330].map(d => d*Math.PI/180);
+  const ANG = [90,330,210].map(d => d*Math.PI/180);
   return genMixed(cfg, ANG, t => (cfg.baseW+(cfg.topW-cfg.baseW)*t)/Math.sqrt(3));
 }
 
 function genSquare(cfg) {
-  const ANG = [225,315,45,135].map(d => d*Math.PI/180);
+  const ANG = [45,315,225,135].map(d => d*Math.PI/180);
   return genMixed(cfg, ANG, t => (cfg.baseW+(cfg.topW-cfg.baseW)*t)*Math.SQRT2/2);
 }
 
@@ -3513,8 +3513,8 @@ function genGuyed(cfg) {
   // Los ángulos siguen la misma convención que genTriangular/genSquare (+180° = flip x/y).
   const isSquareGuyed = cfg.guyShape === 'square';
   const ANG = isSquareGuyed
-    ? [225,315,45,135].map(d => d*Math.PI/180)
-    : [270,30,150].map(d => d*Math.PI/180);
+    ? [225,135,45,315].map(d => d*Math.PI/180)
+    : [270,150,30].map(d => d*Math.PI/180);
   const nLegs = isSquareGuyed ? 4 : 3;
   // R0 = circunradio del polígono con lado shaftW:
   // triangular: shaftW/√3 ; cuadrada: shaftW·√2/2
@@ -3563,12 +3563,12 @@ function genGuyed(cfg) {
 
   // Ángulos internos de las piernas en grados — usados para asignar anclajes al leg más cercano.
   // El offset +270° convierte azimut de usuario (0°=Norte) al ángulo interno del sistema ANG.
-  // Triangular: piernas a [270,30,150]° → usuario [0,120,240]°
-  // Cuadrada:   piernas a [225,315,45,135]° → usuario [315,45,135,225]°
-  const legAnglesDeg = isSquareGuyed ? [225,315,45,135] : [270,30,150];
+  // Triangular: piernas a [270,150,30]° → usuario [0,240,120]°  (P1=N, P2=SE, P3=SO)
+  // Cuadrada:   piernas a [225,135,45,315]° → usuario [315,225,135,45]° (P1=NE, P2=SE, P3=SO, P4=NO)
+  const legAnglesDeg = isSquareGuyed ? [225,135,45,315] : [270,150,30];
   const defaultAnchors = isSquareGuyed
-    ? [315,45,135,225].map(az => ({elev:0, radio:15, azimut:az}))
-    : [0,120,240].map(az => ({elev:0, radio:15, azimut:az}));
+    ? [315,225,135,45].map(az => ({elev:0, radio:15, azimut:az}))
+    : [0,240,120].map(az => ({elev:0, radio:15, azimut:az}));
   const anchorDefsAll = (cfg.guyAnchorData && cfg.guyAnchorData.length ? cfg.guyAnchorData
     : defaultAnchors);
   const ancIdsAll = anchorDefsAll.map(a => {
@@ -3622,7 +3622,7 @@ function genGuyed(cfg) {
         const a1 = legAnglesDeg[k], a2raw = legAnglesDeg[(k+1)%3];
         const a2 = a2raw > a1 ? a2raw : a2raw + 360;
         const bisDeg = (a1 + a2) / 2;
-        const rad = bisDeg * Math.PI/180;   // mismo sistema de ángulos internos que ANG
+        const rad = bisDeg * Math.PI/180 + Math.PI;   // +π → vértices alineados con piernas (180° respecto a cara)
         return addNode(nodes, vertexR*Math.cos(rad), vertexR*Math.sin(rad), zLvl);
       });
       // GUYS PRIMERO — los cables de retenida se generan ANTES que los miembros del
@@ -5267,6 +5267,82 @@ window.addEventListener('pointerup', e => {
   if (e.button === 1) renderer.domElement.style.cursor = '';
 });
 
+// ── North indicator — canvas 2D en esquina inferior izquierda ──────────
+const NORTH_S = 72;
+const northCanvas = document.createElement('canvas');
+northCanvas.width  = NORTH_S * devicePixelRatio;
+northCanvas.height = NORTH_S * devicePixelRatio;
+northCanvas.style.cssText = `position:absolute;bottom:10px;left:10px;width:${NORTH_S}px;height:${NORTH_S}px;pointer-events:none;z-index:5;`;
+wrap.appendChild(northCanvas);
+const _nCtx = northCanvas.getContext('2d');
+_nCtx.scale(devicePixelRatio, devicePixelRatio);
+
+const _northWorldDir = new THREE.Vector3(0, 1, 0);   // +Y = Norte en world space
+const _northProj     = new THREE.Vector3();
+
+function _drawNorthIndicator() {
+  const S = NORTH_S, cx = S / 2, cy = S / 2, R = S / 2 - 6;
+  _nCtx.clearRect(0, 0, S, S);
+
+  // Proyectar la dirección +Y (Norte) a espacio de cámara: solo rotación, sin traslación.
+  // transformDirection aplica la inversa de la rotación del mundo → da componentes XY
+  // en espacio de cámara (x=derecha, y=arriba en pantalla).
+  _northProj.copy(_northWorldDir).transformDirection(activeCamera.matrixWorldInverse);
+  const nx =  _northProj.x;   // +derecha en pantalla
+  const ny = -_northProj.y;   // +abajo en pantalla (canvas Y invertido)
+  const len = Math.hypot(nx, ny);
+  const dx = len > 1e-4 ? nx / len : 0;
+  const dy = len > 1e-4 ? ny / len : -1;
+
+  // Fondo circular semitransparente
+  _nCtx.beginPath();
+  _nCtx.arc(cx, cy, R + 4, 0, Math.PI * 2);
+  _nCtx.fillStyle = 'rgba(10,22,40,0.72)';
+  _nCtx.fill();
+  _nCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+  _nCtx.lineWidth = 1;
+  _nCtx.stroke();
+
+  // Aguja: mitad norte (roja) y mitad sur (gris)
+  const tipX = cx + dx * R, tipY = cy + dy * R;
+  const tailX = cx - dx * R, tailY = cy - dy * R;
+  const perpX = -dy * 5, perpY = dx * 5;
+
+  // Mitad Norte — roja
+  _nCtx.beginPath();
+  _nCtx.moveTo(tipX, tipY);
+  _nCtx.lineTo(cx + perpX, cy + perpY);
+  _nCtx.lineTo(cx - perpX, cy - perpY);
+  _nCtx.closePath();
+  _nCtx.fillStyle = '#FF3344';
+  _nCtx.fill();
+
+  // Mitad Sur — gris
+  _nCtx.beginPath();
+  _nCtx.moveTo(tailX, tailY);
+  _nCtx.lineTo(cx + perpX, cy + perpY);
+  _nCtx.lineTo(cx - perpX, cy - perpY);
+  _nCtx.closePath();
+  _nCtx.fillStyle = '#6B7280';
+  _nCtx.fill();
+
+  // Círculo central
+  _nCtx.beginPath();
+  _nCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+  _nCtx.fillStyle = '#E2E8F0';
+  _nCtx.fill();
+
+  // Letra N — dentro del círculo, a 70% del radio hacia el norte
+  _nCtx.font = 'bold 11px Arial,sans-serif';
+  _nCtx.fillStyle = '#FFFFFF';
+  _nCtx.textAlign = 'center';
+  _nCtx.textBaseline = 'middle';
+  _nCtx.shadowColor = '#000';
+  _nCtx.shadowBlur = 3;
+  _nCtx.fillText('N', cx + dx * (R * 0.70), cy + dy * (R * 0.70));
+  _nCtx.shadowBlur = 0;
+}
+
 // ── Axis indicator — renderer dedicado ────────────────────────
 const axisCanvas = document.createElement('canvas');
 const AX_S = 110;
@@ -5908,6 +5984,10 @@ function resizeRenderer() {
       _redrawWindForceArrows();
     }
   }
+  if (_localAxesGroup) {
+    const s = _worldUnitsPerPixel() * 20;
+    for (const g of _localAxesGroup.children) g.scale.setScalar(s);
+  }
   renderer.render(scene,activeCamera);
   activeCamera.getWorldDirection(_axisDir);
   axisCamera.position.copy(_axisDir).multiplyScalar(-3.2);
@@ -5915,6 +5995,7 @@ function resizeRenderer() {
   axisCamera.lookAt(0,0,0);
   axisRenderer.render(axisScene, axisCamera);
   updateAxisLabels();
+  _drawNorthIndicator();
   if (nodeLabelsOn || profileLabelsOn || staadLabelsOn || secHeightLabelsOn || windForcesOn || windForceLabelsOn) {
     labelRenderer.render(scene, camera);
   }
@@ -7362,7 +7443,7 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
 // en calcSectionWindForce).
 function _windDirFromAngle(angleDeg) {
   const r = (angleDeg || 0) * Math.PI / 180;
-  return { x: -Math.sin(r), y: -Math.cos(r) };  // 0°→-Y, 90°→-X
+  return { x: Math.sin(r), y: Math.cos(r) };    // 0°→+Y, 90°→+X
 }
 function _legColumnsUnionFind(nodes, members) {
   const parent = {};
@@ -8252,6 +8333,7 @@ function setupKeyboardShortcuts() {
     if (e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleStaadLabels(); return; }
     if (e.shiftKey && e.key.toLowerCase() === 'x') { e.preventDefault(); toggleProfileLabels(); return; }
     if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); toggleApoyosLabels(); return; }
+    if (e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); if (_localAxesGroup) { scene.remove(_localAxesGroup); _localAxesGroup=null; } else { _buildLocalAxes(); } return; }
     if (e.key === 'f' || e.key === 'F') { refitView(); }
     else if (e.key === 'Escape') { closeMemberInfo(); closeRenderOverlay(); }
   });
@@ -8370,6 +8452,9 @@ let strutData     = [];  // [{h, az, r, zFixed, profile, d, t, b, b1, b2}] — p
 let _mastType     = null; // 'mast-guyed' | 'mast-strut' | null — subtipo de monopolo activo
 let currentFileHandle = null;  // FileSystemFileHandle activo (File System Access API)
 let _unsavedChanges = false;  // true tras cualquier edición; false al abrir/nuevo/guardar — usado al cerrar la app (.exe)
+// Expuesta para closeEvent() en main_window.py, que consulta esto vía runJavaScript
+// antes de cerrar la ventana — sin esto el diálogo de "guardar cambios" nunca se dispara.
+window.hasUnsavedChanges = () => _unsavedChanges;
 // Override manual de posición de nodo, vía tabla Nodos — {idx: {x,y,z}}. Se reaplica
 // encima de la geometría generada (ver refresh()) cada vez que se regenera la torre;
 // si cambia el tipo/Nº de secciones, los índices pueden dejar de corresponder al mismo
@@ -10431,7 +10516,7 @@ function _renderAntenasTable() {
         const subLinkSel = isRRUSub ? (() => {
           const opts = antenasData
             .filter(x => x.tipo !== 'RRU' && x.id != null)
-            .map(x => `<option value="${x.id}"${sub.linkedTo===x.id?' selected':''}>${_esc(x.desc||'Ant.')} — z=${x.z}m</option>`)
+            .map(x => `<option value="${x.id}"${sub.linkedTo===x.id?' selected':''}>${_esc(x.desc||'Ant.')} — z=${x.z}m / az=${x.azimuth}°</option>`)
             .join('');
           return `<select class="ant-sel" style="font-size:10px;width:100%"
               title="Vincular RRU a antena" onchange="_antLinkTo(${idx},+this.value||null)">
@@ -12185,10 +12270,10 @@ function _fdDrawPlan() {
       ctx.fillStyle = '#2a4a70';
       ctx.fillText(lbl, mx + dx/d*LO, my + dy/d*LO);
     };
-    midLabel(0,1,'B'); midLabel(1,2,'A'); midLabel(2,0,'C');
+    midLabel(0,1,'A'); midLabel(1,2,'B'); midLabel(2,0,'C');
     const faceMid = {
-      A: [(pts[1][0]+pts[2][0])/2, (pts[1][1]+pts[2][1])/2],
-      B: [(pts[0][0]+pts[1][0])/2, (pts[0][1]+pts[1][1])/2],
+      A: [(pts[0][0]+pts[1][0])/2, (pts[0][1]+pts[1][1])/2],
+      B: [(pts[1][0]+pts[2][0])/2, (pts[1][1]+pts[2][1])/2],
       C: [(pts[2][0]+pts[0][0])/2, (pts[2][1]+pts[0][1])/2],
     };
     ['A','B','C'].forEach(face => {
@@ -12403,7 +12488,7 @@ function _renderFeeders3D() {
   function faceVectors(face, hw) {
     let nx, ny;
     if (towerType === 'triangular') {
-      const angles = {A: -Math.PI/2, B: Math.PI/6, C: 5*Math.PI/6};
+      const angles = {A: Math.PI/6, B: -Math.PI/2, C: 5*Math.PI/6};
       const ang = angles[face] ?? 0;
       nx = Math.cos(ang); ny = Math.sin(ang);
     } else if (towerType === 'monopole') {
@@ -12729,13 +12814,14 @@ function renderAntenas3D() {
   // RRU: van detrás de su Panel asociado (mismo az+z, por orden), 5 cm de gap.
   const _perpOff   = new Array(antenasData.length).fill(0);
   const _rruBehind = new Array(antenasData.length).fill(false);
+  const _rruHerr   = new Array(antenasData.length).fill(null);
+  const _rruRotOff = new Array(antenasData.length).fill(0);
   const _renderedRFH = new Set(); // evita duplicar el frame RF_H para el mismo grupo az/z
+  let _antLegSet = null;          // legSet cacheado para posAz desde pierna
   {
     const grps = {};
     antenasData.forEach((a, i) => {
-      const k = a.pierna != null
-        ? `leg${a.pierna}_${(+a.z||0).toFixed(1)}`
-        : `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
+      const k = `${(+a.azimuth||0).toFixed(1)}_${(+a.z||0).toFixed(1)}`;
       if (!grps[k]) grps[k] = { panels: [], rrus: [] };
       (a.tipo === 'RRU' ? grps[k].rrus : grps[k].panels).push(i);
     });
@@ -12754,15 +12840,51 @@ function renderAntenas3D() {
         const step = (+antenasData[panels[0]].ancho || 0.25) + 0.60;
         panels.forEach((idx, k) => { _perpOff[idx] = ((Np - 1) / 2 - k) * step; });
       }
-      // RRUs: hasta 3 por panel, alineadas detrás de su panel padre (por orden)
+      // RRUs: RF_H → tangencial al poste del panel padre (vinculada) o por índice (libre)
       rrus.forEach((rruIdx, ri) => {
-        const parentPanelIdx = panels[Math.floor(ri / 3)]; // panel padre (grupos de 3)
-        const posInSet  = ri % 3;                           // posición dentro del grupo (0-2)
-        const setSize   = Math.min(3, rrus.length - Math.floor(ri / 3) * 3);
-        const rruW      = +antenasData[rruIdx].ancho || 0.30;
-        const rruStep   = rruW + 0.15;
-        const panelOff  = parentPanelIdx != null ? _perpOff[parentPanelIdx] : 0;
-        _perpOff[rruIdx]   = panelOff + ((setSize - 1) / 2 - posInSet) * rruStep;
+        const rruA     = antenasData[rruIdx];
+        const isLinked = rruA.linkedTo != null;
+        _rruHerr[rruIdx]   = null;
+        _rruRotOff[rruIdx] = 0;
+
+        if (herr0 === 'RF_H') {
+          // Determinar el poste por la perp del panel padre (vinculada) o por ri (libre)
+          const E_r = +rruA.espesor || 0.08;
+          const pR  = 0.030;
+          let pPerp;
+          if (isLinked) {
+            const parentIdx = antenasData.findIndex(a => a.id === rruA.linkedTo);
+            pPerp = parentIdx >= 0 ? _perpOff[parentIdx] : [0.60,-0.60,0][ri%3];
+          } else {
+            pPerp = [0.60,-0.60,0][ri%3];
+          }
+          if (pPerp > 0.3) {
+            _perpOff[rruIdx]   =  0.60 - pR - E_r/2;
+            _rruRotOff[rruIdx] = -Math.PI/2;
+          } else if (pPerp < -0.3) {
+            _perpOff[rruIdx]   = -(0.60 - pR - E_r/2);
+            _rruRotOff[rruIdx] =  Math.PI/2;
+          } else {
+            _perpOff[rruIdx]   = 0;
+            _rruRotOff[rruIdx] = 0;
+          }
+          _rruHerr[rruIdx] = 'RF_H';
+        } else if (isLinked) {
+          const parentIdx = antenasData.findIndex(a => a.id === rruA.linkedTo);
+          _perpOff[rruIdx] = parentIdx >= 0 ? _perpOff[parentIdx] : 0;
+          if (herr0 !== 'ninguno') _rruHerr[rruIdx] = herr0;
+        } else if (herr0 !== 'ninguno') {
+          _perpOff[rruIdx]   = 0;
+          _rruHerr[rruIdx]   = herr0;
+        } else {
+          const parentPanelIdx = panels[Math.floor(ri / 3)];
+          const posInSet  = ri % 3;
+          const setSize   = Math.min(3, rrus.length - Math.floor(ri / 3) * 3);
+          const rruW      = +rruA.ancho || 0.30;
+          const rruStep   = rruW + 0.15;
+          const panelOff  = parentPanelIdx != null ? _perpOff[parentPanelIdx] : 0;
+          _perpOff[rruIdx] = panelOff + ((setSize - 1) / 2 - posInSet) * rruStep;
+        }
         _rruBehind[rruIdx] = true;
       });
     });
@@ -12836,12 +12958,28 @@ function renderAntenas3D() {
     const E  = +a.espesor || 0.06;
     const az    = (+a.azimuth || 0) * Math.PI / 180;
     // posAz: ángulo de posición (para XY en 3D). Si pierna está definida, lo toma del nodo
-    // de la pierna correspondiente en _towerData; si no, coincide con el azimut de apuntamiento.
+    // de pierna más cercano en altura con la dirección del azimut configurado.
     let posAz = az;
     if (a.pierna != null && _towerData && _towerData.nodes && _towerData.nodes.length > 0) {
-      const _legNode = _towerData.nodes[Math.max(0, (+a.pierna || 1) - 1)];
-      if (_legNode && Math.hypot(_legNode.x, _legNode.y) > 1e-6)
-        posAz = Math.atan2(_legNode.x, _legNode.y);
+      if (!_antLegSet) {
+        _antLegSet = new Set();
+        _towerData.members.forEach(m => { if (m.type === 'leg') { _antLegSet.add(m.ni); _antLegSet.add(m.nj); } });
+      }
+      // Pierna P1/P2/P3 → el (pierna-1)-ésimo nodo de pierna al nivel más cercano,
+      // ordenado por índice de nodo (orden de generación = P1→P2→P3).
+      const _pIdx = +a.pierna - 1;
+      let _bestDz = Infinity;
+      const _atZ = [];
+      _antLegSet.forEach(ni => {
+        const dz = Math.abs(_towerData.nodes[ni].z - (+a.z || 0));
+        if (dz < _bestDz - 1e-4) { _bestDz = dz; _atZ.length = 0; _atZ.push(ni); }
+        else if (dz < _bestDz + 1e-4) _atZ.push(ni);
+      });
+      _atZ.sort((ia, ib) => ia - ib);
+      const _lni = _atZ[_pIdx] != null ? _atZ[_pIdx] : _atZ[0];
+      const _ln  = _lni != null ? _towerData.nodes[_lni] : null;
+      if (_ln && Math.hypot(_ln.x, _ln.y) > 1e-6)
+        posAz = Math.atan2(_ln.x, _ln.y);
     }
     const halfW = _faceFn(+a.z || 0);   // cara real de la torre (corregida por tipo)
     const perp  = _perpOff[dataIdx];
@@ -13020,10 +13158,14 @@ function renderAntenas3D() {
       const base = halfW;
       const _hasHerr = a.herraje && a.herraje !== 'ninguno';
       const _pz0 = +a.z || 0;
+      const _rruH   = _rruBehind[dataIdx] ? _rruHerr[dataIdx]   : null;
+      const _rruRot = _rruBehind[dataIdx] ? _rruRotOff[dataIdx]  : 0;
       const radialOffset = _rruBehind[dataIdx]
-        ? (_hasHerr                                                           // RRU: cara interior del poste
-            ? _rPost(a.herraje, _pz0) - _postR(a.herraje) - 0.05 - E / 2
-            : base + 0.50 - E / 2)
+        ? (_rruH && _rruRot !== 0                                             // RRU tangencial: centro del poste
+            ? _rPost(_rruH, _pz0)
+            : _rruH                                                           // RRU detrás del poste
+              ? _rPost(_rruH, _pz0) - _postR(_rruH) - 0.05 - E / 2
+              : base + 0.50 - E / 2)                                         // RRU sin herraje
         : _hasHerr
           ? _rPost(a.herraje, _pz0) + _postR(a.herraje) + E / 2              // antena: cara exterior del poste
           : base + 0.60 + E / 2;                                              // sin herraje
@@ -13037,7 +13179,7 @@ function renderAntenas3D() {
       const mat   = new THREE.MeshBasicMaterial({ color: panelCol, side: THREE.DoubleSide });
       const mesh  = new THREE.Mesh(geo, mat);
       mesh.position.set(px, py, pz);
-      mesh.rotation.z = a.tipo === 'RRU' ? -az + Math.PI : -az;
+      mesh.rotation.z = a.tipo === 'RRU' ? -az + _rruRot : -az;
       antenasGroup.add(mesh);
       const edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(geo, 15),
@@ -13186,6 +13328,7 @@ function applyAntenas() {
     _buildWindForceArrows();
     _renderAntennaForceTable(getConfig());
   }
+  closeAntenasFlyout();
 }
 
 function switchToTorre() {
@@ -13290,9 +13433,75 @@ function nuevoProyecto() {
 // ── Render 3D con secciones extruidas (ExtrudeGeometry, mismo enfoque que Fast Site) ──
 let _renderScene = null, _renderRenderer = null, _renderControls = null;
 let _renderRAF   = null, _renderCamera   = null;
+var _localAxesGroup = null;
 let _renderTowerH = 30; // actualizado en _buildRenderScene para que _renderFitCamera lo use
 
 // Serializa toda la info de la escena 3D en un objeto plano (JSON-serializable).
+function _buildLocalAxes() {
+  if (_localAxesGroup) { scene.remove(_localAxesGroup); _localAxesGroup = null; }
+  const payload = _prepareRenderPayload();
+  if (!payload) return;
+  _localAxesGroup = new THREE.Group();
+  const O = new THREE.Vector3(0,0,0);
+  payload.members.forEach(({ ni, nj, dims, type }) => {
+    const dx = nj.x-ni.x, dy = nj.y-ni.y, dz = nj.z-ni.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-6) return;
+    const dir = new THREE.Vector3(dx/len, dy/len, dz/len);
+    let secUp = new THREE.Vector3(0,0,1).sub(dir.clone().multiplyScalar(dir.z));
+    if (secUp.lengthSq() < 1e-6) secUp.set(0,1,0);
+    secUp.normalize();
+    let secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
+    const _isStabMember = type==='stabarm'||type==='puntal'||type==='tensor';
+    const _needsOutward = dims?.fam==='c'||(_isStabMember&&(dims?.fam==='li'||dims?.fam==='ld'));
+    if (_needsOutward) {
+      const mx=(ni.x+nj.x)/2, my=(ni.y+nj.y)/2;
+      if (mx*mx+my*my>1e-4 && secRight.x*mx+secRight.y*my<0) secRight.negate();
+    }
+    const _isDiagHoriz = type==='diagonal'||type==='horizontal'||type==='horizPuntal'||type==='horizTensor'||type==='puntal'||type==='tensor';
+    let lXf;
+    if (type==='leg') {
+      const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+      const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+      const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+      const bL=Math.hypot(bx,by);
+      const isAngL=dims?.fam==='li'||dims?.fam==='ld';
+      if (bL>1e-4) {
+        const ux=bx/bL, uy=by/bL, r2=Math.SQRT2/2;
+        lXf = isAngL
+          ? new THREE.Vector3((-ux-uy)*r2,(ux-uy)*r2,0)
+          : new THREE.Vector3(ux,uy,0);
+      } else { lXf=secRight.clone(); }
+    } else if (_isDiagHoriz) {
+      if (type==='diagonal') {
+        lXf = secRight.clone();
+      } else {
+        const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+        const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+        const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+        const bL=Math.hypot(bx,by);
+        lXf = bL>1e-4 ? new THREE.Vector3(bx/bL,by/bL,0) : secRight.clone();
+      }
+    } else if (type==='puntal'||type==='tensor') {
+      const vx=nj.x, vy=nj.y, vL=Math.hypot(vx,vy);
+      lXf = vL>1e-4 ? new THREE.Vector3(-vy/vL,vx/vL,0) : secRight.clone();
+    } else {
+      const isAng = dims?.fam==='li'||dims?.fam==='ld';
+      lXf = isAng ? secRight.clone().negate() : secRight.clone();
+    }
+    const lYf = type==='leg'
+      ? new THREE.Vector3(-lXf.y, lXf.x, 0)
+      : new THREE.Vector3(0,0,-1);
+    const g = new THREE.Group();
+    g.position.set((ni.x+nj.x)/2, (ni.y+nj.y)/2, (ni.z+nj.z)/2);
+    g.add(new THREE.ArrowHelper(lXf,      O, 1, 0xff2222, 0.3, 0.15));
+    g.add(new THREE.ArrowHelper(lYf,      O, 1, 0x22ff22, 0.3, 0.15));
+    g.add(new THREE.ArrowHelper(dir.clone(), O, 1, 0x2288ff, 0.3, 0.15));
+    _localAxesGroup.add(g);
+  });
+  scene.add(_localAxesGroup);
+}
+
 // Resuelve perfiles y colores en este momento para que la ventana destino no necesite
 // el estado UI (getMemberProfile, getConfig, catálogos) — solo las funciones de forma.
 function _prepareRenderPayload() {
@@ -13339,6 +13548,48 @@ function _shapeGenericRender() {
   const s = new THREE.Shape(), h = 0.012;
   s.moveTo(-h,-h); s.lineTo(h,-h); s.lineTo(h,h); s.lineTo(-h,h); s.closePath();
   return s;
+}
+
+// Sección estructural con orientación vertical fija en espacio mundo.
+// lXf y lYf definen la orientación de la sección (no necesitan ser perp. a dir);
+// la misma sección se coloca en ambos extremos del miembro.
+function _buildLoftedStructGeo(shape, niPt, njPt, lXf, lYf) {
+  let pts = shape.getPoints(0);
+  if (pts.length > 1 && pts[pts.length-1].distanceTo(pts[0]) < 1e-6) pts = pts.slice(0,-1);
+  const np = pts.length;
+  if (np < 3) return new THREE.BufferGeometry();
+  const c2d = _computeShapeCentroid(shape);
+  const cox = lXf.x*c2d.x + lYf.x*c2d.y;
+  const coy = lXf.y*c2d.x + lYf.y*c2d.y;
+  const coz = lXf.z*c2d.x + lYf.z*c2d.y;
+  const pos = new Float32Array(np * 6);
+  for (let i = 0; i < np; i++) {
+    const p = pts[i];
+    const ox = lXf.x*p.x + lYf.x*p.y;
+    const oy = lXf.y*p.x + lYf.y*p.y;
+    const oz = lXf.z*p.x + lYf.z*p.y;
+    pos[i*3]        = niPt.x - cox + ox;
+    pos[i*3+1]      = niPt.y - coy + oy;
+    pos[i*3+2]      = niPt.z - coz + oz;
+    pos[(np+i)*3]   = njPt.x - cox + ox;
+    pos[(np+i)*3+1] = njPt.y - coy + oy;
+    pos[(np+i)*3+2] = njPt.z - coz + oz;
+  }
+  const idx = [];
+  for (let i = 0; i < np; i++) {
+    const j = (i+1) % np;
+    idx.push(i, j, j+np,  i, j+np, i+np);
+  }
+  const tris = THREE.ShapeUtils.triangulateShape(pts, []);
+  for (const [a,b,c] of tris) {
+    idx.push(a, b, c);
+    idx.push(a+np, c+np, b+np);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
 }
 
 // Centroide de una THREE.Shape 2D usando la fórmula del polígono (shoelace)
@@ -13541,10 +13792,61 @@ function _buildRenderScene(prePayload) {
     let secUp = new THREE.Vector3(0,0,1).sub(dir.clone().multiplyScalar(dir.z));
     if (secUp.lengthSq() < 1e-6) secUp.set(0, 1, 0);
     secUp.normalize();
-    const secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
-    // Ángulos LI/LD: eje local X = -secRight y eje Y = -secUp → vértice apunta hacia
-    // afuera, ala superior en la parte de arriba, otra ala paralela a la cara de la torre
-    const isAngle = dims?.fam === 'li' || dims?.fam === 'ld';
+    let secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
+    // C / LI-LD en stabarm, puntal o tensor: alas hacia afuera del eje de la torre.
+    // secRight = cross(secUp, dir) ya es horizontal; solo se niega si apunta hacia el interior.
+    const _isStabMember = type === 'stabarm' || type === 'puntal' || type === 'tensor';
+    const _needsOutward = dims?.fam === 'c' ||
+      (_isStabMember && (dims?.fam === 'li' || dims?.fam === 'ld'));
+    if (_needsOutward) {
+      const mx = (ni.x + nj.x) / 2, my = (ni.y + nj.y) / 2;
+      if (mx * mx + my * my > 1e-4 && secRight.x * mx + secRight.y * my < 0)
+        secRight.negate();
+    }
+    const _isDiagHoriz = type === 'diagonal' || type === 'horizontal' || type === 'horizPuntal' || type === 'horizTensor' || type === 'puntal' || type === 'tensor';
+    const _isLeg = type === 'leg';
+    if ((_isStabMember || _isDiagHoriz || _isLeg) && (dims?.fam === 'li' || dims?.fam === 'ld' || dims?.fam === 'c')) {
+      const isAng = dims.fam !== 'c';
+      let lXf;
+      if (_isLeg) {
+        const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+        const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+        const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+        const bL=Math.hypot(bx,by);
+        if (bL>1e-4) {
+          const ux=bx/bL, uy=by/bL, r2=Math.SQRT2/2;
+          lXf = isAng
+            ? new THREE.Vector3((-ux-uy)*r2,(ux-uy)*r2,0)
+            : new THREE.Vector3(ux,uy,0);
+        } else { lXf=secRight.clone(); }
+      } else if (_isDiagHoriz) {
+        if (type==='diagonal') {
+          lXf = secRight.clone();
+        } else {
+          const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+          const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+          const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+          const bL=Math.hypot(bx,by);
+          lXf = bL>1e-4 ? new THREE.Vector3(bx/bL,by/bL,0) : secRight.clone();
+        }
+      } else if (type === 'puntal' || type === 'tensor') {
+        const vx = nj.x, vy = nj.y, vL = Math.hypot(vx, vy);
+        lXf = vL > 1e-4 ? (isAng ? new THREE.Vector3(vy/vL, -vx/vL, 0) : new THREE.Vector3(-vy/vL, vx/vL, 0))
+                        : (isAng ? secRight.clone().negate() : secRight.clone());
+      } else {
+        lXf = isAng ? secRight.clone().negate() : secRight.clone();
+      }
+      const lYf = _isLeg
+        ? new THREE.Vector3(-lXf.y, lXf.x, 0)
+        : new THREE.Vector3(0, 0, -1);
+      const g = _buildLoftedStructGeo(shape, ni, nj, lXf, lYf);
+      const m = new THREE.Mesh(g, steelMat);
+      _renderScene.add(m);
+      const el = new THREE.LineSegments(new THREE.EdgesGeometry(g, 15), edgeMat);
+      _renderScene.add(el);
+      return;
+    }
+    const isAngle = (dims?.fam === 'li' || dims?.fam === 'ld');
     const isGuy   = type === 'guy';
     const lX = isAngle ? secRight.clone().negate() : secRight;
     const lY = isAngle ? secUp.clone().negate() : secUp;
@@ -13623,8 +13925,56 @@ function _buildMainRenderGeometry(payload) {
     let secUp = new THREE.Vector3(0,0,1).sub(dir.clone().multiplyScalar(dir.z));
     if (secUp.lengthSq() < 1e-6) secUp.set(0, 1, 0);
     secUp.normalize();
-    const secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
-    const isAngle = dims?.fam === 'li' || dims?.fam === 'ld';
+    let secRight = new THREE.Vector3().crossVectors(secUp, dir).normalize();
+    const _isStabMember = type === 'stabarm' || type === 'puntal' || type === 'tensor';
+    const _needsOutward = dims?.fam === 'c' ||
+      (_isStabMember && (dims?.fam === 'li' || dims?.fam === 'ld'));
+    if (_needsOutward) {
+      const mx = (ni.x + nj.x) / 2, my = (ni.y + nj.y) / 2;
+      if (mx * mx + my * my > 1e-4 && secRight.x * mx + secRight.y * my < 0)
+        secRight.negate();
+    }
+    const _isDiagHoriz = type === 'diagonal' || type === 'horizontal' || type === 'horizPuntal' || type === 'horizTensor' || type === 'puntal' || type === 'tensor';
+    const _isLeg = type === 'leg';
+    if ((_isStabMember || _isDiagHoriz || _isLeg) && (dims?.fam === 'li' || dims?.fam === 'ld' || dims?.fam === 'c')) {
+      const isAng = dims.fam !== 'c';
+      let lXf;
+      if (_isLeg) {
+        const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+        const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+        const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+        const bL=Math.hypot(bx,by);
+        if (bL>1e-4) {
+          const ux=bx/bL, uy=by/bL, r2=Math.SQRT2/2;
+          lXf = isAng
+            ? new THREE.Vector3((-ux-uy)*r2,(ux-uy)*r2,0)
+            : new THREE.Vector3(ux,uy,0);
+        } else { lXf=secRight.clone(); }
+      } else if (_isDiagHoriz) {
+        if (type==='diagonal') {
+          lXf = secRight.clone();
+        } else {
+          const niL=Math.hypot(ni.x,ni.y), njL=Math.hypot(nj.x,nj.y);
+          const bx=(niL>1e-4?ni.x/niL:0)+(njL>1e-4?nj.x/njL:0);
+          const by=(niL>1e-4?ni.y/niL:0)+(njL>1e-4?nj.y/njL:0);
+          const bL=Math.hypot(bx,by);
+          lXf = bL>1e-4 ? new THREE.Vector3(bx/bL,by/bL,0) : secRight.clone();
+        }
+      } else if (type === 'puntal' || type === 'tensor') {
+        const vx = nj.x, vy = nj.y, vL = Math.hypot(vx, vy);
+        lXf = vL > 1e-4 ? (isAng ? new THREE.Vector3(vy/vL, -vx/vL, 0) : new THREE.Vector3(-vy/vL, vx/vL, 0))
+                        : (isAng ? secRight.clone().negate() : secRight.clone());
+      } else {
+        lXf = isAng ? secRight.clone().negate() : secRight.clone();
+      }
+      const lYf = _isLeg
+        ? new THREE.Vector3(-lXf.y, lXf.x, 0)
+        : new THREE.Vector3(0, 0, -1);
+      const g = _buildLoftedStructGeo(shape, ni, nj, lXf, lYf);
+      _renderModeGroup.add(new THREE.Mesh(g, type === 'guy' ? cableMat : steelMat));
+      return;
+    }
+    const isAngle = (dims?.fam === 'li' || dims?.fam === 'ld');
     const lX = isAngle ? secRight.clone().negate() : secRight;
     const lY = isAngle ? secUp.clone().negate() : secUp;
     const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(lX, lY, dir));
