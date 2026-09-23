@@ -10,7 +10,17 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 
-DEFAULT_PROJECT_DIR = r"C:\Users\cespi\Downloads\TSA (Tower Structural Analysis)"
+DEFAULT_PROJECT_DIR = str(Path.home() / "Downloads" / "TSA (Tower Structural Analysis)")
+
+
+def _open_with_default_app(path: str):
+    """Abre `path` con la aplicación asociada del sistema. os.startfile es exclusivo
+    de Windows (única plataforma soportada por la app hoy); en cualquier otro SO cae
+    a webbrowser.open, que sabe abrir archivos locales vía file:// en Linux/macOS."""
+    if sys.platform == "win32":
+        os.startfile(path)
+    else:
+        webbrowser.open(Path(path).as_uri())
 
 
 class Bridge(QObject):
@@ -66,7 +76,7 @@ class Bridge(QObject):
 
         # 3 — Abrir el PDF en el visor del sistema (vista previa real del resultado).
         try:
-            os.startfile(str(tmp_pdf))
+            _open_with_default_app(str(tmp_pdf))
         except Exception:
             pass
 
@@ -101,7 +111,7 @@ class Bridge(QObject):
         try:
             Path(path).write_bytes(base64.b64decode(b64))
             self.statusMessage.emit(f"Word guardado: {path}")
-            os.startfile(path)
+            _open_with_default_app(path)
         except Exception as exc:
             self.statusMessage.emit(f"Error al guardar Word: {exc}")
 

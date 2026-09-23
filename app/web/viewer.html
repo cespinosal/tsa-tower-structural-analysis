@@ -17902,6 +17902,7 @@ async function _saveExportFile(filename, content, mimeType, description, extensi
   URL.revokeObjectURL(url);
 }
 async function _doExportSTAAD() {
+  try {
 
   const cfg  = getConfig();
   // Monopolo: solo se exporta el eje (1 nodo por límite de tramo, 1 barra por tramo) —
@@ -18512,6 +18513,9 @@ async function _doExportSTAAD() {
   out = out.toUpperCase();
 
   await _saveExportFile(`${title}.std`, out, 'text/plain', 'STAAD Input File', ['.std']);
+  } catch (err) {
+    showToast('Error al exportar STAAD: ' + err.message, 'warn');
+  }
 }
 
 // ── Exportar DXF (AutoCAD) ──────────────────────────────────────
