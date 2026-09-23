@@ -3898,14 +3898,6 @@ function addFaceBracing(nodes, members, sec, pat, BL, BR, TL, TR, bayIdx, isTopB
     return idx;
   };
   const mid = (a,b) => lerp(a,b,0.5);
-  // Conecta ML→[pts ordenados por proyección]→MR como segmentos horizontales
-  const sortH = (ML, MR, ...pts) => {
-    const nML=nodes[ML], nMR=nodes[MR];
-    const dx=nMR.x-nML.x, dy=nMR.y-nML.y, dz=nMR.z-nML.z;
-    const proj = id => { const n=nodes[id]; return (n.x-nML.x)*dx+(n.y-nML.y)*dy+(n.z-nML.z)*dz; };
-    const sorted = pts.slice().sort((a,b)=>proj(a)-proj(b));
-    let prev=ML; sorted.forEach(p=>{ h(prev,p); prev=p; }); h(prev,MR);
-  };
   // Parámetro t de la intersección real de las dos diagonales (BL→TR y BR→TL).
   // Como ambas abarcan el mismo rango z, t=s. Se resuelve en x o y.
   const xInt = () => {
@@ -16568,10 +16560,6 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
       children: Array.isArray(base) ? base : [base],
       superScript: Array.isArray(sup) ? sup : [sup],
     });
-    const mFrac = (num, den)   => new D.MathFraction({
-      numerator:   Array.isArray(num) ? num : [num],
-      denominator: Array.isArray(den) ? den : [den],
-    });
     const mMath = (...cs) => new D.Paragraph({
       alignment: D.AlignmentType.CENTER,
       spacing: { before: 100, after: 140 },
@@ -16727,17 +16715,6 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   // ── Cap. 8 — Configuración de la Torre (siempre al final) ─────────────────
   // Imagen combinada (elevación + tabla) de _reportElevAndTableSvg — una sola
   // imagen por página, garantiza alineación perfecta entre torre y tabla.
-  const mkImgPara = (png, maxDocxW) => {
-    if (!png) return null;
-    const scale = Math.min(1, maxDocxW / png.srcW);
-    return new D.Paragraph({
-      alignment: D.AlignmentType.LEFT,
-      spacing: { before: 0, after: 0 },
-      children: [new D.ImageRun({ data: png.bytes, transformation: {
-        width: Math.round(png.srcW * scale), height: Math.round(png.srcH * scale),
-      }})],
-    });
-  };
   // Escala uniforme para TODAS las páginas de 8.1:
   //   - Ajusta a ancho O alto disponible (lo que sea el límite)
   //   - Usa el mínimo entre páginas → mismo ancho en todos los splits
@@ -19491,81 +19468,45 @@ const HIP_BRACING_DEFS = {
   },
 };
 
-// K-25Pct: un solo vértice abajo (BL=BR, el hip) del que parten 2 líneas hacia
-// TC de cada cara — P1R/P2R/P3R sobre la línea izquierda (cara L), P1L/P2L/P3L
-// sobre la línea derecha (cara R), igual que el diagrama de referencia.
-function hipBracingIconSVG_K25(opt) {
+// Ícono de patrón K en cadera (K-25Pct/K-33Pct/K-50Pct y variantes Rev/2): un solo
+// vértice abajo (BL=BR, el hip) del que parten 2 líneas hacia TC de cada cara, con
+// `levels` puntos intermedios equiespaciados (3 para 25%, 2 para 33%, 1 para 50%).
+// `orangeOpt` es el valor de opt que dibuja el zigzag naranja completo hasta TCL
+// (el "diagonal" real del patrón); `singleOpt`, solo usado por K-25Pct, es el valor
+// que dibuja la variante reducida de 1 solo elemento (nivel medio + diagonal parcial
+// a TCR) — las demás familias (33%/50%) no tienen ese estado intermedio.
+function hipBracingIconSVG_K(opt, levels, orangeOpt, singleOpt) {
   const bottom = [18, 37], TCL = [6, 4], TCR = [30, 4];
   const lerp = (p,q,t) => [p[0]+(q[0]-p[0])*t, p[1]+(q[1]-p[1])*t];
-  const P1R=lerp(bottom,TCL,.25), P2R=lerp(bottom,TCL,.50), P3R=lerp(bottom,TCL,.75);
-  const P1L=lerp(bottom,TCR,.25), P2L=lerp(bottom,TCR,.50), P3L=lerp(bottom,TCR,.75);
   const line = (a,b,color,w=1.4) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${color}" stroke-width="${w}"/>`;
   const dot  = (p,color) => `<circle cx="${p[0]}" cy="${p[1]}" r="1.8" fill="${color}"/>`;
-  let svg = '';
-  svg += line(bottom, TCL, '#94A3B8', 1.2) + line(bottom, TCR, '#94A3B8', 1.2);
+  const fracs = Array.from({length: levels}, (_, i) => (i + 1) / (levels + 1));
+  const R = fracs.map(t => lerp(bottom, TCL, t));
+  const L = fracs.map(t => lerp(bottom, TCR, t));
+  let svg = line(bottom, TCL, '#94A3B8', 1.2) + line(bottom, TCR, '#94A3B8', 1.2);
   if (opt === 'none') return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
 
-  if (opt === '1') {
-    svg += line(P2R, P2L, '#3B82F6');
-    svg += line(P2R, TCR, '#FFA500');
+  if (singleOpt && opt === singleOpt) {
+    const mid = Math.floor(levels / 2);
+    svg += line(R[mid], L[mid], '#3B82F6');
+    svg += line(R[mid], TCR, '#FFA500');
     svg += dot(TCR, '#00D4FF');
     return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
   }
 
-  svg += line(P1R, P1L, '#3B82F6');
-  svg += line(P2R, P2L, '#3B82F6');
-  svg += line(P3R, P3L, '#3B82F6');
-  if (opt === '3') {
-    svg += line(P1L, P2R, '#FFA500') + line(P2L, P3R, '#FFA500') + line(P3L, TCL, '#FFA500');
-    svg += dot(TCL, '#00D4FF');
-  }
-  return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
-}
-
-// K-33Pct: misma idea que K-25Pct pero con solo 2 niveles (1/3, 2/3).
-function hipBracingIconSVG_K33(opt) {
-  const bottom = [18, 37], TCL = [6, 4], TCR = [30, 4];
-  const lerp = (p,q,t) => [p[0]+(q[0]-p[0])*t, p[1]+(q[1]-p[1])*t];
-  const P1R=lerp(bottom,TCL,1/3), P2R=lerp(bottom,TCL,2/3);
-  const P1L=lerp(bottom,TCR,1/3), P2L=lerp(bottom,TCR,2/3);
-  const line = (a,b,color,w=1.4) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${color}" stroke-width="${w}"/>`;
-  const dot  = (p,color) => `<circle cx="${p[0]}" cy="${p[1]}" r="1.8" fill="${color}"/>`;
-  let svg = '';
-  svg += line(bottom, TCL, '#94A3B8', 1.2) + line(bottom, TCR, '#94A3B8', 1.2);
-  if (opt === 'none') return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
-
-  svg += line(P1R, P1L, '#3B82F6');
-  svg += line(P2R, P2L, '#3B82F6');
-  if (opt === '2') {
-    svg += line(P1L, P2R, '#FFA500') + line(P2L, TCL, '#FFA500');
-    svg += dot(TCL, '#00D4FF');
-  }
-  return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
-}
-
-// K-50Pct: un solo nivel (50%).
-function hipBracingIconSVG_K50(opt) {
-  const bottom = [18, 37], TCL = [6, 4], TCR = [30, 4];
-  const lerp = (p,q,t) => [p[0]+(q[0]-p[0])*t, p[1]+(q[1]-p[1])*t];
-  const PR=lerp(bottom,TCL,.5), PL=lerp(bottom,TCR,.5);
-  const line = (a,b,color,w=1.4) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${color}" stroke-width="${w}"/>`;
-  const dot  = (p,color) => `<circle cx="${p[0]}" cy="${p[1]}" r="1.8" fill="${color}"/>`;
-  let svg = '';
-  svg += line(bottom, TCL, '#94A3B8', 1.2) + line(bottom, TCR, '#94A3B8', 1.2);
-  if (opt === 'none') return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
-
-  svg += line(PR, PL, '#3B82F6');
-  if (opt === '2') {
-    svg += line(PL, TCL, '#FFA500');
+  for (let i = 0; i < levels; i++) svg += line(R[i], L[i], '#3B82F6');
+  if (opt === orangeOpt) {
+    for (let i = 0; i < levels - 1; i++) svg += line(L[i], R[i + 1], '#FFA500');
+    svg += line(L[levels - 1], TCL, '#FFA500');
     svg += dot(TCL, '#00D4FF');
   }
   return `<svg viewBox="0 0 36 40" width="30" height="32">${svg}</svg>`;
 }
 
 function hipBracingIconSVG(opt, pattern) {
-  if (pattern === 'K-25Pct' || pattern === 'K-25Pct2' || pattern === 'K-25Pct-Rev') return hipBracingIconSVG_K25(opt);
-  if (pattern === 'K-33Pct' || pattern === 'K-33Pct-Rev' || pattern === 'K-33Pct2' || pattern === 'K-33Pct2-Rev') return hipBracingIconSVG_K33(opt);
-  if (pattern === 'K-50Pct' || pattern === 'K-50Pct-Rev') return hipBracingIconSVG_K50(opt);
+  if (pattern === 'K-25Pct' || pattern === 'K-25Pct2' || pattern === 'K-25Pct-Rev') return hipBracingIconSVG_K(opt, 3, '3', '1');
+  if (pattern === 'K-33Pct' || pattern === 'K-33Pct-Rev' || pattern === 'K-33Pct2' || pattern === 'K-33Pct2-Rev') return hipBracingIconSVG_K(opt, 2, '2', null);
+  if (pattern === 'K-50Pct' || pattern === 'K-50Pct-Rev') return hipBracingIconSVG_K(opt, 1, '2', null);
 
   const top=[18,3], bot=[18,37], left=[6,20], right=[30,20];
   const wAt = y => 12 * (1 - Math.abs(y-20)/17);   // ancho del rombo a la altura y

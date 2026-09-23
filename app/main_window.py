@@ -1,14 +1,9 @@
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QLabel, QPushButton, QTabBar, QStatusBar, QToolButton,
-    QButtonGroup, QSizePolicy, QFileDialog, QMessageBox,
-)
-from PySide6.QtCore import Qt, QUrl, QSize
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtWidgets import QMainWindow, QStatusBar, QFileDialog, QMessageBox
+from PySide6.QtCore import QUrl
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage
+from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebChannel import QWebChannel
 
 from app.bridge import Bridge
@@ -31,16 +26,10 @@ class MainWebView(QWebEngineView):
         return popup
 
 
-# ── colour palette (SectionBuilder) ──────────────────────────────────────────
+# ── colour palette (usada por GLOBAL_STYLE) ──────────────────────────────────
 BG_DEEP    = "#0A1628"
 BG_TOOLBAR = "#060F1C"
-BG_PANEL   = "#0D1E35"
-BG_TAB     = "#060F1C"
 BORDER     = "#1E3A5F"
-ACCENT     = "#00D4FF"
-ACCENT_HVR = "#33DDFF"
-BTN_PRI    = "#185FA5"
-BTN_PRI_HV = "#1A6FBF"
 TEXT_PRI   = "#E2E8F0"
 TEXT_SEC   = "#94A3B8"
 
@@ -68,233 +57,6 @@ QToolTip {{
     padding: 4px 8px;
 }}
 """
-
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-
-def _btn(text: str, accent: bool = False, small: bool = False,
-         checkable: bool = False) -> QPushButton:
-    b = QPushButton(text)
-    b.setCheckable(checkable)
-    h = 26 if small else 30
-    b.setFixedHeight(h)
-    if accent:
-        b.setStyleSheet(f"""
-            QPushButton {{
-                background: {BTN_PRI}; color: #fff;
-                border: none; border-radius: 5px;
-                padding: 0 14px; font-weight: 600; font-size: 12px;
-            }}
-            QPushButton:hover {{ background: {BTN_PRI_HV}; }}
-            QPushButton:pressed {{ background: #104888; }}
-        """)
-    elif checkable:
-        b.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; color: {TEXT_SEC};
-                border: 1px solid {BORDER}; border-radius: 4px;
-                padding: 0 10px; font-size: 11px;
-            }}
-            QPushButton:checked {{
-                background: #1a3050; color: {TEXT_PRI};
-                border-color: {ACCENT};
-            }}
-            QPushButton:hover:!checked {{ background: #141e2c; color:{TEXT_PRI}; }}
-        """)
-    else:
-        b.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; color: {TEXT_SEC};
-                border: 1px solid transparent;
-                border-radius: 4px; padding: 0 10px;
-            }}
-            QPushButton:hover {{ color: {TEXT_PRI}; background: #141e2c; }}
-            QPushButton:pressed {{ background: #1a2535; }}
-        """)
-    return b
-
-
-def _icon_btn(symbol: str, tooltip: str = "", active: bool = False) -> QPushButton:
-    b = QPushButton(symbol)
-    b.setFixedSize(36, 36)
-    b.setToolTip(tooltip)
-    b.setCheckable(True)
-    b.setChecked(active)
-    b.setStyleSheet(f"""
-        QPushButton {{
-            background: transparent;
-            color: {'#5a8fc7' if active else TEXT_SEC};
-            border: none; border-radius: 6px;
-            font-size: 15px;
-        }}
-        QPushButton:checked {{
-            background: #14243a;
-            color: {ACCENT};
-        }}
-        QPushButton:hover:!checked {{ color: {TEXT_PRI}; background: #141e2c; }}
-    """)
-    return b
-
-
-# ── top toolbar ───────────────────────────────────────────────────────────────
-
-class TopBar(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(46)
-        self.setStyleSheet(f"""
-            TopBar {{
-                background: {BG_TOOLBAR};
-                border-bottom: 1px solid {BORDER};
-            }}
-        """)
-        self._build()
-
-    def _build(self):
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 0, 10, 0)
-        lay.setSpacing(6)
-
-        # Logo
-        logo = QLabel(
-            "🏗 <span style='font-size:15px; font-weight:700; letter-spacing:1px;'>TSA</span>"
-            "<br><span style='font-size:9px; font-weight:400; letter-spacing:1.2px;"
-            f" color:{TEXT_SEC};'>TOWER STRUCTURAL ANALYSIS</span>"
-        )
-        logo.setTextFormat(Qt.TextFormat.RichText)
-        logo.setStyleSheet(f"color:{TEXT_PRI};")
-        lay.addWidget(logo)
-
-        # Tower name
-        tower_lbl = QLabel("  Tower 30  ▾")
-        tower_lbl.setStyleSheet(f"""
-            color:{TEXT_SEC}; font-size:12px;
-            background:#121d2b; border:1px solid {BORDER};
-            border-radius:5px; padding:3px 8px;
-        """)
-        lay.addWidget(tower_lbl)
-
-        # Undo / Redo
-        for sym in ("←", "→"):
-            b = _btn(sym, small=True)
-            b.setFixedWidth(28)
-            lay.addWidget(b)
-
-        # Run Analysis
-        self.run_btn = _btn("▶  Ejecutar Análisis", accent=True)
-        self.run_btn.setFixedHeight(32)
-        lay.addWidget(self.run_btn)
-
-        lay.addStretch()
-
-        # SI / IMP toggles
-        grp = QButtonGroup(self)
-        for txt in ("SI", "IMP"):
-            b = _btn(txt, checkable=True, small=True)
-            b.setFixedWidth(36)
-            grp.addButton(b)
-            lay.addWidget(b)
-        grp.buttons()[0].setChecked(True)
-
-        # Results / Export / Share / Help
-        for txt in ("Mostrar Resultados", "Exportar", "Compartir", "Ayuda"):
-            lay.addWidget(_btn(txt, small=True))
-
-
-
-# ── tab bar ───────────────────────────────────────────────────────────────────
-
-class ModuleTabBar(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(36)
-        self.setStyleSheet(f"""
-            ModuleTabBar {{
-                background: {BG_TAB};
-                border-bottom: 1px solid {BORDER};
-            }}
-        """)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(48, 0, 8, 0)
-        lay.setSpacing(0)
-
-        tabs = [
-            ("⬡  FEM",          True),
-            ("⬡  Códigos",      False),
-            ("  Cargas Viento", False),
-            ("⬡  Antenas",      False),
-            ("⬡  Escaleras",    False),
-            ("⬡  Plataformas",  False),
-        ]
-        grp = QButtonGroup(self)
-        for label, active in tabs:
-            b = QPushButton(label)
-            b.setCheckable(True)
-            b.setChecked(active)
-            b.setFixedHeight(35)
-            b.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent;
-                    color: {TEXT_SEC};
-                    border: none;
-                    border-bottom: 2px solid transparent;
-                    padding: 0 14px;
-                    font-size: 12px;
-                }}
-                QPushButton:checked {{
-                    color: {TEXT_PRI};
-                    border-bottom: 2px solid {ACCENT};
-                    background: #0d1a28;
-                }}
-                QPushButton:hover:!checked {{
-                    color: {TEXT_PRI};
-                    background: #0b1520;
-                }}
-            """)
-            grp.addButton(b)
-            lay.addWidget(b)
-
-        lay.addStretch()
-
-        # Right-side viewer icons
-        for sym, tip in [("🏷", "Etiquetas"), ("📈", "Gráficas"),
-                          ("⊞", "Tabla"), ("⊙", "Vista"), ("⚙", "Config")]:
-            b = _icon_btn(sym, tip)
-            b.setFixedSize(30, 30)
-            lay.addWidget(b)
-
-
-# ── left sidebar ──────────────────────────────────────────────────────────────
-
-class LeftSidebar(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedWidth(44)
-        self.setStyleSheet(f"background:{BG_TOOLBAR}; border-right:1px solid {BORDER};")
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(4, 8, 4, 8)
-        lay.setSpacing(2)
-
-        icons = [
-            ("🏠", "Inicio",        False),
-            ("📡", "Torre",         True),
-            ("🔧", "Análisis",      False),
-            ("📊", "Optimización",  False),
-            ("📋", "Reporte",       False),
-            ("📍", "Ubicación",     False),
-            ("🐛", "Debug",         False),
-            ("⚡", "Config rápida", False),
-        ]
-        grp = QButtonGroup(self)
-        for sym, tip, active in icons:
-            b = _icon_btn(sym, tip, active)
-            b.setFixedSize(36, 36)
-            grp.addButton(b)
-            lay.addWidget(b, alignment=Qt.AlignmentFlag.AlignHCenter)
-            if tip == "Reporte":
-                lay.addStretch()
-
-        lay.addStretch()
 
 
 # ── main window ───────────────────────────────────────────────────────────────
