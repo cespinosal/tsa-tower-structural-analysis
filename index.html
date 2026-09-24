@@ -5041,7 +5041,7 @@ function _buildWindForceArrows() {
       antForces.forEach(af => {
         const fd = af.forcesByDir.find(f => f.angleDeg === _selectedWindAngle) || af.forcesByDir[0];
         if (!fd || fd.FA_kgf < 0.001) return;
-        const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, _towerData.nodes, legSet);
+        const nIdx = _legNodeForLoad(af.z, af.azimuth, af.pierna, _towerData.nodes, legSet);
         if (nIdx == null) return;
         if (!antByNode.has(nIdx)) antByNode.set(nIdx, { nIdx, F_kgf: 0, descs: [] });
         const e = antByNode.get(nIdx);
@@ -10850,7 +10850,7 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride}
       return { angleDeg, theta_rel, EPA, FA_N, FA_kgf, fx_staad, fz_staad };
     });
 
-    return { antIdx, desc: a.desc || '—', tipo: a.tipo || 'Panel', z, azimuth: azDeg, qz, Gh, forcesByDir };
+    return { antIdx, desc: a.desc || '—', tipo: a.tipo || 'Panel', z, azimuth: azDeg, pierna: a.pierna, qz, Gh, forcesByDir };
   });
 }
 
@@ -10879,7 +10879,7 @@ function _calcHerrajeWindForces(cfg, windData, vKmhOverride) {
       const wRad = angleDeg * Math.PI / 180;
       return { angleDeg, FA_kgf, fx_staad: FA_kgf * Math.sin(wRad), fz_staad: -FA_kgf * Math.cos(wRad) };
     });
-    result.push({ herrId, z, azimuth: azDeg, forcesByDir });
+    result.push({ herrId, z, azimuth: azDeg, pierna: a.pierna, forcesByDir });
   });
   return result;
 }
@@ -10916,6 +10916,35 @@ function _nearestLegNodeByAz(antZ, antAzDeg, nodes, legSet) {
     if (dot > bestDot) { bestDot = dot; best = i; }
   }
   return best;
+}
+// Nodo de pierna para la pierna EXPLÍCITA elegida por el usuario (dropdown P1/P2/P3 en la
+// tabla de antenas, campo a.pierna) — mismo criterio que ya usaba renderAntenas3D() solo
+// para la posición visual: el (pierna-1)-ésimo nodo de pierna al nivel más cercano en Z,
+// ordenado por índice de nodo (orden de generación = P1→P2→P3). null si no hay piernas.
+function _legNodeForPierna(pierna, antZ, nodes, legSet) {
+  if (!legSet || !legSet.size) return null;
+  let bestDz = Infinity;
+  const atZ = [];
+  legSet.forEach(ni => {
+    const dz = Math.abs(nodes[ni].z - antZ);
+    if (dz < bestDz - 1e-4) { bestDz = dz; atZ.length = 0; atZ.push(ni); }
+    else if (dz < bestDz + 1e-4) atZ.push(ni);
+  });
+  atZ.sort((a, b) => a - b);
+  const idx = (+pierna || 1) - 1;
+  return atZ[idx] != null ? atZ[idx] : atZ[0];
+}
+// Nodo de pierna donde aplicar la carga real (fuerza de viento/peso) de una antena o
+// herraje: si el usuario eligió pierna explícitamente (a.pierna, dropdown P1/P2/P3),
+// se respeta esa elección — antes se ignoraba fuera del visor 3D y la carga terminaba
+// en la pierna "más cercana por azimut" aunque fuera distinta a la que se veía dibujada.
+// Sin pierna elegida, cae al criterio automático de siempre (_nearestLegNodeByAz).
+function _legNodeForLoad(antZ, antAzDeg, pierna, nodes, legSet) {
+  if (pierna != null) {
+    const idx = _legNodeForPierna(pierna, antZ, nodes, legSet);
+    if (idx != null) return idx;
+  }
+  return _nearestLegNodeByAz(antZ, antAzDeg, nodes, legSet);
 }
 
 function deleteAntenaRow(i) {
@@ -18515,7 +18544,7 @@ async function _doExportSTAAD() {
     const key = `${(+a.azimuth || 0).toFixed(1)}_${(+a.z || 0).toFixed(2)}_${h.id}`;
     if (_herrPesoSet.has(key)) return;
     _herrPesoSet.add(key);
-    const nIdx = _nearestLegNodeByAz(+a.z || 0, +a.azimuth || 0, nodes, _stAntLegSet);
+    const nIdx = _legNodeForLoad(+a.z || 0, +a.azimuth || 0, a.pierna, nodes, _stAntLegSet);
     if (nIdx == null) return;
     const stId = nodeNewId[nIdx];
     if (!stId) return;
@@ -18530,7 +18559,7 @@ async function _doExportSTAAD() {
     if (_antConPeso.length) {
       out += `*\n* ANTENAS\n*\n`;
       _antConPeso.forEach((a, idx) => {
-        const nIdx = _nearestLegNodeByAz(+a.z || 0, +a.azimuth || 0, nodes, _stAntLegSet);
+        const nIdx = _legNodeForLoad(+a.z || 0, +a.azimuth || 0, a.pierna, nodes, _stAntLegSet);
         if (nIdx == null) return;
         const stId = nodeNewId[nIdx];
         if (!stId) return;
@@ -18576,7 +18605,7 @@ async function _doExportSTAAD() {
       antForces.forEach(af => {
         const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
-        const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, nodes, _stAntLegSet);
+        const nIdx = _legNodeForLoad(af.z, af.azimuth, af.pierna, nodes, _stAntLegSet);
         if (nIdx == null) return;
         const stId = nodeNewId[nIdx];
         if (!stId) return;
@@ -18592,7 +18621,7 @@ async function _doExportSTAAD() {
       herrForces.forEach(hf => {
         const fd = hf.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
-        const nIdx = _nearestLegNodeByAz(hf.z, hf.azimuth, nodes, _stAntLegSet);
+        const nIdx = _legNodeForLoad(hf.z, hf.azimuth, hf.pierna, nodes, _stAntLegSet);
         if (nIdx == null) return;
         const stId = nodeNewId[nIdx];
         if (!stId) return;
