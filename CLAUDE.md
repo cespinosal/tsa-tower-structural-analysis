@@ -141,3 +141,28 @@ Tablas 4-3/4-4/4-5 antes de escribir cualquier número real en el código.
 También pendiente de decidir: cómo modelar la condición de extremo (1 bulón vs.
 2+ bulones/soldado — TIA-222-H dice que cambia la restricción a rotación). El resultado
 del cálculo debe inyectarse también en `exportSTAAD()`, no solo como reporte informativo.
+
+## Empalme de pierna a media bahía — planeado, no implementado (2026-09-24)
+
+El usuario mostró un plano real (torre celosía, 4 puntos "CORTE 1-1..4-4" marcados donde
+cambia el perfil de pierna) donde el empalme **no cae en el límite de un tramo**, sino a
+media altura de lo que hoy sería una sola bahía de celosía (el patrón ahí es un X grande
+que cruza 2 niveles con una horizontal intermedia — el empalme cae justo en esa horizontal
+intermedia, no en el cruce principal de la diagonal).
+
+**Hoy esto no se puede modelar**: `secData[i].M`/`MCal` (perfil/calidad de pierna) es UN
+solo valor por tramo completo, aplicado a todos los miembros de pierna de ese tramo sin
+importar cuántas bahías tenga.
+
+**Buena noticia para cuando se retome**: la geometría YA genera la pierna partida en cada
+punto de cruce de diagonal dentro de una bahía — no es un miembro monolítico por tramo.
+Ver `addMembersWithSecs()` (`app/web/viewer.html`, ~línea 3774): `legCuts` ya trae cada
+corte de pierna como nodo/miembro independiente (`members.push({ni:prev, nj:c, type:'leg',
+sec})` en un loop). El problema es solo de ASIGNACIÓN de perfil (siempre `secData[sec].M`
+para todo el tramo `sec`), no de geometría — la pieza que falta es un mecanismo para
+asociar un perfil distinto a partir de un corte de pierna específico dentro del tramo.
+
+**Bloqueador:** se le preguntó al usuario cómo prefiere capturar el punto de empalme (por
+altura absoluta desde la base, buscando el nodo de corte más cercano, vs. por tramo+bahía
+específica) — pidió dejarlo para una investigación más a fondo más adelante, sin decidir
+todavía. No implementar nada de esto sin retomar esa conversación primero.
