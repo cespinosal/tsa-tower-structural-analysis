@@ -3412,9 +3412,12 @@ function genMonopole(cfg) {
 // Pedido explícito del usuario (2026-06-28).
 function genMonopoleAxis(cfg) {
   const {nodes, members} = initBuffers();
-  const nTot = cfg.nInc + cfg.nStr;
+  // Blindar contra nInc/nStr > secData.length (igual que genMonopole, línea 3081).
+  // Sin este guard, secData[sec]?.h devuelve undefined → +undefined → NaN → || 6
+  // inserta un tramo fantasma de 6 m por cada sección faltante.
+  const nTot = Math.min(cfg.nInc + cfg.nStr, secData.length);
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || 6;
+  const secH = sec => +secData[sec]?.h || 0;
   let z = 0;
   let prevNode = addNode(nodes, 0, 0, 0);
   for (let sec = 0; sec < nTot; sec++) {
@@ -7217,6 +7220,15 @@ function _tiaKd(tipoEstructura) {
   return 0.85;   // celosía triangular/cuadrada/arriostrada (siempre 3 o 4 piernas en TSA)
 }
 
+// Altura real de la torre: suma de secData[i].h, con fallback a cfg.height si secData
+// está vacío. Usar en lugar de cfg.height para _tiaGh — evita desync cuando el usuario
+// edita alturas de tramo sin actualizar el campo global.
+function _realHeight(cfg) {
+  const sd = cfg.secData || secData;
+  const sum = sd.reduce((s, d) => s + (+d.h || 0), 0);
+  return sum > 0 ? sum : cfg.height;
+}
+
 // Gh (factor de efecto de ráfaga) — 2.6.9.1 (autosoportada/celosía, triangular/cuadrada:
 // fórmula por altura), 2.6.9.2 (arriostrada/guyed: fijo 0.85), 2.6.9.3 (monopolo/pole:
 // fijo 1.10).
@@ -7514,7 +7526,7 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
   // Rr = 0 si no hay miembros redondos; provisional = 1.0 cuando sí los hay
   // (requiere D por perfil para calcular C — pendiente)
   const Rr = sol.areaRedonda > 0 ? 1.0 : 0;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   if (Gh == null) return null;
   const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
   const Cf = sol.solidArea > 0 ? ((CfPlana||0)*sol.areaPlana + (CfRedonda||0)*sol.areaRedonda) / sol.solidArea : null;
@@ -7732,7 +7744,7 @@ function _tia222h_Cf_monopole(C_mph_ft, nSides, withLinear) {
 // Cf varía por sección (nLados, régimen de flujo C = √(Kzt·Kz·Ke)·V·D).
 function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   if (cfg.type !== 'monopole' || !projectGenerated) return [];
-  const Gh    = _tiaGh(cfg.height, 'monopole');
+  const Gh    = _tiaGh(_realHeight(cfg), 'monopole');
   const Ke    = _tiaKe(windData.asnm);
   const V_mph = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;   // km/h → mph
   const dir   = _windDirFromAngle(angleDeg || 0);
@@ -7781,7 +7793,7 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   // en el nodo de la estructura (igual que torres arriostradas — §2.6.11.3)
   if (cfg.mastType === 'mast-guyed' && _towerData) {
     const Cd = 1.2;
-    const Gh = _tiaGh(cfg.height, 'monopole');
+    const Gh = _tiaGh(_realHeight(cfg), 'monopole');
     _towerData.members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
@@ -7844,7 +7856,7 @@ function _renderWindAngleTable_Monopole(cfg) {
   const container = document.getElementById('wind-force-table-container');
   if (!container) return;
   if (!projectGenerated) { container.innerHTML = ''; return; }
-  const Gh     = _tiaGh(cfg.height, 'monopole');
+  const Gh     = _tiaGh(_realHeight(cfg), 'monopole');
   const Ke     = _tiaKe(windData.asnm);
   const V_mph  = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;
   const nInc   = cfg.nInc || 0;
@@ -8007,7 +8019,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
   if (!hasData || !projectGenerated) return [];
   const Cd_coax = 1.0;
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
-  const Gh   = _tiaGh(cfg.height, cfg.type);
+  const Gh   = _tiaGh(_realHeight(cfg), cfg.type);
   const results = [];
   const _rooftopZf = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
   let zBase = _rooftopZf + dadoHeight;
@@ -8313,7 +8325,7 @@ function buildCargasVientoPanel() {
   // H/L, β, K1, K2 solo aplican con topografía no-Plana — pedido explícito del
   // usuario ("si la topografía es plana oculta los que no aplican").
   const lbl = s => `<span style="color:var(--txt-sec);">${s}:</span> `;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const topoParamsHTML = !ktd.aplica ? '' : `
       <div>${lbl('H/L')}${fmt(ktd.HL)}</div>
       <div>${lbl('β')}${fmt(ktd.beta)}</div>
@@ -8365,7 +8377,7 @@ function buildCargasVientoPanel() {
     <div id="wind-force-table-container"></div>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
       ${cfg.type === 'monopole'
-        ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(cfg.height,'monopole').toFixed(2)}.`
+        ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(_realHeight(cfg),'monopole').toFixed(2)}.`
         : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr provisional = 1.0.`}
     </div>
     <div class="sep" style="margin:12px 0;"></div>
@@ -15395,7 +15407,7 @@ function _memChapter2Html(cfg) {
   const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
   const ktd = _tiaKztDetail(0, windData);
   const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const fmt = v => (v == null ? '—' : (+v).toFixed(3));
 
   const viento23 = `
@@ -15466,7 +15478,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   }
   const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
   const ktd = _tiaKztDetail(0, windData);
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const fmt = v => (v == null ? '—' : (+v).toFixed(3));
 
   const SHAPE_LABEL = { ridge: 'Cresta', flat_ridge: 'Cresta de cima plana', hill: 'Colina',
@@ -15514,7 +15526,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   // ── EPA por ángulo — usar qz ya calculado con vKmh ───────────────
   const effType = cfg.type === 'guyed' ? (cfg.guyShape === 'square' ? 'square' : 'triangular') : cfg.type;
   const isTriangular = effType === 'triangular';
-  const GhVal = _tiaGh(cfg.height, cfg.type);
+  const GhVal = _tiaGh(_realHeight(cfg), cfg.type);
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
 
   function _epaRow(r, angleDeg) {
@@ -16475,7 +16487,7 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   ];
 
   // ── Cap. 2 — Parámetros de Diseño ─────────────────────────────────────────
-  const Gh  = _tiaGh(cfg.height, cfg.type);
+  const Gh  = _tiaGh(_realHeight(cfg), cfg.type);
   const Ke  = _tiaKe(windData.asnm);
   const Kd  = _tiaKd(cfg.type);
   const Vult = _tiaVelocidadUltimaKmh(windData);
