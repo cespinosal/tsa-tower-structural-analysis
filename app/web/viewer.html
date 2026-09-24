@@ -6755,7 +6755,9 @@ function _convDomLen(id, prevUnit, newUnit) {
 function _pickerMetric(r, cat, fam) {
   // 'compuesto' = perfil importado desde SectionBuilder (JSON) — ya viene en cm²/kg-m
   // (misma convención que IMCA), sin nada que convertir.
-  if (cat === 'imca' || cat === 'compuesto') return {
+  // AISC familia 'c' con designación métrica (ej. C380X74) — ya en mm/kg-m, igual que IMCA.
+  if (cat === 'imca' || cat === 'compuesto' ||
+      (cat === 'aisc' && fam === 'c' && /^C\d{3,}X/.test(r.designacion ?? ''))) return {
     area: r.area, peso: r.peso, diametro: r.diametro ?? 0, espesor: r.espesor ?? 0,
     alto: r.d ?? 0, espesorTW: (r.tw ?? 0) / 10   // d ya en cm; tw en mm → cm
   };
@@ -7438,15 +7440,16 @@ function calcSectionSolidity(cfg, sec, faceWidth) {
   const top = _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, true);
   const reg = bays > 1 ? _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, false) : top;
 
-  let areaPlana = 0, areaRedonda = 0;
+  let areaPlana = 0, areaRedonda = 0, lenRedonda = 0;
   const add = (len, designacion, fallback) => {
     if (!len) return;
     const { w, round } = _profileWidthAndRound(designacion, fallback);
     if (w == null) return;
-    if (round) areaRedonda += len * w; else areaPlana += len * w;
+    if (round) { areaRedonda += len * w; lenRedonda += len; } else areaPlana += len * w;
   };
 
-  if (_profileIsRound(s.M)) areaRedonda += 2 * wM * h; else areaPlana += 2 * wM * h;
+  if (_profileIsRound(s.M)) { areaRedonda += 2 * wM * h; lenRedonda += 2 * h; }
+  else areaPlana += 2 * wM * h;
   // Diagonales: el patrón es el mismo en cualquier bahía (no depende de isTopBay) — se
   // usa "top" (cualquiera de las 2 llamadas da igual) × número de bahías.
   add(top.dPrincipal * bays, s.D, null);
@@ -7462,7 +7465,8 @@ function calcSectionSolidity(cfg, sec, faceWidth) {
   const grossArea = faceWidth * h;
   if (!(grossArea > 0)) return null;
   const epsilon = Math.min(0.8, Math.max(0.05, solidArea / grossArea));
-  return { epsilon, solidArea, areaPlana, areaRedonda, grossArea };
+  const dRoundAvg = lenRedonda > 0 ? areaRedonda / lenRedonda : 0;
+  return { epsilon, solidArea, areaPlana, areaRedonda, grossArea, dRoundAvg };
 }
 // Cf (coeficiente de fuerza) en función del solidity ratio y sección transversal de la
 // torre (TIA-222-H §2.6.9): triangular → 3.4ε²–4.7ε+3.4 siempre; cuadrada → depende
@@ -7523,9 +7527,12 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
   const { Df, Dr } = _tiaDfDr(effType, theta, sol.epsilon);
   const CfPlana   = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : null;
   const CfRedonda = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : null;
-  // Rr = 0 si no hay miembros redondos; provisional = 1.0 cuando sí los hay
-  // (requiere D por perfil para calcular C — pendiente)
-  const Rr = sol.areaRedonda > 0 ? 1.0 : 0;
+  // Rr — §2.6.11.1.1: C = [Kz·Kzt·Ke]^0.5·V[mph]·D_avg[ft]
+  const _rrV = _tiaVelocidadUltimaKmh(windData) / 1.60934;
+  const _rrKz = _tiaKz(z, windData.catExposicion), _rrKzt = _tiaKzt(z, windData);
+  const _rrDft = sol.dRoundAvg * 3.28084;
+  const _rrC = Math.sqrt(_rrKz * _rrKzt * _tiaKe(windData.asnm)) * _rrV * _rrDft;
+  const Rr = sol.areaRedonda > 0 ? _tiaRr(sol.epsilon, _rrC) : 0;
   const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   if (Gh == null) return null;
   const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
@@ -7765,6 +7772,10 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
     const dz     = h / nSub;
     const isInc  = i < nInc;
     const nSides = +s?.monoSides || 12;
+    // Tabla 2-8a (con herrajes lineales) si algún feeder no-INT pasa por esta sección
+    const withLinear = Array.isArray(feedersData) && feedersData.some(
+      f => f.ruta !== 'INT' && +f.zf > zTower && +f.zi < zTower + h
+    );
     // k va de 0 a nSub inclusive → los extremos caen exactamente en los nodos
     // de sección. Longitud tributaria: dz/2 en extremos, dz en interiores.
     for (let k = 0; k <= nSub; k++) {
@@ -7776,7 +7787,7 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
       const Kz     = _tiaKz(z, windData.catExposicion);
       const Kzt    = _tiaKzt(z, windData);
       const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
-      const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+      const Cf     = _tia222h_Cf_monopole(C_us, nSides, withLinear);
       const qz     = calcWindPressure(cfg, windData, z);
       const w_Nm   = Cf * qz * Gh * D;
       const dzTrib = (k === 0 || k === nSub) ? dz / 2 : dz;
@@ -8378,7 +8389,7 @@ function buildCargasVientoPanel() {
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
       ${cfg.type === 'monopole'
         ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(_realHeight(cfg),'monopole').toFixed(2)}.`
-        : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr provisional = 1.0.`}
+        : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr = f(ε, C) §2.6.11.1.1.`}
     </div>
     <div class="sep" style="margin:12px 0;"></div>
     <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN ANTENAS</div>
@@ -10789,9 +10800,11 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true} = {}) {
         const c = _dishCoeff(a.tipo, theta_rel);
         EPA = Math.abs(c.CA * Math.cos(tRad) + c.CS * Math.sin(tRad)) * A;
       } else {
-        // §2.6.11.2: (EPA)_A = Ka·[(EPA)_N·cos²θ + (EPA)_T·sin²θ], Ka=1.0
-        const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
-        EPA = (+(a.epa0) || 0) * cos2 + (+(a.epa90) || 0) * sin2;
+        // §2.6.11.2: interpolación lineal por tramos entre los 3 puntos medidos
+        const e0 = +(a.epa0) || 0, e60 = +(a.epa60) || 0, e90 = +(a.epa90) || 0;
+        EPA = theta_rel <= 60
+          ? e0 + (e60 - e0) * (theta_rel / 60)
+          : e60 + (e90 - e60) * ((theta_rel - 60) / 30);
       }
       // Herraje: se suma una vez por ensamble (az, z, tipo) para no triplicar la EPA
       if (addHerraje) EPA += _herrEPAdir(herrId, theta_rel);
@@ -14435,6 +14448,7 @@ function _tsaAngleToStaadName(profile) {
   const leg1 = Math.round(_parseInchDim(m[1]) * 10);
   const leg2 = Math.round(_parseInchDim(m[2]) * 10);
   const thk16 = Math.round(_parseInchDim(m[3]) * 16);
+  if (leg1 >= 100 || leg2 >= 100) return null;  // ≥10" desborda 2 dígitos → cae a nombre raw
   return `L${String(leg1).padStart(2,'0')}${String(leg2).padStart(2,'0')}${thk16}`;
 }
 
@@ -15533,7 +15547,10 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
     const sol = calcSectionSolidity(cfg, r.secIdx, r.fw);
     if (!sol) return null;
     const { Df, Dr } = _tiaDfDr(effType, angleDeg, sol.epsilon);
-    const Rr  = sol.areaRedonda > 0 ? 1.0 : 0;
+    const _rrV = _tiaVelocidadUltimaKmh(windData) / 1.60934;
+    const _rrDft = sol.dRoundAvg * 3.28084;
+    const _rrC = Math.sqrt((r.Kz||1) * (r.Kzt||1) * _tiaKe(windData.asnm)) * _rrV * _rrDft;
+    const Rr  = sol.areaRedonda > 0 ? _tiaRr(sol.epsilon, _rrC) : 0;
     const CfP = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : 0;
     const CfR = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : 0;
     const Cf  = sol.solidArea   > 0 ? (CfP*sol.areaPlana + CfR*sol.areaRedonda) / sol.solidArea : null;
@@ -15590,7 +15607,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         </tbody>
       </table>
       <p style="font-size:9px;color:#777;margin-top:4px;">
-        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = 1.0 provisional (sin miembros redondos). Gh = ${(GhVal??1).toFixed(2)}.
+        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
       </p>`;
   }).join('');
 
@@ -18293,7 +18310,7 @@ async function _doExportSTAAD() {
       const repIdx = groupRep[gname];
       if (repIdx == null) return;
       const resolved = _resolveMemberPropertyLine(members[repIdx]);
-      if (!resolved) return;
+      if (!resolved) { secAmerican.push(`* ${gname} - SIN PERFIL\n`); return; }
       const line = `${gname} ${resolved.text}\n`;
       if (resolved.kind === 'prisYD') secPrisYD.push(line); else secAmerican.push(line);
     });
@@ -18309,7 +18326,7 @@ async function _doExportSTAAD() {
       const repIdx = groupRep[gname];
       if (repIdx == null) return;
       const resolved = _resolveMemberPropertyLine(members[repIdx]);
-      if (!resolved) return;
+      if (!resolved) { lvlAmerican.push(`* ${gname} - SIN PERFIL\n`); return; }
       const line = `${gname} ${resolved.text}\n`;
       if (resolved.kind === 'prisYD') lvlPrisYD.push(line); else lvlAmerican.push(line);
     });
