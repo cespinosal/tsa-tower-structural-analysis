@@ -6655,7 +6655,9 @@ function openProfilePicker(field, opts) {
   document.getElementById('pp-search').value = '';
   document.getElementById('pp-calidad').innerHTML = steelGradeOptions(currentCal);
   const loc = _findProfileLocation(currentValue);
-  pickerCatalog = loc ? loc.cat : 'aisc';
+  // Sin perfil previo: sugerir AISC en modo IMP (ya está en imperial) o IMCA en MKS —
+  // antes siempre abría en AISC sin importar el sistema de unidades activo.
+  pickerCatalog = loc ? loc.cat : (isImperial() ? 'aisc' : 'imca');
   pickerFamily  = loc ? loc.fam : 'li';
   document.getElementById('pp-tab-imca').classList.toggle('active', pickerCatalog==='imca');
   document.getElementById('pp-tab-aisc').classList.toggle('active', pickerCatalog==='aisc');
@@ -6752,6 +6754,12 @@ function _convDomLen(id, prevUnit, newUnit) {
 // picker (los datos originales del catálogo no se tocan). IMCA ya está en esas unidades.
 // Excepción: AISC familia "c" (Canal) viene de la tabla métrica del AISC Shapes Database
 // (designaciones tipo C380X74, ya en mm/kg-m) — se trata como IMCA, sin reconvertir.
+//
+// IMPORTANTE: esta función SIEMPRE devuelve cm²/kg-m/cm sin importar appSettings.unitSystem
+// — la usa _profileWeightPerMeter() para sumar peso real de la estructura (mast-strut,
+// steel takeoff, etc.), que exige unidades canónicas. NO condicionar esto a isImperial();
+// para mostrar el picker en imperial usar _pickerMetricDisplay() (más abajo), que es
+// puramente de presentación y nunca alimenta un cálculo.
 function _pickerMetric(r, cat, fam) {
   // 'compuesto' = perfil importado desde SectionBuilder (JSON) — ya viene en cm²/kg-m
   // (misma convención que IMCA), sin nada que convertir.
@@ -6766,6 +6774,19 @@ function _pickerMetric(r, cat, fam) {
     area: r.area * 6.4516, peso: r.peso * 1.488164,
     diametro: (r.diametro ?? 0) * 2.54, espesor: (r.espesor ?? 0) * 2.54,
     alto: (r.d ?? 0) * 2.54, espesorTW: (r.tw ?? 0) * 2.54
+  };
+}
+// Solo para el picker: toma el cm²/kg-m/cm canónico de _pickerMetric() y lo convierte a
+// in²/lb-ft/in cuando IMP está activo. Nunca usar el resultado para sumar peso/área real
+// (usar _pickerMetric()/_profileWeightPerMeter() para eso) — esto es puramente de
+// presentación en renderProfilePickerList().
+function _pickerMetricDisplay(r, cat, fam) {
+  const m = _pickerMetric(r, cat, fam);
+  if (!isImperial()) return m;
+  return {
+    area: m.area / 6.4516, peso: m.peso * 0.6719689751,
+    diametro: m.diametro / 2.54, espesor: m.espesor / 2.54,
+    alto: m.alto / 2.54, espesorTW: m.espesorTW / 2.54,
   };
 }
 // Peso por metro (kg/m) de una designación de perfil, buscándola en USER/IMCA/AISC —
@@ -6790,14 +6811,19 @@ function renderProfilePickerList() {
   const isOC = !isFlat && pickerFamily === 'oc';
   const isOS = !isFlat && pickerFamily === 'os';
   const isC  = !isFlat && pickerFamily === 'c';
+  // Unidades de presentación del picker — cm²/kg-m/cm en MKS, in²/lb-ft/in en IMP
+  // (ver _pickerMetricDisplay(); los datos crudos del catálogo no se tocan).
+  const _ppAreaU = isImperial() ? 'in²' : 'cm²';
+  const _ppLenU  = isImperial() ? 'in'  : 'cm';
+  const _ppPesoU = uLabel('weightPerLen');
   document.getElementById('pp-list-hdr').innerHTML = `
     <div class="pp-row pp-row-hdr">
       <span>Designación${isFlat ? ' (origen)' : ''}</span>
       <span class="pp-row-metrics">
-        <span>Área (cm²)</span><span>Peso (kg/m)</span>
-        ${isOC ? '<span>Diámetro (cm)</span><span>Espesor (cm)</span>' : ''}
-        ${isOS ? '<span>Diámetro (cm)</span>' : ''}
-        ${isC  ? '<span>d (cm)</span><span>tw (cm)</span>' : ''}
+        <span>Área (${_ppAreaU})</span><span>Peso (${_ppPesoU})</span>
+        ${isOC ? `<span>Diámetro (${_ppLenU})</span><span>Espesor (${_ppLenU})</span>` : ''}
+        ${isOS ? `<span>Diámetro (${_ppLenU})</span>` : ''}
+        ${isC  ? `<span>d (${_ppLenU})</span><span>tw (${_ppLenU})</span>` : ''}
       </span>
     </div>`;
   const q = document.getElementById('pp-search').value.trim().toLowerCase();
@@ -6811,7 +6837,7 @@ function renderProfilePickerList() {
     return;
   }
   list.innerHTML = rows.map(r => {
-    const m = isUser ? _pickerMetric(r, r.origenCat, r.origenFam) : isSB ? _pickerMetric(r, 'compuesto', null) : _pickerMetric(r, pickerCatalog, pickerFamily);
+    const m = isUser ? _pickerMetricDisplay(r, r.origenCat, r.origenFam) : isSB ? _pickerMetricDisplay(r, 'compuesto', null) : _pickerMetricDisplay(r, pickerCatalog, pickerFamily);
     const label = isUser
       ? `${r.designacion} <span style="color:var(--txt-sec);font-size:9px;">(${r.origenCat.toUpperCase()} · ${r.origenFam.toUpperCase()})</span>`
       : isSB
