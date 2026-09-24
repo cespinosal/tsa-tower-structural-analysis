@@ -7853,7 +7853,7 @@ function _renderWindAngleTable(cfg, rows) {
   }).join('');
   container.innerHTML = `
     <table class="ret-table wind-table-center">
-      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">m²</span>)</th><th>Ar (<span class="unit-area">m²</span>)</th><th>Ag (<span class="unit-area">m²</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">kgf</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
       <tbody>
         ${rowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
@@ -7914,8 +7914,8 @@ function _renderWindAngleTable_Monopole(cfg) {
   container.innerHTML = `
     <table class="ret-table wind-table-center">
       <thead><tr>
-        <th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>D (<span class="unit-len">m</span>)</th><th>Secc.</th>
-        <th>C (mph·ft)</th><th>Cf</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th><th>w (<span class="unit-forcePerLen">kgf/m</span>)</th><th>F (<span class="unit-force">kgf</span>)</th>
+        <th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>D (<span class="unit-len">${uLabel('len')}</span>)</th><th>Secc.</th>
+        <th>C (mph·ft)</th><th>Cf</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>w (<span class="unit-forcePerLen">${uLabel('forcePerLen')}</span>)</th><th>F (<span class="unit-force">${uLabel('force')}</span>)</th>
       </tr></thead>
       <tbody>
         ${rowsHtml.join('')}
@@ -7971,7 +7971,7 @@ function _renderAntennaForceTable(cfg) {
   const total = results.reduce((s, r) => { const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0]; return s + fd.FA_kgf; }, 0);
   container.innerHTML = `
     <table class="ret-table wind-table-center" style="font-size:10.5px;">
-      <thead><tr><th>#</th><th>Desc.</th><th>z (<span class="unit-len">m</span>)</th><th>Az°</th><th>θr°</th><th>Ca</th><th>Ka</th><th>EPA <span class="unit-area">m²</span></th><th>qz <span class="unit-pressure">kg/m²</span></th><th>Gh</th><th>FA <span class="unit-force">kgf</span></th></tr></thead>
+      <thead><tr><th>#</th><th>Desc.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Az°</th><th>θr°</th><th>Ca</th><th>Ka</th><th>EPA <span class="unit-area">${uLabel('area')}</span></th><th>qz <span class="unit-pressure">${uLabel('pressure')}</span></th><th>Gh</th><th>FA <span class="unit-force">${uLabel('force')}</span></th></tr></thead>
       <tbody>
         ${rowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
@@ -8136,8 +8136,8 @@ function _renderFeederForceTable(cfg) {
   });
   container.innerHTML = `
     <table class="ret-table wind-table-center" style="font-size:10.5px;">
-      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>Tipo</th><th>d / Dc</th>
-        <th>Ruta</th><th>L (<span class="unit-len">m</span>)</th><th>EPA (<span class="unit-area">m²</span>)</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th><th>Gh</th><th>FC (<span class="unit-force">kgf</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>d / Dc</th>
+        <th>Ruta</th><th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
       <tbody>
         ${rowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
@@ -8351,10 +8351,10 @@ function buildCargasVientoPanel() {
     <div class="frow"><span class="flbl">Código:</span><span>${_VIENTO_CODIGO_LABELS[windData.codigo] || '—'}</span></div>
     <div class="frow"><span class="flbl">Velocidad de diseño (Última):</span><span>${Vultima ? uConv('speed', Vultima).toFixed(1) + ' ' + uLabel('speed') : '—'}</span></div>
     <div class="frow"><span class="flbl">Exposición / Riesgo:</span><span>${windData.catExposicion || '—'} / ${windData.catRiesgo || '—'}</span></div>
-    <div class="frow"><span class="flbl">H (<span class="unit-len">m</span>):</span><span>${windData.topoH != null ? uConv('len', windData.topoH).toFixed(2) : '—'}</span></div>
-    <div class="frow"><span class="flbl">L (<span class="unit-len">m</span>):</span><span>${windData.topoL != null ? uConv('len', windData.topoL).toFixed(2) : '—'}</span></div>
+    <div class="frow"><span class="flbl">H (<span class="unit-len">${uLabel('len')}</span>):</span><span>${windData.topoH != null ? uConv('len', windData.topoH).toFixed(2) : '—'}</span></div>
+    <div class="frow"><span class="flbl">L (<span class="unit-len">${uLabel('len')}</span>):</span><span>${windData.topoL != null ? uConv('len', windData.topoL).toFixed(2) : '—'}</span></div>
     <div class="frow"><span class="flbl">Categoría Topográfica:</span><span>${_TOPOCAT_LABELS[windData.topoCat] || '—'}</span></div>
-    <div class="frow"><span class="flbl">ASNM (<span class="unit-len">m</span>):</span><span>${windData.asnm != null ? uConv('len', windData.asnm).toFixed(2) : '—'}</span></div>
+    <div class="frow"><span class="flbl">ASNM (<span class="unit-len">${uLabel('len')}</span>):</span><span>${windData.asnm != null ? uConv('len', windData.asnm).toFixed(2) : '—'}</span></div>
     <div class="frow"><span class="flbl">Dirección del Viento:</span><span>${_DIR_LABELS[windData.topoDir] || '—'}</span></div>
     <div class="frow"><span class="flbl">Kd:</span><span>${_tiaKd(cfg.type)}</span></div>
     <div class="frow"><span class="flbl">Ke:</span><span>${_tiaKe(windData.asnm).toFixed(3)}</span></div>
@@ -8371,7 +8371,7 @@ function buildCargasVientoPanel() {
     <div class="sep" style="margin:12px 0;"></div>
     <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">PRESIÓN POR SECCIÓN (qz)</div>
     <table class="ret-table wind-table-center">
-      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th></tr></thead>
       <tbody id="qz-tbody">
         ${rows.map(r => `<tr><td>${r.sec}</td><td>${uConv('len', r.z).toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${uConv('pressure', r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
       </tbody>
@@ -9678,10 +9678,10 @@ function openStrutEditModal(i) {
   overlay.innerHTML = `<div class="sec-modal" style="width:340px;" onclick="event.stopPropagation()">
     <div class="sec-modal-hdr"><span>PUNTAL ${i+1}</span><button onclick="document.getElementById('strut-edit-overlay')?.remove()">✕</button></div>
     <div class="sec-modal-body" style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
-      <div class="frow"><span class="flbl">Altura en fuste (<span class="unit-len">m</span>)</span><input class="ctrl-input" type="number" step="0.1" min="0" id="se-h" value="${uConv('len',+s.h||0).toFixed(3)}"></div>
+      <div class="frow"><span class="flbl">Altura en fuste (<span class="unit-len">${uLabel('len')}</span>)</span><input class="ctrl-input" type="number" step="0.1" min="0" id="se-h" value="${uConv('len',+s.h||0).toFixed(3)}"></div>
       <div class="frow"><span class="flbl">Azimut (°)</span><input class="ctrl-input" type="number" step="1" min="0" max="360" id="se-az" value="${+s.az||0}"></div>
-      <div class="frow"><span class="flbl">Alcance horizontal (<span class="unit-len">m</span>)</span><input class="ctrl-input" type="number" step="0.1" min="0.1" id="se-r" value="${uConv('len',+s.r||3).toFixed(3)}"></div>
-      <div class="frow"><span class="flbl">z del punto fijo (<span class="unit-len">m</span>)</span><input class="ctrl-input" type="number" step="0.1" id="se-zf" value="${uConv('len',+s.zFixed||0).toFixed(3)}"></div>
+      <div class="frow"><span class="flbl">Alcance horizontal (<span class="unit-len">${uLabel('len')}</span>)</span><input class="ctrl-input" type="number" step="0.1" min="0.1" id="se-r" value="${uConv('len',+s.r||3).toFixed(3)}"></div>
+      <div class="frow"><span class="flbl">z del punto fijo (<span class="unit-len">${uLabel('len')}</span>)</span><input class="ctrl-input" type="number" step="0.1" id="se-zf" value="${uConv('len',+s.zFixed||0).toFixed(3)}"></div>
       <div class="frow"><span class="flbl">Perfil</span>
         <div style="display:flex;gap:4px;flex:1;">
           <input class="ctrl-input" style="flex:1;cursor:default;" id="se-designacion" placeholder="— elegir del catálogo —" readonly value="${s.designacion||''}">
@@ -11526,24 +11526,24 @@ function _buildFeedersPanel() {
       <div class="fd-wrap">
         <table class="fd-tbl">
           <thead><tr>
-            <th class="tc">Z&nbsp;ini (<span class="unit-len">m</span>)</th><th class="tc">Z&nbsp;fin (<span class="unit-len">m</span>)</th>
-            <th>Tipo</th><th class="tc">Ø&nbsp;<span class="unit-lenSmall">mm</span></th><th class="tc">N°</th>
+            <th class="tc">Z&nbsp;ini (<span class="unit-len">${uLabel('len')}</span>)</th><th class="tc">Z&nbsp;fin (<span class="unit-len">${uLabel('len')}</span>)</th>
+            <th>Tipo</th><th class="tc">Ø&nbsp;<span class="unit-lenSmall">${uLabel('lenSmall')}</span></th><th class="tc">N°</th>
             <th>Ruta</th><th></th><th style="width:28px"></th>
           </tr></thead>
           <tbody>${tblRows || `<tr><td colspan="8" class="fd-empty">Sin cables — usa + Agregar para comenzar</td></tr>`}</tbody>
         </table>
         <div id="fd-add-form" class="fd-add-form">
-          <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">m</span>)</label>
+          <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">${uLabel('len')}</span>)</label>
             <input type="number" id="fdf-zi" value="0" step="0.5" min="0"></div>
-          <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">m</span>)</label>
+          <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">${uLabel('len')}</span>)</label>
             <input type="number" id="fdf-zf" value="${defaultZf}" step="0.5" min="0"></div>
           <div class="fd-ff"><label class="fd-fl">Tipo</label>
             <select id="fdf-tipo" onchange="_fdAutoD()">
               ${_fdAllTipos().map(x=>`<option value="${x.tipo.replace(/"/g,'&quot;')}"${x.tipo==='7/8"'?' selected':''}>${x.tipo}</option>`).join('')}
             </select></div>
-          <div class="fd-ff"><label class="fd-fl">Ø (<span class="unit-lenSmall">mm</span>)</label>
+          <div class="fd-ff"><label class="fd-fl">Ø (<span class="unit-lenSmall">${uLabel('lenSmall')}</span>)</label>
             <input type="number" id="fdf-diam" value="${uConv('lenSmall',27.7).toFixed(2)}" step="0.1" min="1"></div>
-          <div class="fd-ff"><label class="fd-fl">Peso (<span class="unit-weightPerLen">kg/m</span>)</label>
+          <div class="fd-ff"><label class="fd-fl">Peso (<span class="unit-weightPerLen">${uLabel('weightPerLen')}</span>)</label>
             <input type="number" id="fdf-peso" value="${uConv('weightPerLen',0.49).toFixed(3)}" step="0.01" min="0"></div>
           <div class="fd-ff"><label class="fd-fl">N°</label>
             <input type="number" id="fdf-n" value="1" min="1" max="24"></div>
@@ -11850,16 +11850,16 @@ function _buildCgoHtml() {
   return `
     <table class="fd-tbl" style="width:100%;margin-bottom:6px;">
       <thead><tr>
-        <th class="tc">Z ini (<span class="unit-len">m</span>)</th><th class="tc">Z fin (<span class="unit-len">m</span>)</th><th>Cara</th>
-        <th class="tc">L (<span class="unit-len">m</span>)</th><th class="tc">Peso (<span class="unit-weight">kg</span>)</th>
-        <th class="tc">EPA N (<span class="unit-area">m²</span>)</th><th class="tc">EPA T (<span class="unit-area">m²</span>)</th><th></th>
+        <th class="tc">Z ini (<span class="unit-len">${uLabel('len')}</span>)</th><th class="tc">Z fin (<span class="unit-len">${uLabel('len')}</span>)</th><th>Cara</th>
+        <th class="tc">L (<span class="unit-len">${uLabel('len')}</span>)</th><th class="tc">Peso (<span class="unit-weight">${uLabel('weight')}</span>)</th>
+        <th class="tc">EPA N (<span class="unit-area">${uLabel('area')}</span>)</th><th class="tc">EPA T (<span class="unit-area">${uLabel('area')}</span>)</th><th></th>
       </tr></thead>
       <tbody>${rows||`<tr><td colspan="8" class="fd-empty">Sin CGO — usa + Agregar</td></tr>`}</tbody>
     </table>
     <div id="cgo-add-form" class="fd-add-form" style="display:${formVis};">
-      <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">m</span>)</label>
+      <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">${uLabel('len')}</span>)</label>
         <input type="number" id="cgo-zi" value="${ziVal}" step="0.5" min="0" style="width:66px"></div>
-      <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">m</span>)</label>
+      <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">${uLabel('len')}</span>)</label>
         <input type="number" id="cgo-zf" value="${zfVal}" step="0.5" min="0" style="width:66px"></div>
       <div class="fd-ff"><label class="fd-fl">Cara</label>
         <select id="cgo-ruta" style="padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">${fOptsEdit}</select></div>
@@ -11994,16 +11994,16 @@ function _buildEscalHtml() {
   return `
     <table class="fd-tbl" style="width:100%;margin-bottom:6px;">
       <thead><tr>
-        <th class="tc">Z ini (<span class="unit-len">m</span>)</th><th class="tc">Z fin (<span class="unit-len">m</span>)</th><th>Cara</th>
-        <th class="tc">Peldaño</th><th class="tc">L (<span class="unit-len">m</span>)</th><th class="tc">Peso (<span class="unit-weight">kg</span>)</th>
-        <th class="tc">EPA N (<span class="unit-area">m²</span>)</th><th class="tc">EPA T (<span class="unit-area">m²</span>)</th><th></th>
+        <th class="tc">Z ini (<span class="unit-len">${uLabel('len')}</span>)</th><th class="tc">Z fin (<span class="unit-len">${uLabel('len')}</span>)</th><th>Cara</th>
+        <th class="tc">Peldaño</th><th class="tc">L (<span class="unit-len">${uLabel('len')}</span>)</th><th class="tc">Peso (<span class="unit-weight">${uLabel('weight')}</span>)</th>
+        <th class="tc">EPA N (<span class="unit-area">${uLabel('area')}</span>)</th><th class="tc">EPA T (<span class="unit-area">${uLabel('area')}</span>)</th><th></th>
       </tr></thead>
       <tbody>${rows||`<tr><td colspan="9" class="fd-empty">Sin escalerillas — usa + Agregar</td></tr>`}</tbody>
     </table>
     <div id="esc-add-form" class="fd-add-form" style="display:${formVisE};">
-      <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">m</span>)</label>
+      <div class="fd-ff"><label class="fd-fl">Z ini (<span class="unit-len">${uLabel('len')}</span>)</label>
         <input type="number" id="esc-zi" value="${ziValE}" step="0.5" min="0" style="width:66px"></div>
-      <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">m</span>)</label>
+      <div class="fd-ff"><label class="fd-fl">Z fin (<span class="unit-len">${uLabel('len')}</span>)</label>
         <input type="number" id="esc-zf" value="${zfValE}" step="0.5" min="0" style="width:66px"></div>
       <div class="fd-ff"><label class="fd-fl">Cara</label>
         <select id="esc-ruta" style="padding:3px 5px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;color:var(--txt);font-size:11px;font-family:inherit">${fOptsEditE}</select></div>
@@ -12876,7 +12876,7 @@ function buildAntenasPanel() {
       <span class="apc-val" style="font-size:10px">
         <span id="ant-p-e0-${gi}">${fmtP(a.epa0)}</span> /
         <span id="ant-p-e6-${gi}">${fmtP(a.epa60)}</span> /
-        <span id="ant-p-e9-${gi}">${fmtP(a.epa90)}</span> <span class="unit-area">m²</span></span></div>`;
+        <span id="ant-p-e9-${gi}">${fmtP(a.epa90)}</span> <span class="unit-area">${uLabel('area')}</span></span></div>`;
 
     const azInp = i =>
       `<input type="number" class="ant-inp ant-num"
@@ -15597,7 +15597,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)} kg/m² × ${(GhVal??1).toFixed(2)} × ${ex.EPA.toFixed(4)} m² = <b>${ex.F_kgf.toFixed(1)} kgf</b>
       </p>
       <table class="rp-table wind-table-center">
-        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th><th>Ag (<span class="unit-area">m²</span>)</th><th>Af (<span class="unit-area">m²</span>)</th><th>Ar (<span class="unit-area">m²</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">kgf</span>)</th></tr></thead>
+        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
         <tbody>
           ${angleRows.map(({ r, ep }) => `<tr>
             <td>${r.sec}</td>
@@ -15628,7 +15628,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
     ${procedimiento}
     <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Presión por Sección (q${vLabelCorto})</h3>
     <table class="rp-table wind-table-center">
-      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>q${vLabelCorto} (<span class="unit-pressure">kg/m²</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Kz</th><th>K3</th><th>Kzt</th><th>q${vLabelCorto} (<span class="unit-pressure">${uLabel('pressure')}</span>)</th></tr></thead>
       <tbody>
         ${rows.map(r => `<tr><td>${r.sec}</td><td>${uConv('len',r.z).toFixed(1)}</td><td>${r.Kz.toFixed(3)}</td><td>${fmt(r.K3)}</td><td>${r.Kzt.toFixed(3)}</td><td>${uConv('pressure',r.qz / 9.80665).toFixed(1)}</td></tr>`).join('')}
       </tbody>
@@ -15663,8 +15663,8 @@ function _memChapter3Html(cfg) {
   const sorted = [...antenasData].sort((a, b) => (+b.z || 0) - (+a.z || 0));
   const antListHtml = !sorted.length ? noData('Sin antenas ni equipos registrados.') : `
     <table class="rp-table" style="font-size:10.5px;">
-      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (<span class="unit-len">m</span>)</th><th>Az°</th>
-        <th>Alto/D (<span class="unit-len">m</span>)</th><th>Ancho (<span class="unit-len">m</span>)</th><th>Esp. (<span class="unit-len">m</span>)</th><th>Peso (<span class="unit-weight">kg</span>)</th><th>Vínculo</th></tr></thead>
+      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Az°</th>
+        <th>Alto/D (<span class="unit-len">${uLabel('len')}</span>)</th><th>Ancho (<span class="unit-len">${uLabel('len')}</span>)</th><th>Esp. (<span class="unit-len">${uLabel('len')}</span>)</th><th>Peso (<span class="unit-weight">${uLabel('weight')}</span>)</th><th>Vínculo</th></tr></thead>
       <tbody>
         ${sorted.map((a, i) => {
           const isDish  = _isDishType(a.tipo);
@@ -15690,8 +15690,8 @@ function _memChapter3Html(cfg) {
   // §3.5 Inventario EPA — valores capturados por el usuario (no fuerza calculada)
   const epaHtml = !sorted.length ? noData('Sin antenas ni equipos registrados.') : `
     <table class="rp-table" style="font-size:10.5px;">
-      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (<span class="unit-len">m</span>)</th>
-        <th>EPA N/S (<span class="unit-area">m²</span>)</th><th>EPA 60° (<span class="unit-area">m²</span>)</th><th>EPA E/O (<span class="unit-area">m²</span>)</th></tr></thead>
+      <thead><tr><th>#</th><th>Descripción</th><th>Tipo</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th>
+        <th>EPA N/S (<span class="unit-area">${uLabel('area')}</span>)</th><th>EPA 60° (<span class="unit-area">${uLabel('area')}</span>)</th><th>EPA E/O (<span class="unit-area">${uLabel('area')}</span>)</th></tr></thead>
       <tbody>
         ${sorted.map((a, i) => `<tr>
           <td>${i + 1}</td>
@@ -15711,8 +15711,8 @@ function _memChapter3Html(cfg) {
   // §3.6 Coaxiales y Feeders
   const feederHtml = !feedersData.length ? noData('Sin coaxiales registrados.') : `
     <table class="rp-table" style="font-size:10.5px;">
-      <thead><tr><th>Tipo</th><th>N</th><th>d / Dc (<span class="unit-lenSmall">mm</span>)</th><th>Ruta</th>
-        <th>Zi (<span class="unit-len">m</span>)</th><th>Zf (<span class="unit-len">m</span>)</th><th>Long. (<span class="unit-len">m</span>)</th><th>Peso (<span class="unit-weightPerLen">kg/m</span>)</th></tr></thead>
+      <thead><tr><th>Tipo</th><th>N</th><th>d / Dc (<span class="unit-lenSmall">${uLabel('lenSmall')}</span>)</th><th>Ruta</th>
+        <th>Zi (<span class="unit-len">${uLabel('len')}</span>)</th><th>Zf (<span class="unit-len">${uLabel('len')}</span>)</th><th>Long. (<span class="unit-len">${uLabel('len')}</span>)</th><th>Peso (<span class="unit-weightPerLen">${uLabel('weightPerLen')}</span>)</th></tr></thead>
       <tbody>
         ${feedersData.map(f => {
           let label, dLabel, nStr, peso;
@@ -15873,8 +15873,8 @@ function _memChapter6Html(cfg) {
         }, 0);
         const antTable = antForces.length
           ? `<table class="rp-table" style="font-size:10.5px;">
-              <thead><tr><th>#</th><th>Descripción</th><th>z (<span class="unit-len">m</span>)</th><th>Az°</th>
-                <th>θr°</th><th>EPA (<span class="unit-area">m²</span>)</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th><th>Gh</th><th>FA (<span class="unit-force">kgf</span>)</th></tr></thead>
+              <thead><tr><th>#</th><th>Descripción</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Az°</th>
+                <th>θr°</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FA (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
               <tbody>${antRows}
                 <tr style="font-weight:700;border-top:2px solid #ccc;">
                   <td colspan="8" style="text-align:right;">TOTAL</td>
@@ -15903,8 +15903,8 @@ function _memChapter6Html(cfg) {
         }));
         const fdTable = fdSecs.length
           ? `<table class="rp-table" style="font-size:10.5px;">
-              <thead><tr><th>Sec.</th><th>z (<span class="unit-len">m</span>)</th><th>Tipo</th><th>d/Dc</th><th>Ruta</th>
-                <th>L (<span class="unit-len">m</span>)</th><th>EPA (<span class="unit-area">m²</span>)</th><th>qz (<span class="unit-pressure">kg/m²</span>)</th><th>Gh</th><th>FC (<span class="unit-force">kgf</span>)</th></tr></thead>
+              <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>d/Dc</th><th>Ruta</th>
+                <th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
               <tbody>${fdRows}
                 <tr style="font-weight:700;border-top:2px solid #ccc;">
                   <td colspan="9" style="text-align:right;">TOTAL</td>
@@ -15941,7 +15941,7 @@ function _memChapter4Html(cfg) {
   const { rows: takeoffRows, total: takeoffTotal } = _reportSteelTakeoff();
   const takeoffHtml = takeoffRows.length ? `
     <table class="rp-table">
-      <thead><tr><th>Perfil</th><th>Calidad</th><th>Longitud total (<span class="unit-len">m</span>)</th><th>Peso unitario (<span class="unit-weightPerLen">kg/m</span>)</th><th>Peso total (<span class="unit-weight">kg</span>)</th></tr></thead>
+      <thead><tr><th>Perfil</th><th>Calidad</th><th>Longitud total (<span class="unit-len">${uLabel('len')}</span>)</th><th>Peso unitario (<span class="unit-weightPerLen">${uLabel('weightPerLen')}</span>)</th><th>Peso total (<span class="unit-weight">${uLabel('weight')}</span>)</th></tr></thead>
       <tbody>
         ${takeoffRows.map(r => `<tr><td>${r.profile}</td><td>${r.calidad || '—'}</td><td>${uConv('len', r.length).toFixed(1)}</td>
           <td>${r.pesoUnit != null ? uConv('weightPerLen', r.pesoUnit).toFixed(2) : '—'}</td><td>${r.pesoTotal != null ? uConv('weight', r.pesoTotal).toFixed(1) : '—'}</td></tr>`).join('')}
@@ -15955,7 +15955,7 @@ function _memChapter4Html(cfg) {
   const guySectionHtml = (cableRows.length || accessoryRows.length) ? `
     <h3 style="font-size:11px;margin:14px 0 6px;color:#444;">Cables de Retenida, Estabilizadores, Puntales y Tensores</h3>
     <table class="rp-table">
-      <thead><tr><th>Perfil / Diámetro</th><th>Calidad</th><th>Longitud total (<span class="unit-len">m</span>)</th><th>Peso unitario (<span class="unit-weightPerLen">kg/m</span>)</th><th>Peso total (<span class="unit-weight">kg</span>)</th></tr></thead>
+      <thead><tr><th>Perfil / Diámetro</th><th>Calidad</th><th>Longitud total (<span class="unit-len">${uLabel('len')}</span>)</th><th>Peso unitario (<span class="unit-weightPerLen">${uLabel('weightPerLen')}</span>)</th><th>Peso total (<span class="unit-weight">${uLabel('weight')}</span>)</th></tr></thead>
       <tbody>
         ${[...cableRows, ...accessoryRows].map(r => `<tr><td>${r.profile}</td><td>${r.calidad || '—'}</td><td>${uConv('len', r.length).toFixed(1)}</td>
           <td>${r.pesoUnit != null ? uConv('weightPerLen', r.pesoUnit).toFixed(2) : '—'}</td><td>${r.pesoTotal != null ? uConv('weight', r.pesoTotal).toFixed(1) : '—'}</td></tr>`).join('')}
@@ -15989,7 +15989,7 @@ function _memChapter4Html(cfg) {
 
     <h2 class="rp-h2" id="sec-4-2">4.2 Desglose de peso por secciones</h2>
     <table class="rp-table">
-      <thead><tr>${`<th>Sección</th><th>Peso (<span class="unit-weight">Kg</span>)</th>`.repeat(PANEL_COLS)}</tr></thead>
+      <thead><tr>${`<th>Sección</th><th>Peso (<span class="unit-weight">${uLabel('weight')}</span>)</th>`.repeat(PANEL_COLS)}</tr></thead>
       <tbody>${panelRows}</tbody>
     </table>
 
@@ -17431,7 +17431,7 @@ function renderTablaNodos() {
   }).join('');
   document.getElementById('tabla-nodos-body').innerHTML = `
     <table class="ret-table db-table">
-      <thead><tr><th>Nodo</th><th>X (<span class="unit-len">m</span>)</th><th>Y (<span class="unit-len">m</span>)</th><th>Z (<span class="unit-len">m</span>)</th></tr></thead>
+      <thead><tr><th>Nodo</th><th>X (<span class="unit-len">${uLabel('len')}</span>)</th><th>Y (<span class="unit-len">${uLabel('len')}</span>)</th><th>Z (<span class="unit-len">${uLabel('len')}</span>)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
@@ -17532,7 +17532,7 @@ function renderTablaBarras() {
   const rows = _tablaBarrasRows(noCables, tablaBarrasUnlocked, true);
   document.getElementById('tabla-barras-body').innerHTML = `
     <table class="ret-table db-table">
-      <thead><tr><th>Barra</th><th>STAAD ID</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">m</span>)</th></tr></thead>
+      <thead><tr><th>Barra</th><th>STAAD ID</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">${uLabel('len')}</span>)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
@@ -17684,7 +17684,7 @@ function renderTablaRetenidas() {
         <col style="width:46px;"><col style="width:62px;"><col style="width:62px;">
         <col style="width:140px;"><col style="width:56px;"><col style="width:64px;"><col style="width:40px;">
       </colgroup>
-      <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Cable (Ø)</th><th>Cal.</th><th>Long. (<span class="unit-len">m</span>)</th><th></th></tr></thead>
+      <thead><tr><th>Ret.</th><th>Nodo A</th><th>Nodo B</th><th>Cable (Ø)</th><th>Cal.</th><th>Long. (<span class="unit-len">${uLabel('len')}</span>)</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>${addBtn}`;
 }
