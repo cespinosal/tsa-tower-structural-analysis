@@ -5878,7 +5878,7 @@ function _calcStabArmWeight() {
 
 function _updateSectionWeights() {
   const bySec   = _reportSectionWeights();
-  const fmtKg   = kg => kg.toFixed(1) + ' kg';
+  const fmtKg   = kg => uConv('weight', kg).toFixed(1) + ' ' + uLabel('weight');
   let total     = Object.values(bySec).reduce((s, v) => s + v, 0);
 
   // Para monopolos y mástiles el fuste no aparece en _reportSectionWeights
@@ -8762,11 +8762,11 @@ function _refreshSectionWeightCells() {
         const sides2 = +s.monoSides || 12;
         const rAvg = _monopoleSectionRadius(cfg, i, _cumH, _cumH + (+s.h||0), _monoZIncTot);
         const perim = sides2 >= 24 ? 2*Math.PI*rAvg : sides2 * 2 * rAvg * Math.sin(Math.PI/sides2);
-        pesoLbl = `${Math.round(perim * thk * (+s.h||0) * 7850)} kg`;
+        pesoLbl = `${Math.round(uConv('weight', perim * thk * (+s.h||0) * 7850))} ${uLabel('weight')}`;
       }
     } else {
       const w = _secWeights[i];
-      if (w != null) pesoLbl = `${Math.round(w)} kg`;
+      if (w != null) pesoLbl = `${Math.round(uConv('weight', w))} ${uLabel('weight')}`;
     }
     _cumH += +s.h || 0;
     const pesoEl = [...card.querySelectorAll('.sec-row-code')]
@@ -9042,7 +9042,7 @@ function onHeightChange() {
   const newH = +el.value || 30;
   const currentH = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
   if (Math.abs(newH - currentH) < 0.005) return;  // sin cambio real
-  const ok = confirm(`¿Dejar ${newH} m como la nueva altura final de la torre?\n\nLos tramos existentes no cambian; este valor se usa como límite al seguir agregando tramos.`);
+  const ok = confirm(`¿Dejar ${newH} ${uLabel('len')} como la nueva altura final de la torre?\n\nLos tramos existentes no cambian; este valor se usa como límite al seguir agregando tramos.`);
   if (!ok) { el.value = currentH; return; }
 }
 
@@ -11988,7 +11988,7 @@ function _fdPaqSyncPreview() {
     const dMax  = all.length ? Math.max(...all.map(c => c.diam)) : 0;
     const Dc    = _fdClusterDiam(all.length, dMax, 2);
     const dcEl  = document.getElementById('fd-paq-dc-val');
-    if (dcEl) dcEl.textContent = Dc.toFixed(1) + ' mm';
+    if (dcEl) dcEl.textContent = uConv('lenSmall', Dc).toFixed(1) + ' ' + uLabel('lenSmall');
   }
   _fdDrawPlan();
 }
@@ -18649,12 +18649,16 @@ async function exportDXF() {
   const title = _assetFileBase(cfg).replace(/\s+/g, '_');
 
   // swapZY → Y-up: DXF X=TSA_x, DXF Y=TSA_z (altura), DXF Z=TSA_y (horizontal)
-  const cx = n => n.x;
-  const cy = n => swapZY ? n.z : n.y;
-  const cz = n => swapZY ? n.y : n.z;
+  // Coordenadas se emiten en la unidad activa (m en MKS, ft en IMP)
+  const cu = v => uConv('len', v);
+  const cx = n => cu(n.x);
+  const cy = n => cu(swapZY ? n.z : n.y);
+  const cz = n => cu(swapZY ? n.y : n.z);
+  // $INSUNITS: 6=metros, 2=pies
+  const insUnits = isImperial() ? 2 : 6;
 
   let out = '';
-  out += '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSBASE\n10\n0.0\n20\n0.0\n30\n0.0\n0\nENDSEC\n';
+  out += `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$INSBASE\n10\n0.0\n20\n0.0\n30\n0.0\n9\n$INSUNITS\n70\n${insUnits}\n0\nENDSEC\n`;
   out += '0\nSECTION\n2\nENTITIES\n';
   members.forEach(m => {
     const ni = nodes[m.ni], nj = nodes[m.nj];
@@ -19000,7 +19004,7 @@ function _syncHeightField() {
   const totalH = +secData.reduce((s, d) => s + (+d.h || 0), 0).toFixed(2);
   const cap = +el.value || 0;
   if (totalH > cap + 0.001) {
-    showToast(`La suma de tramos (${totalH} m) supera la altura de la torre (${cap} m). Ajusta las alturas de los tramos.`, 'warn', 6000);
+    showToast(`La suma de tramos (${totalH} ${uLabel('len')}) supera la altura de la torre (${cap} ${uLabel('len')}). Ajusta las alturas de los tramos.`, 'warn', 6000);
   }
   // No actualizar height si la suma es menor o igual — la altura definida es un techo, no se mueve.
 }
@@ -19013,7 +19017,7 @@ function insertSeccion(i) {
   const currentH = secData.reduce((s, d) => s + (+d.h || 0), 0);
   const newH = +copy.h || 0;
   if (cap > 0 && currentH + newH > cap + 0.001) {
-    showToast(`No se agregó el tramo: la altura total (${(currentH + newH).toFixed(2)} m) superaría la altura de la torre (${cap} m).`, 'warn', 6000);
+    showToast(`No se agregó el tramo: la altura total (${(currentH + newH).toFixed(2)} ${uLabel('len')}) superaría la altura de la torre (${cap} ${uLabel('len')}).`, 'warn', 6000);
     return;
   }
   secData.splice(i + 1, 0, copy);
@@ -19137,11 +19141,11 @@ function buildSectionRows(n) {
         const sides2 = +s.monoSides || 12;
         const rAvg = _monopoleSectionRadius(cfg, i, _cumH, _cumH + (+s.h||0), _monoZIncTot);
         const perim = sides2 >= 24 ? 2*Math.PI*rAvg : sides2 * 2 * rAvg * Math.sin(Math.PI/sides2);
-        pesoLbl = `${Math.round(perim * thk * (+s.h||0) * 7850)} kg`;
+        pesoLbl = `${Math.round(uConv('weight', perim * thk * (+s.h||0) * 7850))} ${uLabel('weight')}`;
       }
     } else {
       const w = _secWeights[i];
-      if (w != null) pesoLbl = `${Math.round(w)} kg`;
+      if (w != null) pesoLbl = `${Math.round(uConv('weight', w))} ${uLabel('weight')}`;
     }
     _cumH += +s.h || 0;
     const tipo    = isInc ? 'INC' : 'REC';
@@ -20219,7 +20223,7 @@ function applySecModal() {
       const cumEnd = cumH + (+secData[modalIdx].h || 0);
       if (cumH < altH - 0.001 && cumEnd > altH + 0.001) {
         secData[modalIdx].h = +(altH - cumH).toFixed(2);
-        showToast(`El tramo ${modalIdx + 1} rebasaba la altura inclinada (${altH} m); se ajustó a ${secData[modalIdx].h} m para que quepa dentro de ella.`, 'warn', 6000);
+        showToast(`El tramo ${modalIdx + 1} rebasaba la altura inclinada (${uConv('len', altH).toFixed(2)} ${uLabel('len')}); se ajustó a ${uConv('len', secData[modalIdx].h).toFixed(2)} ${uLabel('len')} para que quepa dentro de ella.`, 'warn', 6000);
       }
     }
   }
