@@ -61,9 +61,21 @@ concatenación de strings (`'...' + fn() + '...'`), clasificando contenido de un
 literal como si fuera un string de comillas simples — se detectó a tiempo (antes de
 commitear) por una inspección manual, no automáticamente.
 
-**Pendiente restante:**
-- Decidir si el picker de perfiles debe sugerir por defecto la pestaña AISC cuando IMP
-  está activo (mejora menor, no implementada).
+**Picker de perfiles — HECHO (`bf66c13`, 2026-09-24):** sin perfil previo, abre en AISC
+en modo IMP / IMCA en MKS. La tabla del picker (área, peso, diámetro/espesor/d/tw) ahora
+muestra ambos catálogos convertidos a in²/lb-ft/in cuando IMP está activo (antes siempre
+mostraba cm²/kg-m/cm sin importar el modo). Importante para quien toque esto después:
+está separado en `_pickerMetric()` (SIEMPRE cm²/kg-m/cm, la usa `_profileWeightPerMeter()`
+para sumar peso real de mástil apuntalado / steel takeoff — nunca condicionar esta función
+a `isImperial()`) y `_pickerMetricDisplay()` (nueva, solo pinta la tabla del picker, nunca
+alimenta un cálculo). Verificado en navegador que `_profileWeightPerMeter()` da el mismo
+valor exacto en MKS e IMP.
+
+**Artefacto preexistente detectado de paso (no corregido, prioridad baja):** el total del
+steel takeoff (`_reportSteelTakeoff().total`) varía ~0.002% entre MKS/IMP — no por peso o
+longitud de perfil (confirmados idénticos), sino por el redondeo `toFixed(3)` en pies de
+`baseW`/`topW` en `_convDomLen()`, que afecta levemente el `faceWidth` interpolado usado
+para longitud de diagonales. Magnitud despreciable para ingeniería estructural.
 
 ## Audit TIA-222-H — combinaciones de carga y viento (COMMITEADO, con pendiente detectado)
 
