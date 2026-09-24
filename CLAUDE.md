@@ -48,6 +48,40 @@ Reglas de diseño aplicadas:
 - Decidir si el picker de perfiles debe sugerir por defecto la pestaña AISC cuando IMP
   está activo (mejora menor, no implementada).
 
+## Audit TIA-222-H — combinaciones de carga y viento (COMMITEADO, con pendiente detectado)
+
+Segundo audit de fórmulas normativas (2026-09-24, commits `4d878d5` y `135b375`), continuación
+del de ayer (6 hallazgos en `9194a6c`). Corregido:
+- `_renderWindAngleTable_Monopole` (tabla "Cargas de Viento" + flechas 3D vía `_monoSecW`) no
+  aplicaba Tabla 2-8a (herrajes lineales/feeders) aunque `computeNodalWindForces_Monopole` sí —
+  mismo patrón de "fix a medias" documentado abajo.
+- Export STAAD generaba 3 combinaciones de carga **hardcodeadas**, ignorando el panel
+  "Combinaciones de Carga" (`_lcCombis`): si el usuario desactivaba una combinación o agregaba
+  una personalizada, nunca llegaba al `.std`. Ahora STAAD, la memoria HTML (cap. 7) y el DOCX
+  leen todos de `_lcCombis` vía la misma función `_lcAppliesToType()`.
+- LC2/LC5 (0.9·D..., §2.3.2-(2)/(5)) tenían la nota "Solo autosoportadas" pero se exportaban
+  para todos los tipos. Confirmado con el usuario: **sí aplican** a autosoportadas, monopolo y
+  mástil apuntalado (`monopole` + `mastType==='mast-guyed'`) — **no aplican** a atirantadas
+  (`cfg.type==='guyed'`). Esto quedó como el campo `excludeGuyed` en `_LC_TIA222H`.
+
+**Patrón de bug a vigilar en este código** (ya visto 2 veces — hallazgo #10 de ayer y el de
+`_renderWindAngleTable_Monopole` arriba): la misma fórmula/criterio normativo vive duplicada en
+2+ rutas (cálculo real para STAAD/3D vs. tabla de reporte en pantalla/memoria/DOCX). Al corregir
+un hallazgo de este tipo, buscar TODOS los call sites de la función involucrada antes de dar el
+fix por cerrado.
+
+**Pendiente descubierto, no corregido todavía** (fuera de alcance de esta sesión, requiere
+confirmación de criterio del usuario antes de tocarlo): la combinación de servicio SLC1
+(§2.8.3, nota "V = 60 mph [27 m/s]") reutiliza en STAAD **las mismas fuerzas de viento último**
+que las combinaciones de diseño (`_emitWindLoad` no recibe ningún `vKmhOverride` de servicio) —
+no se está aplicando realmente una velocidad reducida de servicio. Revisar `calcWindPressure`/
+`calcSectionWindForce` (soportan `vKmhOverride`) y cómo conectarlo a un valor de servicio real
+antes de corregir.
+
+Sin hallazgos nuevos en `calcWindPressure`/`_tiaKz`/`_tiaKzt`/`_tiaKe`/`_tiaKd`, Cf de celosía
+(`_cfFromEpsilon`/`_tiaDfDr`) ni EPA de antenas/dish — ya se revisaron a fondo. Hielo y sismo
+siguen sin implementar (declarado "Pendiente" en el propio reporte, no es un bug oculto).
+
 ## Módulo K-factor por patrón de arriostramiento — planeado, no implementado
 
 Módulo que asignaría K/KL·r por miembro de celosía (piernas, diagonales, horizontales)
