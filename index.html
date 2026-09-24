@@ -10992,14 +10992,14 @@ function toggleAntenasTab() {
 // fWi=viento con hielo, fTi=temperatura, fEh/fEv=sísmico H/V
 const _LC_TIA222H = [
   {id:'SLC1', formula:'1.0·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
-   activa:true,  fD:1.0, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
+   activa:true,  fD:1.0, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0, isService:true,
    nota:'Servicio — V = 60 mph [27 m/s], K<sub>d</sub>=0.85', ref:'§2.8.3', preset:true},
   {id:'LC1', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
    activa:true,  fD:1.2, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
    nota:'', ref:'§2.3.2-(1)', preset:true},
   {id:'LC2', formula:'0.9·D + 1.0·D<sub>g</sub> + 1.0·W<sub>o</sub>',
-   activa:true,  fD:0.9, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0,
-   nota:'Solo autosoportadas', ref:'§2.3.2-(2)', preset:true},
+   activa:true,  fD:0.9, fDg:1.0, fDi:0, fWo:1.0, fWi:0, fTi:0, fEh:0, fEv:0, excludeGuyed:true,
+   nota:'No aplica a atirantadas', ref:'§2.3.2-(2)', preset:true},
   {id:'LC3', formula:'1.2·D + 1.0·D<sub>g</sub> + 1.0·D<sub>i</sub> + 1.0·W<sub>i</sub> + 1.0·T<sub>i</sub>',
    activa:false, fD:1.2, fDg:1.0, fDi:1.0, fWo:0, fWi:1.0, fTi:1.0, fEh:0, fEv:0,
    nota:'T<sub>i</sub>: no aplica autosoportadas', ref:'§2.3.2-(3)', preset:true},
@@ -11007,9 +11007,18 @@ const _LC_TIA222H = [
    activa:false, fD:1.2, fDg:1.0, fDi:0, fWo:0, fWi:0, fTi:0, fEh:1.0, fEv:1.0,
    nota:'', ref:'§2.3.2-(4)', preset:true},
   {id:'LC5', formula:'0.9·D + 1.0·D<sub>g</sub> + 1.0·E<sub>v</sub> + 1.0·E<sub>h</sub>',
-   activa:false, fD:0.9, fDg:1.0, fDi:0, fWo:0, fWi:0, fTi:0, fEh:1.0, fEv:1.0,
-   nota:'Solo autosoportadas', ref:'§2.3.2-(5)', preset:true},
+   activa:false, fD:0.9, fDg:1.0, fDi:0, fWo:0, fWi:0, fTi:0, fEh:1.0, fEv:1.0, excludeGuyed:true,
+   nota:'No aplica a atirantadas', ref:'§2.3.2-(5)', preset:true},
 ];
+// Combos con excludeGuyed=true no aplican a torres atirantadas (celosía con
+// retenidas, cfg.type==='guyed') — sí aplican a autosoportadas, monopolo y
+// mástil apuntalado (monopole con mastType='mast-guyed'). Confirmado con el
+// usuario 2026-09-24. Único punto de verdad: se filtra igual en la memoria de
+// cálculo (HTML/DOCX, cap. 7) y en el export STAAD para no repetir el hallazgo
+// #10 (fix aplicado a una ruta de cálculo y no a la otra).
+function _lcAppliesToType(c, cfgType) {
+  return !(c.excludeGuyed && cfgType === 'guyed');
+}
 
 let _lcCombis = _LC_TIA222H.map(c => ({...c}));
 let _lcEditId = null;
@@ -15758,7 +15767,7 @@ function _memChapter7Html(cfg) {
   const ch   = MEM_CHAPTERS.find(c => c.num === 7);
   const dirs = Array.isArray(windData.directions) && windData.directions.length
     ? windData.directions : [0];
-  const activas = (_lcCombis || []).filter(c => c.activa);
+  const activas = (_lcCombis || []).filter(c => c.activa && _lcAppliesToType(c, cfg.type));
 
   // Expandir por dirección solo las combinaciones que tienen carga de viento
   const rows = [];
@@ -16845,7 +16854,7 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   // ── Cap. 7 — Combinaciones de Carga ────────────────────────────────────────
   const ch7 = (() => {
     const _dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
-    const activas = (_lcCombis || []).filter(c => c.activa);
+    const activas = (_lcCombis || []).filter(c => c.activa && _lcAppliesToType(c, cfg.type));
     const _rows = [];
     activas.forEach(c => {
       const hasWind = c.fWo > 0 || c.fWi > 0;
@@ -18597,30 +18606,50 @@ async function _doExportSTAAD() {
     }
   };
 
-  // 1.2D + 1.0DG + 1.0W{dir}
-  _wlDirs.forEach((angleDeg, di) => {
-    const cName = hasDG ? `1.2D+1.0DG+1.0W${angleDeg}` : `1.2D+1.0W${angleDeg}`;
-    const factorLine = hasDG ? `1 1.2 2 1.0 ${windBase + di} 1.0` : `1 1.2 ${windBase + di} 1.0`;
-    _emitCombo(firstComb + di, cName, factorLine);
-  });
+  // Combinaciones generadas dinámicamente desde _lcCombis (mismo estado que ve
+  // el usuario en el panel "Combinaciones de Carga" y en la memoria de cálculo,
+  // capítulo 7) — antes esta sección ignoraba por completo qué combinaciones
+  // estaban activas/inactivas o si el usuario había agregado una personalizada,
+  // y exportaba siempre las mismas 3 combinaciones fijas (hallazgo #1 del audit
+  // 2026-09-24). El filtro por tipo de torre (excludeGuyed) usa la misma función
+  // _lcAppliesToType que ya aplica el capítulo 7 — un solo punto de verdad.
+  const _lcActivas = (_lcCombis || []).filter(c => c.activa && _lcAppliesToType(c, cfg.type));
+  let _comboId = firstComb;
+  const _fmtF = v => (v % 1 === 0 ? v.toFixed(1) : String(v));
+  const _emitLcCombo = c => {
+    // Hielo/temperatura/sismo (fDi/fWi/fTi/fEh/fEv) aún no tienen caso de carga
+    // en STAAD — TSA no calcula esas solicitaciones todavía (ver memoria de
+    // cálculo, secciones marcadas "Pendiente"). Se deja constancia en vez de
+    // exportar una combinación incompleta o incorrecta (mismo criterio que el
+    // hallazgo #12: comentario explícito en vez de omitir en silencio).
+    if (c.fDi > 0 || c.fWi > 0 || c.fTi > 0 || c.fEh > 0 || c.fEv > 0) {
+      out += `* ${c.id} - NO EXPORTADA (requiere hielo/temperatura/sismo, aun no implementado en TSA)\n`;
+      return;
+    }
+    const hasWind    = c.fWo > 0;
+    const windSlot0  = c.isService ? (windBase + N) : windBase;
+    const windLabel  = c.isService ? 'WS' : 'W';
+    const dirsToUse  = hasWind ? _wlDirs : [null];
+    dirsToUse.forEach((angleDeg, di) => {
+      const nameParts = [];
+      if (c.fD)            nameParts.push(`${_fmtF(c.fD)}D`);
+      if (c.fDg && hasDG)  nameParts.push(`${_fmtF(c.fDg)}DG`);
+      if (hasWind)         nameParts.push(`${_fmtF(c.fWo)}${windLabel}${angleDeg}`);
+      const cName = `${c.id} ${nameParts.join('+')}`;
+      const terms = [];
+      if (c.fD)           terms.push(`1 ${c.fD}`);
+      if (c.fDg && hasDG) terms.push(`2 ${c.fDg}`);
+      if (hasWind)        terms.push(`${windSlot0 + di} ${c.fWo}`);
+      _emitCombo(_comboId++, cName, terms.join(' '));
+    });
+  };
 
-  // 0.9D + 1.0DG + 1.0W{dir}
-  _wlDirs.forEach((angleDeg, di) => {
-    const cName = hasDG ? `0.9D+1.0DG+1.0W${angleDeg}` : `0.9D+1.0W${angleDeg}`;
-    const factorLine = hasDG ? `1 0.9 2 1.0 ${windBase + di} 1.0` : `1 0.9 ${windBase + di} 1.0`;
-    _emitCombo(firstComb + N + di, cName, factorLine);
-  });
+  _lcActivas.filter(c => !c.isService).forEach(_emitLcCombo);
 
   out += `*\n`;
   out += `* COMBINACIONES DE SERVICIO\n`;
   out += `*\n`;
-
-  // 1.0D + 1.0DG + 1.0WS{dir}  (WS = carga de servicio)
-  _wlDirs.forEach((angleDeg, di) => {
-    const cName = hasDG ? `1.0D+1.0DG+1.0WS${angleDeg}` : `1.0D+1.0WS${angleDeg}`;
-    const factorLine = hasDG ? `1 1.0 2 1.0 ${windBase + N + di} 1.0` : `1 1.0 ${windBase + N + di} 1.0`;
-    _emitCombo(firstComb + 2 * N + di, cName, factorLine);
-  });
+  _lcActivas.filter(c => c.isService).forEach(_emitLcCombo);
 
   out += `FINISH\n`;
 
