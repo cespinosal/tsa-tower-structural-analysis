@@ -112,6 +112,21 @@ Sin hallazgos nuevos en `calcWindPressure`/`_tiaKz`/`_tiaKzt`/`_tiaKe`/`_tiaKd`,
 (`_cfFromEpsilon`/`_tiaDfDr`) ni EPA de antenas/dish — ya se revisaron a fondo. Hielo y sismo
 siguen sin implementar (declarado "Pendiente" en el propio reporte, no es un bug oculto).
 
+## Pierna explícita de antenas ahora controla la carga real — HECHO (`04a841c`, 2026-09-24)
+
+El dropdown de pierna (P1/P2/P3) en la tabla de antenas ya existía pero solo afectaba el
+dibujo en el visor 3D (`renderAntenas3D`) — la carga real de viento/peso (flechas 3D y
+export STAAD) ignoraba `a.pierna` y recalculaba automáticamente la pierna "más cercana por
+azimut" (`_nearestLegNodeByAz`), pudiendo aplicar la carga en una pierna distinta a la que
+el usuario eligió. Corregido con `_legNodeForPierna()`/`_legNodeForLoad()` — usan la pierna
+explícita si está definida, si no caen al automático de siempre. `_calcAntennaForces()` y
+`_calcHerrajeWindForces()` ahora devuelven `pierna` en cada objeto.
+
+Verificado en navegador: forzar pierna cambia el nodo STAAD real (viento y peso); antenas
+sin pierna elegida no cambian de comportamiento. **No verificado en vivo** (mismo patrón de
+código, no debería fallar, pero no se probó): la ruta de herrajes (`_calcHerrajeWindForces`)
+con pierna explícita, ni un proyecto monopolo/atirantado con `mastType==='mast-guyed'`.
+
 ## Módulo K-factor por patrón de arriostramiento — planeado, no implementado
 
 Módulo que asignaría K/KL·r por miembro de celosía (piernas, diagonales, horizontales)
