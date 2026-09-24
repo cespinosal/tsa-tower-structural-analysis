@@ -7436,17 +7436,19 @@ function _cfFromEpsilon(epsilon, isRound, isTriangular) {
 }
 // Df y Dr según Tabla 2-7 TIA-222-H — interpolación lineal entre los puntos definidos.
 // θ en grados desde la normal a la cara. epsilon solo se usa para cuadrada en 45°.
+// towerType debe ser 'triangular' o 'square' — el caller resuelve 'guyed' antes de llamar.
 function _tiaDfDr(towerType, angleDeg, epsilon) {
-  const th = Math.abs(angleDeg) % 180;
   if (towerType === 'triangular' || towerType === 'guyed') {
-    // Normal=0°→Df=1.0, 60°→0.80, ±90°→0.85; Dr=1.0 siempre
+    // Período 120° (normales a 120° en triangular). 0°→1.0, 60°→0.80, 90°→0.85, 120°→1.0
+    const th = Math.abs(angleDeg) % 120;
     let Df;
     if (th <= 60)       Df = 1.0  + (0.80 - 1.0 ) * (th / 60);
     else if (th <= 90)  Df = 0.80 + (0.85 - 0.80) * ((th - 60) / 30);
-    else                Df = 0.85 + (1.0  - 0.85) * ((th - 90) / 30); // hacia cara vecina
+    else                Df = 0.85 + (1.0  - 0.85) * ((th - 90) / 30);
     return { Df, Dr: 1.0 };
   } else { // square
-    // Normal=0°→Df=1.0, 45°→min(1.2,1+0.75ε); Dr=Df
+    // Período 90° (normales a 90° en cuadrada). 0°→1.0, 45°→min(1.2,1+0.75ε), 90°→1.0
+    const th = Math.abs(angleDeg) % 90;
     const Df45 = Math.min(1.2, 1 + 0.75 * (epsilon || 0));
     let Df;
     if (th <= 45)  Df = 1.0 + (Df45 - 1.0) * (th / 45);
@@ -7476,9 +7478,10 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
   if (cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed') return null;
   const sol = calcSectionSolidity(cfg, sec, faceWidth);
   if (!sol) return null;
-  const isTriangular = cfg.type === 'triangular' || cfg.type === 'guyed';
+  const effType = cfg.type === 'guyed' ? (cfg.guyShape === 'square' ? 'square' : 'triangular') : cfg.type;
+  const isTriangular = effType === 'triangular';
   const theta = angleDeg ?? 0;
-  const { Df, Dr } = _tiaDfDr(cfg.type, theta, sol.epsilon);
+  const { Df, Dr } = _tiaDfDr(effType, theta, sol.epsilon);
   const CfPlana   = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : null;
   const CfRedonda = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : null;
   // Rr = 0 si no hay miembros redondos; provisional = 1.0 cuando sí los hay
@@ -15477,14 +15480,15 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   `;
 
   // ── EPA por ángulo — usar qz ya calculado con vKmh ───────────────
-  const isTriangular = cfg.type === 'triangular';
+  const effType = cfg.type === 'guyed' ? (cfg.guyShape === 'square' ? 'square' : 'triangular') : cfg.type;
+  const isTriangular = effType === 'triangular';
   const GhVal = _tiaGh(cfg.height, cfg.type);
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
 
   function _epaRow(r, angleDeg) {
     const sol = calcSectionSolidity(cfg, r.secIdx, r.fw);
     if (!sol) return null;
-    const { Df, Dr } = _tiaDfDr(cfg.type, angleDeg, sol.epsilon);
+    const { Df, Dr } = _tiaDfDr(effType, angleDeg, sol.epsilon);
     const Rr  = sol.areaRedonda > 0 ? 1.0 : 0;
     const CfP = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : 0;
     const CfR = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : 0;
@@ -15496,7 +15500,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
 
   const angleTablesHtml = dirs.map(angleDeg => {
     const thetaRad = angleDeg * Math.PI / 180;
-    const Df0 = _tiaDfDr(cfg.type, angleDeg, 0).Df;   // representativo (ε varía por sec)
+    const Df0 = _tiaDfDr(effType, angleDeg, 0).Df;   // representativo (ε varía por sec)
     const angleRows = rows.map(r => ({ r, ep: _epaRow(r, angleDeg) })).filter(x => x.ep);
     if (!angleRows.length) return '';
     const totalKgf = angleRows.reduce((s, x) => s + x.ep.F_kgf, 0);
@@ -15510,9 +15514,9 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         θ = ${angleDeg}° ${angleDeg===0?'— Viento Normal':''}</h4>
       <p style="font-size:10px;margin:4px 0 2px;">
         <b>Factores de dirección (Tabla 2-7):</b>
-        Df = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Df.toFixed(2)},
-        Dr = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Dr.toFixed(2)}
-        ${angleDeg===45&&cfg.type==='square' ? `(= min(1.2, 1+0.75ε))` : ''}</p>
+        Df = ${_tiaDfDr(effType, angleDeg, ex.sol.epsilon).Df.toFixed(2)},
+        Dr = ${_tiaDfDr(effType, angleDeg, ex.sol.epsilon).Dr.toFixed(2)}
+        ${angleDeg===45&&effType==='square' ? `(= min(1.2, 1+0.75ε))` : ''}</p>
       <p style="font-size:10px;margin:2px 0 6px;">
         <b>Ejemplo Sec. ${exR.sec}:</b><br>
         ${epaEx}<br>
