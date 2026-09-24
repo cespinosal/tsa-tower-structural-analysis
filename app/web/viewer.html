@@ -18472,9 +18472,12 @@ async function _doExportSTAAD() {
   // (capítulo 6.2, "Viento de Servicio (Operacional)"): windData.velOperacional.
   // Antes el caso "SERVICIO" de STAAD reutilizaba las fuerzas de viento ÚLTIMO
   // (sección, antenas y herrajes) sin aplicar ninguna reducción de velocidad real.
-  const _svcVKmh = +windData.velOperacional || null;
-  const _stAntForcesSvc     = _svcVKmh ? _calcAntennaForces(cfg, windData, {includeHerraje: false, vKmhOverride: _svcVKmh}) : _stAntForces;
-  const _stHerrajeForcesSvc = _svcVKmh ? _calcHerrajeWindForces(cfg, windData, _svcVKmh) : _stHerrajeForces;
+  // Si no se capturó velocidad operacional, TIA-222-H §2.8.3 fija 60 mph (27 m/s)
+  // como velocidad de servicio — no la velocidad última del proyecto.
+  const _SLC1_V_MPH_TO_KMH = 60 * 1.609344;
+  const _svcVKmh = +windData.velOperacional || _SLC1_V_MPH_TO_KMH;
+  const _stAntForcesSvc     = _calcAntennaForces(cfg, windData, {includeHerraje: false, vKmhOverride: _svcVKmh});
+  const _stHerrajeForcesSvc = _calcHerrajeWindForces(cfg, windData, _svcVKmh);
 
   // Pesos de equipos — LOAD 2 DG (solo si hay pesos asignados)
   const _antConPeso = (antenasData || []).filter(a => (+a.peso || 0) > 0.001);
@@ -18587,7 +18590,8 @@ async function _doExportSTAAD() {
 
   // Cargas de servicio (LOAD windBase+N … windBase+2N-1) — velocidad operacional real
   // (windData.velOperacional, §2.8.3), no la velocidad última
-  if (!_svcVKmh) out += `*\n* AVISO: velocidad operacional no capturada — SERVICIO usa velocidad ultima\n`;
+  if (!(+windData.velOperacional))
+    out += `*\n* AVISO: velocidad operacional no capturada - SERVICIO usa 60 MPH [${_svcVKmh.toFixed(1)} KM/H] POR TIA-222-H SEC 2.8.3\n`;
   _wlDirs.forEach((angleDeg, di) => {
     const name = (angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`) + ' SERVICIO';
     _emitWindLoad(windBase + N + di, name, angleDeg, _svcVKmh, _stAntForcesSvc, _stHerrajeForcesSvc);
