@@ -41,10 +41,27 @@ Reglas de diseño aplicadas:
 - Las fórmulas narrativas con coeficientes calibrados en SI (qz, Ke, Gh) se dejan sin
   tocar; solo se convierten las tablas de resultados alrededor de ellas.
 
-**Pendiente** (no confirmado que se haya hecho):
-- Pruebas en navegador (Playwright) cubriendo antenas, retenidas, feeders/CGO/escalerilla,
-  memoria de cálculo HTML, export DOCX (abrir el archivo generado) y export STAAD en modo
-  IMP (confirmar `UNIT FEET KIP` y coordenadas convertidas).
+**Pruebas Playwright (2026-09-24): 5/7 pasaron, 1 bug sistémico encontrado y corregido.**
+Antenas, retenidas/feeders (valores), export DOCX, export STAAD (`UNIT FEET KIP` OK) y
+regresión a MKS: todo correcto. **Bug encontrado:** en tablas/paneles generados por JS
+(Cargas de Viento, retenidas, feeders/CGO, memoria de cálculo HTML) el valor se convertía
+bien a imperial pero la ETIQUETA de unidad quedaba fija en métrico —
+`<span class="unit-len">m</span>` en vez de `${uLabel('len')}` — un valor en pies mostrado
+como si fuera metros. **Corregido en `0451846`**, 93 ocurrencias, verificado en navegador
+tras el fix (ASNM, retenidas y memoria HTML ya muestran ft/lb/psf en IMP sin residuos al
+volver a MKS).
+
+**Nota para quien retome esto:** si hace falta volver a hacer un fix mecánico de este tipo
+(buscar/reemplazar texto dentro de `app/web/viewer.html`, que es ~1 MB de JS embebido en
+`<script>`), **usar un tokenizer JS real** (`acorn`, instalable con `npm install acorn` —
+hay acceso a red desde esta VM) para saber si una posición está dentro de un template
+literal vs. un string simple, NO un tokenizer de comillas hecho a mano. Un intento con
+tokenizer casero en esta misma sesión se equivocó silenciosamente en una zona con mucha
+concatenación de strings (`'...' + fn() + '...'`), clasificando contenido de un template
+literal como si fuera un string de comillas simples — se detectó a tiempo (antes de
+commitear) por una inspección manual, no automáticamente.
+
+**Pendiente restante:**
 - Decidir si el picker de perfiles debe sugerir por defecto la pestaña AISC cuando IMP
   está activo (mejora menor, no implementada).
 
