@@ -3412,9 +3412,12 @@ function genMonopole(cfg) {
 // Pedido explícito del usuario (2026-06-28).
 function genMonopoleAxis(cfg) {
   const {nodes, members} = initBuffers();
-  const nTot = cfg.nInc + cfg.nStr;
+  // Blindar contra nInc/nStr > secData.length (igual que genMonopole, línea 3081).
+  // Sin este guard, secData[sec]?.h devuelve undefined → +undefined → NaN → || 6
+  // inserta un tramo fantasma de 6 m por cada sección faltante.
+  const nTot = Math.min(cfg.nInc + cfg.nStr, secData.length);
   if (nTot === 0) return {nodes, members};
-  const secH = sec => +secData[sec]?.h || 6;
+  const secH = sec => +secData[sec]?.h || 0;
   let z = 0;
   let prevNode = addNode(nodes, 0, 0, 0);
   for (let sec = 0; sec < nTot; sec++) {
@@ -5824,9 +5827,36 @@ function _calcMonopoleShaftWeight() {
     if (thkMm <= 0) continue;
     const t = thkMm / 1000;
     const rIn = Math.max(0, rAvg - t);
-    kg += Math.PI * (rAvg * rAvg - rIn * rIn) * 7850 * dz;
+    const sides = p0.sides ?? 12;
+    const aFactor = sides >= 24 ? Math.PI : (sides / 2) * Math.sin(2 * Math.PI / sides);
+    kg += aFactor * (rAvg * rAvg - rIn * rIn) * 7850 * dz;
   }
   return kg;
+}
+
+// Peso del fuste de monopolo desglosado por sección — mismo cálculo que
+// _calcMonopoleShaftWeight pero devuelve un mapa {sec: kg} para el reporte.
+function _calcMonoShaftWeightBySec() {
+  const prof = _towerData?.monoProf;
+  if (!prof || prof.length < 2) return {};
+  const bySec = {};
+  for (let k = 0; k + 1 < prof.length; k++) {
+    const p0 = prof[k], p1 = prof[k + 1];
+    const dz = Math.abs(p1.z - p0.z);
+    if (dz < 1e-6) continue;
+    const sec = p0.sec ?? p1.sec;
+    if (sec == null) continue;
+    const sd = secData[sec];
+    const thkMm = (sd?.monoThk != null && sd.monoThk !== '-') ? +sd.monoThk : 0;
+    if (thkMm <= 0) continue;
+    const rAvg = (p0.r + p1.r) / 2;
+    const t = thkMm / 1000;
+    const rIn = Math.max(0, rAvg - t);
+    const sides = p0.sides ?? 12;
+    const aFactor = sides >= 24 ? Math.PI : (sides / 2) * Math.sin(2 * Math.PI / sides);
+    bySec[sec] = (bySec[sec] || 0) + aFactor * (rAvg * rAvg - rIn * rIn) * 7850 * dz;
+  }
+  return bySec;
 }
 
 // Peso de los puntales de mástil apuntalado desde strutData (catálogo o geometría)
@@ -6725,7 +6755,9 @@ function _convDomLen(id, prevUnit, newUnit) {
 function _pickerMetric(r, cat, fam) {
   // 'compuesto' = perfil importado desde SectionBuilder (JSON) — ya viene en cm²/kg-m
   // (misma convención que IMCA), sin nada que convertir.
-  if (cat === 'imca' || cat === 'compuesto') return {
+  // AISC familia 'c' con designación métrica (ej. C380X74) — ya en mm/kg-m, igual que IMCA.
+  if (cat === 'imca' || cat === 'compuesto' ||
+      (cat === 'aisc' && fam === 'c' && /^C\d{3,}X/.test(r.designacion ?? ''))) return {
     area: r.area, peso: r.peso, diametro: r.diametro ?? 0, espesor: r.espesor ?? 0,
     alto: r.d ?? 0, espesorTW: (r.tw ?? 0) / 10   // d ya en cm; tw en mm → cm
   };
@@ -7190,6 +7222,15 @@ function _tiaKd(tipoEstructura) {
   return 0.85;   // celosía triangular/cuadrada/arriostrada (siempre 3 o 4 piernas en TSA)
 }
 
+// Altura real de la torre: suma de secData[i].h, con fallback a cfg.height si secData
+// está vacío. Usar en lugar de cfg.height para _tiaGh — evita desync cuando el usuario
+// edita alturas de tramo sin actualizar el campo global.
+function _realHeight(cfg) {
+  const sd = cfg.secData || secData;
+  const sum = sd.reduce((s, d) => s + (+d.h || 0), 0);
+  return sum > 0 ? sum : cfg.height;
+}
+
 // Gh (factor de efecto de ráfaga) — 2.6.9.1 (autosoportada/celosía, triangular/cuadrada:
 // fórmula por altura), 2.6.9.2 (arriostrada/guyed: fijo 0.85), 2.6.9.3 (monopolo/pole:
 // fijo 1.10).
@@ -7399,15 +7440,16 @@ function calcSectionSolidity(cfg, sec, faceWidth) {
   const top = _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, true);
   const reg = bays > 1 ? _bracingLengthsPerBay(pattern, sec, faceWidth, bayH, false) : top;
 
-  let areaPlana = 0, areaRedonda = 0;
+  let areaPlana = 0, areaRedonda = 0, lenRedonda = 0;
   const add = (len, designacion, fallback) => {
     if (!len) return;
     const { w, round } = _profileWidthAndRound(designacion, fallback);
     if (w == null) return;
-    if (round) areaRedonda += len * w; else areaPlana += len * w;
+    if (round) { areaRedonda += len * w; lenRedonda += len; } else areaPlana += len * w;
   };
 
-  if (_profileIsRound(s.M)) areaRedonda += 2 * wM * h; else areaPlana += 2 * wM * h;
+  if (_profileIsRound(s.M)) { areaRedonda += 2 * wM * h; lenRedonda += 2 * h; }
+  else areaPlana += 2 * wM * h;
   // Diagonales: el patrón es el mismo en cualquier bahía (no depende de isTopBay) — se
   // usa "top" (cualquiera de las 2 llamadas da igual) × número de bahías.
   add(top.dPrincipal * bays, s.D, null);
@@ -7423,7 +7465,8 @@ function calcSectionSolidity(cfg, sec, faceWidth) {
   const grossArea = faceWidth * h;
   if (!(grossArea > 0)) return null;
   const epsilon = Math.min(0.8, Math.max(0.05, solidArea / grossArea));
-  return { epsilon, solidArea, areaPlana, areaRedonda, grossArea };
+  const dRoundAvg = lenRedonda > 0 ? areaRedonda / lenRedonda : 0;
+  return { epsilon, solidArea, areaPlana, areaRedonda, grossArea, dRoundAvg };
 }
 // Cf (coeficiente de fuerza) en función del solidity ratio y sección transversal de la
 // torre (TIA-222-H §2.6.9): triangular → 3.4ε²–4.7ε+3.4 siempre; cuadrada → depende
@@ -7436,17 +7479,19 @@ function _cfFromEpsilon(epsilon, isRound, isTriangular) {
 }
 // Df y Dr según Tabla 2-7 TIA-222-H — interpolación lineal entre los puntos definidos.
 // θ en grados desde la normal a la cara. epsilon solo se usa para cuadrada en 45°.
+// towerType debe ser 'triangular' o 'square' — el caller resuelve 'guyed' antes de llamar.
 function _tiaDfDr(towerType, angleDeg, epsilon) {
-  const th = Math.abs(angleDeg) % 180;
   if (towerType === 'triangular' || towerType === 'guyed') {
-    // Normal=0°→Df=1.0, 60°→0.80, ±90°→0.85; Dr=1.0 siempre
+    // Período 120° (normales a 120° en triangular). 0°→1.0, 60°→0.80, 90°→0.85, 120°→1.0
+    const th = Math.abs(angleDeg) % 120;
     let Df;
     if (th <= 60)       Df = 1.0  + (0.80 - 1.0 ) * (th / 60);
     else if (th <= 90)  Df = 0.80 + (0.85 - 0.80) * ((th - 60) / 30);
-    else                Df = 0.85 + (1.0  - 0.85) * ((th - 90) / 30); // hacia cara vecina
+    else                Df = 0.85 + (1.0  - 0.85) * ((th - 90) / 30);
     return { Df, Dr: 1.0 };
   } else { // square
-    // Normal=0°→Df=1.0, 45°→min(1.2,1+0.75ε); Dr=Df
+    // Período 90° (normales a 90° en cuadrada). 0°→1.0, 45°→min(1.2,1+0.75ε), 90°→1.0
+    const th = Math.abs(angleDeg) % 90;
     const Df45 = Math.min(1.2, 1 + 0.75 * (epsilon || 0));
     let Df;
     if (th <= 45)  Df = 1.0 + (Df45 - 1.0) * (th / 45);
@@ -7476,15 +7521,19 @@ function calcSectionWindForce(cfg, windData, sec, z, faceWidth, angleDeg, vKmhOv
   if (cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed') return null;
   const sol = calcSectionSolidity(cfg, sec, faceWidth);
   if (!sol) return null;
-  const isTriangular = cfg.type === 'triangular' || cfg.type === 'guyed';
+  const effType = cfg.type === 'guyed' ? (cfg.guyShape === 'square' ? 'square' : 'triangular') : cfg.type;
+  const isTriangular = effType === 'triangular';
   const theta = angleDeg ?? 0;
-  const { Df, Dr } = _tiaDfDr(cfg.type, theta, sol.epsilon);
+  const { Df, Dr } = _tiaDfDr(effType, theta, sol.epsilon);
   const CfPlana   = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : null;
   const CfRedonda = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : null;
-  // Rr = 0 si no hay miembros redondos; provisional = 1.0 cuando sí los hay
-  // (requiere D por perfil para calcular C — pendiente)
-  const Rr = sol.areaRedonda > 0 ? 1.0 : 0;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  // Rr — §2.6.11.1.1: C = [Kz·Kzt·Ke]^0.5·V[mph]·D_avg[ft]
+  const _rrV = _tiaVelocidadUltimaKmh(windData) / 1.60934;
+  const _rrKz = _tiaKz(z, windData.catExposicion), _rrKzt = _tiaKzt(z, windData);
+  const _rrDft = sol.dRoundAvg * 3.28084;
+  const _rrC = Math.sqrt(_rrKz * _rrKzt * _tiaKe(windData.asnm)) * _rrV * _rrDft;
+  const Rr = sol.areaRedonda > 0 ? _tiaRr(sol.epsilon, _rrC) : 0;
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   if (Gh == null) return null;
   const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
   const Cf = sol.solidArea > 0 ? ((CfPlana||0)*sol.areaPlana + (CfRedonda||0)*sol.areaRedonda) / sol.solidArea : null;
@@ -7702,7 +7751,7 @@ function _tia222h_Cf_monopole(C_mph_ft, nSides, withLinear) {
 // Cf varía por sección (nLados, régimen de flujo C = √(Kzt·Kz·Ke)·V·D).
 function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   if (cfg.type !== 'monopole' || !projectGenerated) return [];
-  const Gh    = _tiaGh(cfg.height, 'monopole');
+  const Gh    = _tiaGh(_realHeight(cfg), 'monopole');
   const Ke    = _tiaKe(windData.asnm);
   const V_mph = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;   // km/h → mph
   const dir   = _windDirFromAngle(angleDeg || 0);
@@ -7723,6 +7772,10 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
     const dz     = h / nSub;
     const isInc  = i < nInc;
     const nSides = +s?.monoSides || 12;
+    // Tabla 2-8a (con herrajes lineales) si algún feeder no-INT pasa por esta sección
+    const withLinear = Array.isArray(feedersData) && feedersData.some(
+      f => f.ruta !== 'INT' && +f.zf > zTower && +f.zi < zTower + h
+    );
     // k va de 0 a nSub inclusive → los extremos caen exactamente en los nodos
     // de sección. Longitud tributaria: dz/2 en extremos, dz en interiores.
     for (let k = 0; k <= nSub; k++) {
@@ -7734,7 +7787,7 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
       const Kz     = _tiaKz(z, windData.catExposicion);
       const Kzt    = _tiaKzt(z, windData);
       const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
-      const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+      const Cf     = _tia222h_Cf_monopole(C_us, nSides, withLinear);
       const qz     = calcWindPressure(cfg, windData, z);
       const w_Nm   = Cf * qz * Gh * D;
       const dzTrib = (k === 0 || k === nSub) ? dz / 2 : dz;
@@ -7751,7 +7804,7 @@ function computeNodalWindForces_Monopole(cfg, windData, angleDeg) {
   // en el nodo de la estructura (igual que torres arriostradas — §2.6.11.3)
   if (cfg.mastType === 'mast-guyed' && _towerData) {
     const Cd = 1.2;
-    const Gh = _tiaGh(cfg.height, 'monopole');
+    const Gh = _tiaGh(_realHeight(cfg), 'monopole');
     _towerData.members.forEach(m => {
       if (m.type !== 'guy') return;
       const guyLevel = m.guyLevel;
@@ -7814,7 +7867,7 @@ function _renderWindAngleTable_Monopole(cfg) {
   const container = document.getElementById('wind-force-table-container');
   if (!container) return;
   if (!projectGenerated) { container.innerHTML = ''; return; }
-  const Gh     = _tiaGh(cfg.height, 'monopole');
+  const Gh     = _tiaGh(_realHeight(cfg), 'monopole');
   const Ke     = _tiaKe(windData.asnm);
   const V_mph  = (_tiaVelocidadUltimaKmh(windData) || 0) / 1.60934;
   const nInc   = cfg.nInc || 0;
@@ -7840,7 +7893,11 @@ function _renderWindAngleTable_Monopole(cfg) {
     const Kz     = _tiaKz(zMid, windData.catExposicion);
     const Kzt    = _tiaKzt(zMid, windData);
     const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
-    const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+    // Tabla 2-8a (con herrajes lineales) si algún feeder no-INT pasa por esta sección
+    const withLinear = Array.isArray(feedersData) && feedersData.some(
+      f => f.ruta !== 'INT' && +f.zf > zTower && +f.zi < zTower + h
+    );
+    const Cf     = _tia222h_Cf_monopole(C_us, nSides, withLinear);
     const qz     = calcWindPressure(cfg, windData, zMid);
     const w      = Cf * qz * Gh * D / 9.80665;
     _monoSecW[i + 1] = w;
@@ -7977,7 +8034,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
   if (!hasData || !projectGenerated) return [];
   const Cd_coax = 1.0;
   const nsec = (cfg.nInc + cfg.nStr) || secData.length || 1;
-  const Gh   = _tiaGh(cfg.height, cfg.type);
+  const Gh   = _tiaGh(_realHeight(cfg), cfg.type);
   const results = [];
   const _rooftopZf = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
   let zBase = _rooftopZf + dadoHeight;
@@ -8283,7 +8340,7 @@ function buildCargasVientoPanel() {
   // H/L, β, K1, K2 solo aplican con topografía no-Plana — pedido explícito del
   // usuario ("si la topografía es plana oculta los que no aplican").
   const lbl = s => `<span style="color:var(--txt-sec);">${s}:</span> `;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const topoParamsHTML = !ktd.aplica ? '' : `
       <div>${lbl('H/L')}${fmt(ktd.HL)}</div>
       <div>${lbl('β')}${fmt(ktd.beta)}</div>
@@ -8335,8 +8392,8 @@ function buildCargasVientoPanel() {
     <div id="wind-force-table-container"></div>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
       ${cfg.type === 'monopole'
-        ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(cfg.height,'monopole').toFixed(2)}.`
-        : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr provisional = 1.0.`}
+        ? `(EPA)s = Cf·Ap, F = qz·Gh·(EPA)s — §2.6.11.2. Cf var. por régimen flujo C=√(Kzt·Kz·Ke)·V·D [mph·ft] (Tablas 2-8a/2-8b, sin herrajes lineales). Gh=${_tiaGh(_realHeight(cfg),'monopole').toFixed(2)}.`
+        : `FST = qz·Gh·(EPA)s, con (EPA)s = Cf·[Df·ΣAf + Dr·Σ(Ar·Rr)] — ANSI/TIA-222-H §2.6.11.1.\n      Df/Dr según Tabla 2-7. Rr = f(ε, C) §2.6.11.1.1.`}
     </div>
     <div class="sep" style="margin:12px 0;"></div>
     <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN ANTENAS</div>
@@ -10747,9 +10804,11 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true} = {}) {
         const c = _dishCoeff(a.tipo, theta_rel);
         EPA = Math.abs(c.CA * Math.cos(tRad) + c.CS * Math.sin(tRad)) * A;
       } else {
-        // §2.6.11.2: (EPA)_A = Ka·[(EPA)_N·cos²θ + (EPA)_T·sin²θ], Ka=1.0
-        const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
-        EPA = (+(a.epa0) || 0) * cos2 + (+(a.epa90) || 0) * sin2;
+        // §2.6.11.2: interpolación lineal por tramos entre los 3 puntos medidos
+        const e0 = +(a.epa0) || 0, e60 = +(a.epa60) || 0, e90 = +(a.epa90) || 0;
+        EPA = theta_rel <= 60
+          ? e0 + (e60 - e0) * (theta_rel / 60)
+          : e60 + (e90 - e60) * ((theta_rel - 60) / 30);
       }
       // Herraje: se suma una vez por ensamble (az, z, tipo) para no triplicar la EPA
       if (addHerraje) EPA += _herrEPAdir(herrId, theta_rel);
@@ -14393,6 +14452,7 @@ function _tsaAngleToStaadName(profile) {
   const leg1 = Math.round(_parseInchDim(m[1]) * 10);
   const leg2 = Math.round(_parseInchDim(m[2]) * 10);
   const thk16 = Math.round(_parseInchDim(m[3]) * 16);
+  if (leg1 >= 100 || leg2 >= 100) return null;  // ≥10" desborda 2 dígitos → cae a nombre raw
   return `L${String(leg1).padStart(2,'0')}${String(leg2).padStart(2,'0')}${thk16}`;
 }
 
@@ -14959,6 +15019,7 @@ function _reportMonopoleVerticalTable(cfg, secIdxList) {
   const g = name => steelGrades.find(x => x.name === name);
   const totalH = cfg.secData.reduce((a, s) => a + (+s.h || 0), 0) || 1;
   const calidadSet = new Set();
+  const monoWeights = _calcMonoShaftWeightBySec();
   // Nivel/Apertura ya NO van en la tabla (ver _reportElevationSvg) — una sola fila por
   // tramo, mismo presupuesto de píxeles que el esquema. Mismo criterio que la tabla de
   // lattice/guyed (2026-06-26).
@@ -14970,19 +15031,21 @@ function _reportMonopoleVerticalTable(cfg, secIdxList) {
     const rowH = Math.max(16, Math.round((s.h / totalH) * PX_BUDGET));
     const gr = g(s.monoFy);
     if (gr) calidadSet.add(gr.name);
+    const w = monoWeights[i] != null ? uConv('weight', monoWeights[i]).toFixed(1) : '';
     rowsHtml += `<tr style="height:${rowH}px;">
       <td>${i + 1}</td>
       <td>${i < cfg.nInc ? 'Inclinado' : 'Recto'}</td>
       <td>${s.monoSides >= 24 ? 'Redondo' : (s.monoSides || '') + ' lados'}</td>
       <td>${s.monoThk === '-' || s.monoThk == null ? '' : uConv('lenSmall', +s.monoThk).toFixed(2)}</td>
       <td>${gr ? gr.name : ''}</td>
+      <td>${w}</td>
     </tr>`;
   });
-  const headers = ['Tramo', 'Tipo', 'Lados', `Espesor (${uLabel('lenSmall')})`, 'Calidad'];
+  const headers = ['Tramo', 'Tipo', 'Lados', `Espesor (${uLabel('lenSmall')})`, 'Calidad', `Peso (${uLabel('weight')})`];
   // Estas celdas van horizontales (sin rotar) — necesitan ancho para la palabra
   // completa, a diferencia de las columnas rotadas de lattice/guyed. Igual de angostas
   // que el contenido lo permite — pedido explícito del usuario (2026-06-26).
-  const colWidths = [28, 45, 40, 55, 70];
+  const colWidths = [28, 45, 40, 55, 70, 42];
   const html = `<table class="rp-key-table">
     <thead><tr>${headers.map((h, i) => `<th style="width:${colWidths[i]}px;"><span>${h}</span></th>`).join('')}</tr></thead>
     <tbody>${rowsHtml}</tbody>
@@ -15099,18 +15162,19 @@ function _reportElevAndTableSvg(cfg, secIdxList, range) {
   ticks += `<text x="${(cx+tickHalfW+4).toFixed(1)}" y="${(padTop-8).toFixed(1)}" font-size="7" font-weight="700" fill="#333">Apertura</text>`;
   // ── Tabla (columna derecha) ──────────────────────────────────────────────
   const weights = _reportSectionWeights();
+  const monoWeights = isMono ? _calcMonoShaftWeightBySec() : null;
   const vv  = val => (val && val !== '-') ? String(val) : '';
   const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const BLU = '#1B3A6B', WHT = '#FFFFFF', GRY = '#F4F6F8', DRK = '#1A1A1A';
   let cols2, colW2;
   if (isMono) {
     cols2 = [['Tipo', s => (+s.monoSides||0)>=24?'Redondo':'Poligonal'], ['Lados', s => (+s.monoSides||0)>=24?'—':vv(s.monoSides)], [`Espesor (${uLabel('lenSmall')})`, s => s.monoThk==='-'||s.monoThk==null?'':uConv('lenSmall',+s.monoThk).toFixed(2)], ['Calidad', s => { const g=steelGrades.find(x=>x.name===s.monoFy); return g?g.name:''; }]];
-    colW2 = [22, 30, 28, 40, 50];
+    colW2 = [22, 30, 28, 40, 50, 35];
   } else {
     cols2 = [['Piernas', s=>vv(s.M)], ['Diagonales', s=>vv(s.D)], ['Horizontales', s=>vv(s.topH?s.Htop:(s.bayTopH?s.Hbay:null))], ['Diag. Sec.', s=>vv(s.Ds)], ['Horiz. Sec.', s=>vv(s.Hs)], ['Diag. Internas', s=>vv(s.HhipD)], ['Horiz. Internas', s=>vv(s.HhipH)], ['Plan-Bracing', s=>vv(s.planTop!=='none'?s.PbTop:(s.planBay!=='none'?s.PbBay:null))], ['Diafragma', s=>vv(s.planTop==='A-A'?s.PbTop2:(s.planBay==='A-A'?s.PbBay2:null))]];
     colW2 = [22, ...cols2.map(() => 20), 22];
   }
-  const hdrs2 = isMono ? ['Tramo', ...cols2.map(c=>c[0])] : ['Sección', ...cols2.map(c=>c[0]), `Peso (${uLabel('weight')})`];
+  const hdrs2 = isMono ? ['Tramo', ...cols2.map(c=>c[0]), `Peso (${uLabel('weight')})`] : ['Sección', ...cols2.map(c=>c[0]), `Peso (${uLabel('weight')})`];
   const W_TBL = colW2.reduce((a, b) => a + b, 0);
   const tp = [];
   tp.push(`<rect x="0" y="0" width="${W_TBL}" height="${H}" fill="${WHT}"/>`);
@@ -15126,7 +15190,8 @@ function _reportElevAndTableSvg(cfg, secIdxList, range) {
   order.forEach((i, ri) => {
     const s = cfg.secData[i] || {}, rh = getRowH(i), y = padTop + cumY[ri], bg = ri % 2 === 0 ? WHT : GRY;
     tp.push(`<rect x="0" y="${y}" width="${W_TBL}" height="${rh}" fill="${bg}"/>`);
-    const vals = isMono ? [String(i+1), ...cols2.map(([,fn])=>fn(s))] : [String(i+1), ...cols2.map(([,fn])=>fn(s)), weights[i]!=null?uConv('weight',weights[i]).toFixed(1):''];
+    const wVal = isMono ? (monoWeights&&monoWeights[i]!=null?uConv('weight',monoWeights[i]).toFixed(1):'') : (weights[i]!=null?uConv('weight',weights[i]).toFixed(1):'');
+    const vals = [String(i+1), ...cols2.map(([,fn])=>fn(s)), wVal];
     tcx = 0;
     vals.forEach((val, ci) => {
       const cw = colW2[ci];
@@ -15360,7 +15425,7 @@ function _memChapter2Html(cfg) {
   const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
   const ktd = _tiaKztDetail(0, windData);
   const FI = _TIA_FI_POR_RIESGO[windData.catRiesgo] ?? null;
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const fmt = v => (v == null ? '—' : (+v).toFixed(3));
 
   const viento23 = `
@@ -15431,7 +15496,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   }
   const exp = _TIA_EXPOSURE[windData.catExposicion] || {};
   const ktd = _tiaKztDetail(0, windData);
-  const Gh = _tiaGh(cfg.height, cfg.type);
+  const Gh = _tiaGh(_realHeight(cfg), cfg.type);
   const fmt = v => (v == null ? '—' : (+v).toFixed(3));
 
   const SHAPE_LABEL = { ridge: 'Cresta', flat_ridge: 'Cresta de cima plana', hill: 'Colina',
@@ -15477,15 +15542,19 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
   `;
 
   // ── EPA por ángulo — usar qz ya calculado con vKmh ───────────────
-  const isTriangular = cfg.type === 'triangular';
-  const GhVal = _tiaGh(cfg.height, cfg.type);
+  const effType = cfg.type === 'guyed' ? (cfg.guyShape === 'square' ? 'square' : 'triangular') : cfg.type;
+  const isTriangular = effType === 'triangular';
+  const GhVal = _tiaGh(_realHeight(cfg), cfg.type);
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
 
   function _epaRow(r, angleDeg) {
     const sol = calcSectionSolidity(cfg, r.secIdx, r.fw);
     if (!sol) return null;
-    const { Df, Dr } = _tiaDfDr(cfg.type, angleDeg, sol.epsilon);
-    const Rr  = sol.areaRedonda > 0 ? 1.0 : 0;
+    const { Df, Dr } = _tiaDfDr(effType, angleDeg, sol.epsilon);
+    const _rrV = _tiaVelocidadUltimaKmh(windData) / 1.60934;
+    const _rrDft = sol.dRoundAvg * 3.28084;
+    const _rrC = Math.sqrt((r.Kz||1) * (r.Kzt||1) * _tiaKe(windData.asnm)) * _rrV * _rrDft;
+    const Rr  = sol.areaRedonda > 0 ? _tiaRr(sol.epsilon, _rrC) : 0;
     const CfP = sol.areaPlana   > 0 ? _cfFromEpsilon(sol.epsilon, false, isTriangular) : 0;
     const CfR = sol.areaRedonda > 0 ? _cfFromEpsilon(sol.epsilon, true,  isTriangular) : 0;
     const Cf  = sol.solidArea   > 0 ? (CfP*sol.areaPlana + CfR*sol.areaRedonda) / sol.solidArea : null;
@@ -15496,7 +15565,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
 
   const angleTablesHtml = dirs.map(angleDeg => {
     const thetaRad = angleDeg * Math.PI / 180;
-    const Df0 = _tiaDfDr(cfg.type, angleDeg, 0).Df;   // representativo (ε varía por sec)
+    const Df0 = _tiaDfDr(effType, angleDeg, 0).Df;   // representativo (ε varía por sec)
     const angleRows = rows.map(r => ({ r, ep: _epaRow(r, angleDeg) })).filter(x => x.ep);
     if (!angleRows.length) return '';
     const totalKgf = angleRows.reduce((s, x) => s + x.ep.F_kgf, 0);
@@ -15510,9 +15579,9 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         θ = ${angleDeg}° ${angleDeg===0?'— Viento Normal':''}</h4>
       <p style="font-size:10px;margin:4px 0 2px;">
         <b>Factores de dirección (Tabla 2-7):</b>
-        Df = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Df.toFixed(2)},
-        Dr = ${_tiaDfDr(cfg.type, angleDeg, ex.sol.epsilon).Dr.toFixed(2)}
-        ${angleDeg===45&&cfg.type==='square' ? `(= min(1.2, 1+0.75ε))` : ''}</p>
+        Df = ${_tiaDfDr(effType, angleDeg, ex.sol.epsilon).Df.toFixed(2)},
+        Dr = ${_tiaDfDr(effType, angleDeg, ex.sol.epsilon).Dr.toFixed(2)}
+        ${angleDeg===45&&effType==='square' ? `(= min(1.2, 1+0.75ε))` : ''}</p>
       <p style="font-size:10px;margin:2px 0 6px;">
         <b>Ejemplo Sec. ${exR.sec}:</b><br>
         ${epaEx}<br>
@@ -15542,7 +15611,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         </tbody>
       </table>
       <p style="font-size:9px;color:#777;margin-top:4px;">
-        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = 1.0 provisional (sin miembros redondos). Gh = ${(GhVal??1).toFixed(2)}.
+        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
       </p>`;
   }).join('');
 
@@ -16439,7 +16508,7 @@ function _buildDocxDoc(cfg, snapshot, elevPngs, planPng) {
   ];
 
   // ── Cap. 2 — Parámetros de Diseño ─────────────────────────────────────────
-  const Gh  = _tiaGh(cfg.height, cfg.type);
+  const Gh  = _tiaGh(_realHeight(cfg), cfg.type);
   const Ke  = _tiaKe(windData.asnm);
   const Kd  = _tiaKd(cfg.type);
   const Vult = _tiaVelocidadUltimaKmh(windData);
@@ -17423,6 +17492,7 @@ function _tablaBarrasRows(filterFn, unlocked, editable) {
   const { nodes, members } = _towerData;
   const { newId } = _staadMemberRenumber(nodes, members);
   const { newId: nodeNewId } = _staadNodeRenumber(nodes, members);
+  const { newId: stId } = _exportMemberRenumber(nodes, members);
   const order = members.map((_, i) => i).filter(i => filterFn(members[i])).sort((a, b) => newId[a] - newId[b]);
   return order.map(i => {
     const m = members[i];
@@ -17436,6 +17506,7 @@ function _tablaBarrasRows(filterFn, unlocked, editable) {
       : `<input type="text" value="${gp.profile || '—'}" disabled>`;
     return `<tr class="ret-row-clickable" data-idx="${i}" onclick="blinkMemberAt(_towerData.members[${i}]);_highlightTableRow(this)">
       <td>${newId[i]}</td>
+      <td style="color:var(--txt-sec);font-size:11px;">${stId[i] ?? '—'}</td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.ni]}" ${dis}
             onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'ni',this.value)"></td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.nj]}" ${dis}
@@ -17452,12 +17523,11 @@ function renderTablaBarras() {
   const rows = _tablaBarrasRows(noCables, tablaBarrasUnlocked, true);
   document.getElementById('tabla-barras-body').innerHTML = `
     <table class="ret-table db-table">
-      <thead><tr><th>Barra</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">m</span>)</th></tr></thead>
+      <thead><tr><th>Barra</th><th>STAAD ID</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">m</span>)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
-      La numeración de Barra coincide con la del export a STAAD. Nodo A/B son
-      editables (cambian el nodo real de inicio/fin de la barra).
+      <b>Barra</b> = numeración secuencial TSA (visor 3D). <b>STAAD ID</b> = ID real en el .std exportado (miles por sección). Nodo A/B son editables (cambian el nodo real de inicio/fin de la barra).
     </div>`;
 }
 // Edita Perfil+Material de una barra abriendo el mismo buscador de perfiles que usa
@@ -18244,7 +18314,7 @@ async function _doExportSTAAD() {
       const repIdx = groupRep[gname];
       if (repIdx == null) return;
       const resolved = _resolveMemberPropertyLine(members[repIdx]);
-      if (!resolved) return;
+      if (!resolved) { secAmerican.push(`* ${gname} - SIN PERFIL\n`); return; }
       const line = `${gname} ${resolved.text}\n`;
       if (resolved.kind === 'prisYD') secPrisYD.push(line); else secAmerican.push(line);
     });
@@ -18260,7 +18330,7 @@ async function _doExportSTAAD() {
       const repIdx = groupRep[gname];
       if (repIdx == null) return;
       const resolved = _resolveMemberPropertyLine(members[repIdx]);
-      if (!resolved) return;
+      if (!resolved) { lvlAmerican.push(`* ${gname} - SIN PERFIL\n`); return; }
       const line = `${gname} ${resolved.text}\n`;
       if (resolved.kind === 'prisYD') lvlPrisYD.push(line); else lvlAmerican.push(line);
     });

@@ -7893,7 +7893,11 @@ function _renderWindAngleTable_Monopole(cfg) {
     const Kz     = _tiaKz(zMid, windData.catExposicion);
     const Kzt    = _tiaKzt(zMid, windData);
     const C_us   = Math.sqrt(Kzt * Kz * Ke) * V_mph * D_ft;
-    const Cf     = _tia222h_Cf_monopole(C_us, nSides, false);
+    // Tabla 2-8a (con herrajes lineales) si algún feeder no-INT pasa por esta sección
+    const withLinear = Array.isArray(feedersData) && feedersData.some(
+      f => f.ruta !== 'INT' && +f.zf > zTower && +f.zi < zTower + h
+    );
+    const Cf     = _tia222h_Cf_monopole(C_us, nSides, withLinear);
     const qz     = calcWindPressure(cfg, windData, zMid);
     const w      = Cf * qz * Gh * D / 9.80665;
     _monoSecW[i + 1] = w;
