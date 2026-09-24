@@ -17423,6 +17423,7 @@ function _tablaBarrasRows(filterFn, unlocked, editable) {
   const { nodes, members } = _towerData;
   const { newId } = _staadMemberRenumber(nodes, members);
   const { newId: nodeNewId } = _staadNodeRenumber(nodes, members);
+  const { newId: stId } = _exportMemberRenumber(nodes, members);
   const order = members.map((_, i) => i).filter(i => filterFn(members[i])).sort((a, b) => newId[a] - newId[b]);
   return order.map(i => {
     const m = members[i];
@@ -17436,6 +17437,7 @@ function _tablaBarrasRows(filterFn, unlocked, editable) {
       : `<input type="text" value="${gp.profile || '—'}" disabled>`;
     return `<tr class="ret-row-clickable" data-idx="${i}" onclick="blinkMemberAt(_towerData.members[${i}]);_highlightTableRow(this)">
       <td>${newId[i]}</td>
+      <td style="color:var(--txt-sec);font-size:11px;">${stId[i] ?? '—'}</td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.ni]}" ${dis}
             onclick="event.stopPropagation()" onchange="setMemberNodeOverride(${i},'ni',this.value)"></td>
       <td><input type="number" step="1" min="1" value="${nodeNewId[m.nj]}" ${dis}
@@ -17452,12 +17454,11 @@ function renderTablaBarras() {
   const rows = _tablaBarrasRows(noCables, tablaBarrasUnlocked, true);
   document.getElementById('tabla-barras-body').innerHTML = `
     <table class="ret-table db-table">
-      <thead><tr><th>Barra</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">m</span>)</th></tr></thead>
+      <thead><tr><th>Barra</th><th>STAAD ID</th><th>Nodo A</th><th>Nodo B</th><th>Perfil</th><th>Material</th><th>Longitud (<span class="unit-len">m</span>)</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:10px;color:var(--txt-sec);margin-top:10px;">
-      La numeración de Barra coincide con la del export a STAAD. Nodo A/B son
-      editables (cambian el nodo real de inicio/fin de la barra).
+      <b>Barra</b> = numeración secuencial TSA (visor 3D). <b>STAAD ID</b> = ID real en el .std exportado (miles por sección). Nodo A/B son editables (cambian el nodo real de inicio/fin de la barra).
     </div>`;
 }
 // Edita Perfil+Material de una barra abriendo el mismo buscador de perfiles que usa
