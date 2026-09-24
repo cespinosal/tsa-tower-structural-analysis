@@ -10776,14 +10776,14 @@ function _calcEPA(a) {
 // Calcula fuerzas de viento en antenas según TIA-222-H §2.6.11.2 (paneles) y Anexo C (microondas).
 // Devuelve un array con una entrada por antena; cada entrada incluye fuerzas por dirección de viento
 // ya descompuestas en el sistema global de STAAD (FX = TSA X, FZ = -TSA Y).
-function _calcAntennaForces(cfg, windData, {includeHerraje = true} = {}) {
+function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride} = {}) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   // Un ensamble de herraje (mismos az+z+tipo) se cuenta una sola vez aunque haya varias antenas
   const _herrCounted = new Set();
   return ants.map((a, antIdx) => {
     const z    = +a.z || 0;
-    const qz   = calcWindPressure(cfg, windData, z);   // N/m²
+    const qz   = calcWindPressure(cfg, windData, z, vKmhOverride);   // N/m²
     const Gh   = _tiaGh(z, cfg.type);
     const azDeg = +a.azimuth || 0;
     const herrId  = a.herraje || 'ninguno';
@@ -10830,7 +10830,7 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true} = {}) {
 
 // Fuerzas de viento de herrajes (EPA_herraje × qz × Gh), deduplicadas por (az, z, tipo).
 // Se llama desde _doExportSTAAD para emitir herrajes como sección separada en STAAD.
-function _calcHerrajeWindForces(cfg, windData) {
+function _calcHerrajeWindForces(cfg, windData, vKmhOverride) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   const seen = new Set();
@@ -10843,7 +10843,7 @@ function _calcHerrajeWindForces(cfg, windData) {
     const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
     if (seen.has(key)) return;
     seen.add(key);
-    const qz = calcWindPressure(cfg, windData, z);
+    const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
     const Gh = _tiaGh(z, cfg.type);
     const forcesByDir = dirs.map(angleDeg => {
       let theta_rel = ((angleDeg - azDeg) % 360 + 360) % 360;
@@ -18468,6 +18468,13 @@ async function _doExportSTAAD() {
   members.forEach(m => { if (m.type === 'leg') { _stAntLegSet.add(m.ni); _stAntLegSet.add(m.nj); } });
   const _stAntForces    = _calcAntennaForces(cfg, windData, {includeHerraje: false});
   const _stHerrajeForces = _calcHerrajeWindForces(cfg, windData);
+  // Velocidad de servicio (SLC1, §2.8.3) — misma fuente que la memoria de cálculo
+  // (capítulo 6.2, "Viento de Servicio (Operacional)"): windData.velOperacional.
+  // Antes el caso "SERVICIO" de STAAD reutilizaba las fuerzas de viento ÚLTIMO
+  // (sección, antenas y herrajes) sin aplicar ninguna reducción de velocidad real.
+  const _svcVKmh = +windData.velOperacional || null;
+  const _stAntForcesSvc     = _svcVKmh ? _calcAntennaForces(cfg, windData, {includeHerraje: false, vKmhOverride: _svcVKmh}) : _stAntForces;
+  const _stHerrajeForcesSvc = _svcVKmh ? _calcHerrajeWindForces(cfg, windData, _svcVKmh) : _stHerrajeForces;
 
   // Pesos de equipos — LOAD 2 DG (solo si hay pesos asignados)
   const _antConPeso = (antenasData || []).filter(a => (+a.peso || 0) > 0.001);
@@ -18513,7 +18520,11 @@ async function _doExportSTAAD() {
   }
 
   // Emite el contenido de un caso de carga de viento (diseño o servicio)
-  const _emitWindLoad = (loadNum, loadName, angleDeg) => {
+  // vKmhOverride/antForces/herrForces: diseño usa velocidad última y _stAntForces/
+  // _stHerrajeForces; servicio pasa la velocidad operacional y sus propios arreglos
+  // (_stAntForcesSvc/_stHerrajeForcesSvc) — antes SERVICIO reutilizaba siempre las
+  // fuerzas de viento último sin aplicar ninguna reducción de velocidad real.
+  const _emitWindLoad = (loadNum, loadName, angleDeg, vKmhOverride, antForces, herrForces) => {
     out += `*\n*${loadName}\n*\n`;
     out += `LOAD ${loadNum} ${loadName}\n`;
     out += `JOINT LOAD\n`;
@@ -18521,7 +18532,7 @@ async function _doExportSTAAD() {
     const cosTh = Math.cos(thetaRad), sinTh = Math.sin(thetaRad);
     _wlSecs.forEach(({ i, zMid, fw, nNodes }) => {
       if (!nNodes) return;
-      const f = calcSectionWindForce(cfg, windData, i, zMid, fw, angleDeg);
+      const f = calcSectionWindForce(cfg, windData, i, zMid, fw, angleDeg, vKmhOverride);
       if (!f || !f.F_kgf) return;
       const fpn = f.F_kgf / nNodes;
       const fx = fpn * sinTh;
@@ -18531,9 +18542,9 @@ async function _doExportSTAAD() {
       if (Math.abs(fz) > 0.001) line += ` FZ ${_asForce(fz).toFixed(2)}`;
       if (line !== `_SEC${i+1}_VIENTO`) out += `${line}\n`;
     });
-    if (_stAntForces.length > 0) {
+    if (antForces.length > 0) {
       out += `*\n*ANTENAS\n*\n`;
-      _stAntForces.forEach(af => {
+      antForces.forEach(af => {
         const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
         const nIdx = _nearestLegNodeByAz(af.z, af.azimuth, nodes, _stAntLegSet);
@@ -18547,9 +18558,9 @@ async function _doExportSTAAD() {
         if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
-    if (_stHerrajeForces.length > 0) {
+    if (herrForces.length > 0) {
       out += `*\n*HERRAJES\n*\n`;
-      _stHerrajeForces.forEach(hf => {
+      herrForces.forEach(hf => {
         const fd = hf.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
         const nIdx = _nearestLegNodeByAz(hf.z, hf.azimuth, nodes, _stAntLegSet);
@@ -18568,16 +18579,18 @@ async function _doExportSTAAD() {
 
   const N = _wlDirs.length;
 
-  // Cargas de diseño (LOAD windBase … windBase+N-1)
+  // Cargas de diseño (LOAD windBase … windBase+N-1) — velocidad última
   _wlDirs.forEach((angleDeg, di) => {
     const name = angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`;
-    _emitWindLoad(windBase + di, name, angleDeg);
+    _emitWindLoad(windBase + di, name, angleDeg, undefined, _stAntForces, _stHerrajeForces);
   });
 
-  // Cargas de servicio (LOAD windBase+N … windBase+2N-1) — mismas fuerzas, título SERVICIO
+  // Cargas de servicio (LOAD windBase+N … windBase+2N-1) — velocidad operacional real
+  // (windData.velOperacional, §2.8.3), no la velocidad última
+  if (!_svcVKmh) out += `*\n* AVISO: velocidad operacional no capturada — SERVICIO usa velocidad ultima\n`;
   _wlDirs.forEach((angleDeg, di) => {
     const name = (angleDeg === 0 ? 'VIENTO NORMAL' : `VIENTO ${angleDeg}`) + ' SERVICIO';
-    _emitWindLoad(windBase + N + di, name, angleDeg);
+    _emitWindLoad(windBase + N + di, name, angleDeg, _svcVKmh, _stAntForcesSvc, _stHerrajeForcesSvc);
   });
 
   // Combinaciones de carga TIA-222-H

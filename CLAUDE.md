@@ -70,13 +70,13 @@ del de ayer (6 hallazgos en `9194a6c`). Corregido:
 un hallazgo de este tipo, buscar TODOS los call sites de la función involucrada antes de dar el
 fix por cerrado.
 
-**Pendiente descubierto, no corregido todavía** (fuera de alcance de esta sesión, requiere
-confirmación de criterio del usuario antes de tocarlo): la combinación de servicio SLC1
-(§2.8.3, nota "V = 60 mph [27 m/s]") reutiliza en STAAD **las mismas fuerzas de viento último**
-que las combinaciones de diseño (`_emitWindLoad` no recibe ningún `vKmhOverride` de servicio) —
-no se está aplicando realmente una velocidad reducida de servicio. Revisar `calcWindPressure`/
-`calcSectionWindForce` (soportan `vKmhOverride`) y cómo conectarlo a un valor de servicio real
-antes de corregir.
+**Corregido (commit posterior, mismo día):** la combinación de servicio SLC1 en STAAD reutilizaba
+las fuerzas de viento ÚLTIMO en vez de aplicar una velocidad de servicio real. `_emitWindLoad`
+ahora recibe `vKmhOverride` + los arreglos de fuerzas de antena/herraje correspondientes;
+el caso SERVICIO usa `windData.velOperacional` (misma fuente que la memoria, cap. 6.2) vía
+`_calcAntennaForces`/`_calcHerrajeWindForces`, a los que también se les agregó soporte de
+`vKmhOverride`. Si `velOperacional` no está capturado, se deja un `* AVISO` explícito en el
+.std y se cae de vuelta a viento último (no se inventa un valor).
 
 Sin hallazgos nuevos en `calcWindPressure`/`_tiaKz`/`_tiaKzt`/`_tiaKe`/`_tiaKd`, Cf de celosía
 (`_cfFromEpsilon`/`_tiaDfDr`) ni EPA de antenas/dish — ya se revisaron a fondo. Hielo y sismo
