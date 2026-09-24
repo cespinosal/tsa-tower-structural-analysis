@@ -70,13 +70,14 @@ del de ayer (6 hallazgos en `9194a6c`). Corregido:
 un hallazgo de este tipo, buscar TODOS los call sites de la función involucrada antes de dar el
 fix por cerrado.
 
-**Corregido (commit posterior, mismo día):** la combinación de servicio SLC1 en STAAD reutilizaba
-las fuerzas de viento ÚLTIMO en vez de aplicar una velocidad de servicio real. `_emitWindLoad`
-ahora recibe `vKmhOverride` + los arreglos de fuerzas de antena/herraje correspondientes;
-el caso SERVICIO usa `windData.velOperacional` (misma fuente que la memoria, cap. 6.2) vía
-`_calcAntennaForces`/`_calcHerrajeWindForces`, a los que también se les agregó soporte de
-`vKmhOverride`. Si `velOperacional` no está capturado, se deja un `* AVISO` explícito en el
-.std y se cae de vuelta a viento último (no se inventa un valor).
+**Corregido (commits posteriores, mismo día `7b68b38`/`ee79a9d`):** la combinación de servicio
+SLC1 en STAAD reutilizaba las fuerzas de viento ÚLTIMO en vez de aplicar una velocidad de
+servicio real. `_emitWindLoad` ahora recibe `vKmhOverride` + los arreglos de fuerzas de antena/
+herraje correspondientes; el caso SERVICIO usa `windData.velOperacional` (misma fuente que la
+memoria, cap. 6.2) vía `_calcAntennaForces`/`_calcHerrajeWindForces`, a los que también se les
+agregó soporte de `vKmhOverride`. Si `velOperacional` no está capturado, el fallback es **60 mph
+= 96.56 km/h** (fijado por TIA-222-H §2.8.3, no la velocidad última) y se deja un `* AVISO`
+explícito con el valor real usado en el .std.
 
 Sin hallazgos nuevos en `calcWindPressure`/`_tiaKz`/`_tiaKzt`/`_tiaKe`/`_tiaKd`, Cf de celosía
 (`_cfFromEpsilon`/`_tiaDfDr`) ni EPA de antenas/dish — ya se revisaron a fondo. Hielo y sismo
