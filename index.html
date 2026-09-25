@@ -10635,7 +10635,7 @@ function _renderAntenasTable() {
     } else if (!isGroup) {
       const _legOpts = Array.from({length: _nLegs}, (_, _li) =>
         `<option value="${_li+1}"${a.pierna===_li+1?' selected':''}>P${_li+1}</option>`).join('');
-      piernaCell = `<select class="ant-sel" onchange="antenasData[${fi}].pierna=this.value?+this.value:null;renderAntenas3D()">
+      piernaCell = `<select class="ant-sel" onchange="antenasData[${fi}].pierna=this.value?+this.value:null;renderAntenas3D();if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows()}">
         <option value=""${a.pierna==null?' selected':''}>—</option>${_legOpts}</select>`;
     } else {
       const _piTxt = indices.map(i => antenasData[i].pierna != null ? 'P'+antenasData[i].pierna : '—').join(' · ');
@@ -10691,7 +10691,7 @@ function _renderAntenasTable() {
           `<option value="${_li+1}"${sub.pierna===_li+1?' selected':''}>P${_li+1}</option>`).join('');
         const _subPiernaCell = _nLegs === 0
           ? `<td><span style="opacity:.35;text-align:center;display:block">—</span></td>`
-          : `<td><select class="ant-sel" onchange="antenasData[${idx}].pierna=this.value?+this.value:null;renderAntenas3D()">
+          : `<td><select class="ant-sel" onchange="antenasData[${idx}].pierna=this.value?+this.value:null;renderAntenas3D();if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows()}">
               <option value=""${sub.pierna==null?' selected':''}>—</option>${_subLegOpts}</select></td>`;
         subTr.innerHTML = labelCell +
           (isRRUSub
@@ -10866,7 +10866,7 @@ function _calcHerrajeWindForces(cfg, windData, vKmhOverride) {
     if (herrId === 'ninguno') return;
     const z = +a.z || 0;
     const azDeg = +a.azimuth || 0;
-    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
+    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}_${a.pierna??'auto'}`;
     if (seen.has(key)) return;
     seen.add(key);
     const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
@@ -18541,7 +18541,7 @@ async function _doExportSTAAD() {
   (antenasData || []).forEach(a => {
     const h = _HERRAJES.find(x => x.id === (a.herraje || 'ninguno'));
     if (!h || !h.peso) return;
-    const key = `${(+a.azimuth || 0).toFixed(1)}_${(+a.z || 0).toFixed(2)}_${h.id}`;
+    const key = `${(+a.azimuth || 0).toFixed(1)}_${(+a.z || 0).toFixed(2)}_${h.id}_${a.pierna??'auto'}`;
     if (_herrPesoSet.has(key)) return;
     _herrPesoSet.add(key);
     const nIdx = _legNodeForLoad(+a.z || 0, +a.azimuth || 0, a.pierna, nodes, _stAntLegSet);
