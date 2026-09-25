@@ -166,3 +166,54 @@ asociar un perfil distinto a partir de un corte de pierna específico dentro del
 altura absoluta desde la base, buscando el nodo de corte más cercano, vs. por tramo+bahía
 específica) — pidió dejarlo para una investigación más a fondo más adelante, sin decidir
 todavía. No implementar nada de esto sin retomar esa conversación primero.
+
+## Sistema de temas claro/oscuro — HECHO (2026-09-25)
+
+Se completó la transición de todos los elementos hardcoded a un sistema de tokens CSS
+(`--bg-main`, `--txt-pri`, `--border`, etc.) con doble paleta (dark por defecto,
+light vía `[data-theme="light"]`).
+
+Cambios clave:
+- **`buildGrid()`**: ya detecta el tema y usa colores para la malla 3D
+  (oscuro: `0x1E3A5F`/`0x1E6FBE`; claro: `0xC8D8EC`/`0x5E90C0`). `refreshGrid()` se
+  llama desde `toggleTheme()` y desde `applyAppSettings()` → la malla siempre es consistente.
+- **`applyAppSettings()`**: ya respeta el tema actual para `scene.background`; solo aplica
+  `appSettings.bgColor` en modo oscuro, y `#EEF3FA` en modo claro.
+- **Vista en Planta (`_fdDrawPlan`)**: paleta JS theme-aware (`_planBg`, `_planGrid`,
+  `_planBord`, `_planLbl`, `_planInner`); azimut de torre integrado (`ctx.rotate(_planAzRad)`);
+  indicador de Norte; etiquetas de cara visibles en ambos temas.
+- **Editor de paquetes de feeders**: botones ✕ y `+ cable` usan `var(--txt-sec)` en vez de
+  `var(--txt-dim)` — visibles en modo oscuro.
+- **Botón Guardar en modal de configuración**: usa `.btn-apply` con `var(--btn-pri)` en vez de
+  `var(--btn)` (que nunca estuvo definido → botón transparente en modo claro).
+- **Color de tramos impares**: default cambiado de `#CCEEFF` (invisible en claro) a `#1A90CC`;
+  migración automática en `loadAppSettings()` para proyectos con el valor viejo cacheado.
+- **Etiquetas de colores** en el panel de configuración: renombradas como
+  "Color tramos pares/impares (piernas/diag.)" para hacerlas descriptivas.
+
+**Bug a no reintroducir:** `replace_all` con un hex hardcodeado (`#172a45`) puede
+sustituir dentro de la declaración `const _planInner = ... : '#172a45'` creando una
+auto-referencia. Si se hacen sustituciones masivas de hex en `_fdDrawPlan`, excluir
+las propias declaraciones de variables.
+
+## Convención de caras A/B/C en torre triangular — CAMBIADA (2026-09-25)
+
+La cara **A** es ahora la cara inferior del triángulo (paralela al eje X, normal hacia el
+Sur, 180°). Antes era la cara superior-derecha (60°).
+
+Ciclo: B→A, C→B, A→C (la cara que era B pasó a ser A, etc.)
+
+| Cara | Normal (brújula) | Posición en planta |
+|------|------------------|--------------------|
+| A    | 180° (Sur)       | Base inferior (paralela a X) |
+| B    | 300°             | Superior-izquierda |
+| C    | 60°              | Superior-derecha |
+
+Archivos actualizados:
+- `faceVectors()` (feeder renderer): `{A: -Math.PI/2, B: 5*Math.PI/6, C: Math.PI/6}`
+- `_fdDrawPlan()`: `midLabel(0,1,'C'); midLabel(1,2,'A'); midLabel(2,0,'B')` + `faceMid` ajustado
+- `_updateAntAddAngles()`: default triangular ahora `(180 + 120*i) % 360` → 180°, 300°, 60°
+- Comentario en `genTriangular()` actualizado
+
+**Nota:** proyectos existentes con feeders/antenas asignados a cara A/B/C conservan el
+string pero ahora apuntan a la nueva cara — revisar y reasignar si es necesario.
