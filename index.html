@@ -10927,8 +10927,8 @@ function _legNodeForPierna(pierna, antZ, nodes, legSet) {
   const atZ = [];
   legSet.forEach(ni => {
     const dz = Math.abs(nodes[ni].z - antZ);
-    if (dz < bestDz - 1e-4) { bestDz = dz; atZ.length = 0; atZ.push(ni); }
-    else if (dz < bestDz + 1e-4) atZ.push(ni);
+    if (dz < bestDz - 0.001) { bestDz = dz; atZ.length = 0; atZ.push(ni); }
+    else if (dz < bestDz + 0.001) atZ.push(ni);
   });
   atZ.sort((a, b) => a - b);
   const idx = (+pierna || 1) - 1;
@@ -13165,18 +13165,7 @@ function renderAntenas3D() {
         _antLegSet = new Set();
         _towerData.members.forEach(m => { if (m.type === 'leg') { _antLegSet.add(m.ni); _antLegSet.add(m.nj); } });
       }
-      // Pierna P1/P2/P3 → el (pierna-1)-ésimo nodo de pierna al nivel más cercano,
-      // ordenado por índice de nodo (orden de generación = P1→P2→P3).
-      const _pIdx = +a.pierna - 1;
-      let _bestDz = Infinity;
-      const _atZ = [];
-      _antLegSet.forEach(ni => {
-        const dz = Math.abs(_towerData.nodes[ni].z - (+a.z || 0));
-        if (dz < _bestDz - 1e-4) { _bestDz = dz; _atZ.length = 0; _atZ.push(ni); }
-        else if (dz < _bestDz + 1e-4) _atZ.push(ni);
-      });
-      _atZ.sort((ia, ib) => ia - ib);
-      const _lni = _atZ[_pIdx] != null ? _atZ[_pIdx] : _atZ[0];
+      const _lni = _legNodeForPierna(a.pierna, +a.z || 0, _towerData.nodes, _antLegSet);
       const _ln  = _lni != null ? _towerData.nodes[_lni] : null;
       if (_ln && Math.hypot(_ln.x, _ln.y) > 1e-6)
         posAz = Math.atan2(_ln.x, _ln.y);
