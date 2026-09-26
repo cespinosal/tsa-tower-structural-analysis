@@ -1523,6 +1523,22 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
   flex-shrink: 0;
 }
 .sb-arrow { color: var(--cyan); }
+/* ── Modal vista previa 3D antena ── */
+#ant3d-modal { display:none; position:fixed; inset:0; z-index:9800; background:rgba(0,0,0,.72); align-items:center; justify-content:center; }
+.ant3d-box { background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px; width:700px; max-width:96vw; box-shadow:0 8px 32px rgba(0,0,0,.6); }
+.ant3d-body { display:flex; gap:14px; align-items:flex-start; margin:10px 0; }
+#ant3d-canvas { display:block; border-radius:6px; cursor:grab; flex-shrink:0; }
+.ant3d-fields { flex:1; display:flex; flex-direction:column; gap:8px; }
+.ant3d-row { display:flex; align-items:center; gap:6px; }
+.ant3d-row label { font-size:11px; color:var(--txt-sec); width:140px; flex-shrink:0; }
+.ant3d-row input { flex:1; }
+.ant3d-epa-box { margin-top:6px; padding:8px 10px; background:rgba(0,0,0,.25); border-radius:5px; font-size:11px; line-height:1.7; }
+.ant3d-footer { display:flex; justify-content:flex-end; gap:8px; padding-top:6px; border-top:1px solid var(--border); }
+.ant3d-view-toggle { display:flex; gap:4px; margin-bottom:8px; }
+.ant3d-vbtn { padding:3px 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg-panel); color:var(--txt-sec); cursor:pointer; font-size:11px; }
+.ant3d-vbtn.active { background:var(--accent,#1e80d4); color:#fff; border-color:transparent; }
+/* Bloquear tabla mientras el modal 3D está abierto */
+body.ant3d-open .ant-table-wrap { pointer-events:none; opacity:0.45; }
 </style>
 </head>
 <body>
@@ -1823,7 +1839,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
         <button onclick="closeAntenasFlyout()">✕</button>
       </div>
       <div class="tf-scroll">
-        <div class="ant-table-wrap">
+        <div class="ant-table-wrap" id="ant-table-wrap">
           <table class="ant-table">
             <thead>
               <tr>
@@ -1839,6 +1855,7 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
                 <th style="min-width:62px">EPA 0° <span class="unit-area">m²</span></th>
                 <th style="min-width:62px">EPA 60° <span class="unit-area">m²</span></th>
                 <th style="min-width:62px">EPA 90° <span class="unit-area">m²</span></th>
+                <th style="min-width:36px" title="Factor de apantallamiento Ka §2.6.11.2 TIA-222-H">Ka</th>
                 <th style="width:24px"></th>
               </tr>
             </thead>
@@ -1865,6 +1882,65 @@ table.rp-key-table thead th span, table.rp-key-table tbody td span {
       <div class="tf-footer" style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn" onclick="closeAntenasFlyout()">Cancelar</button>
         <button class="btn-accent" onclick="applyAntenas()">Aplicar</button>
+      </div>
+    </div>
+
+    <!-- Modal vista previa 3D de antena -->
+    <div id="ant3d-modal">
+      <div class="ant3d-box">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:600">Vista previa 3D — <span id="ant3d-title">—</span></span>
+          <button class="btn" onclick="_ant3dCancel()" style="padding:1px 7px">✕</button>
+        </div>
+        <div class="ant3d-body">
+          <div style="display:flex;flex-direction:column;gap:0;flex-shrink:0">
+            <div class="ant3d-view-toggle">
+              <button id="ant3d-btn-3d"   class="ant3d-vbtn active" onclick="_ant3dSetView('3d')">3D</button>
+              <button id="ant3d-btn-plan" class="ant3d-vbtn"        onclick="_ant3dSetView('plan')">Planta XY</button>
+            </div>
+            <canvas id="ant3d-canvas" width="400" height="320"></canvas>
+          </div>
+          <div class="ant3d-fields">
+            <div class="ant3d-row">
+              <label id="ant3d-lbl-H">Alto H (<span id="ant3d-u">m</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-H" step="0.01" min="0.01"
+                oninput="_ant3dInput('H',+this.value)">
+            </div>
+            <div class="ant3d-row" id="ant3d-row-W">
+              <label>Ancho W (<span id="ant3d-u2">m</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-W" step="0.01" min="0.01"
+                oninput="_ant3dInput('W',+this.value)">
+            </div>
+            <div class="ant3d-row" id="ant3d-row-D">
+              <label>Profundidad D (<span id="ant3d-u3">m</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-D" step="0.005" min="0.001"
+                oninput="_ant3dInput('D',+this.value)">
+            </div>
+            <div class="ant3d-row" id="ant3d-row-r">
+              <label>Radio arista vertical r (<span id="ant3d-u4">m</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-r" step="0.001" min="0"
+                oninput="_ant3dInput('r',+this.value)">
+            </div>
+            <div class="ant3d-row" id="ant3d-row-rh">
+              <label>Radio arista horizontal rh (<span id="ant3d-u5">m</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-rh" step="0.001" min="0"
+                oninput="_ant3dInput('rh',+this.value)">
+            </div>
+            <div class="ant3d-row" id="ant3d-row-peso">
+              <label>Peso (<span id="ant3d-u-peso">kg</span>)</label>
+              <input class="ant-inp ant-num" type="number" id="ant3d-peso" step="0.1" min="0"
+                oninput="if(_ant3d) _ant3d.peso=uConvInv('weight',+this.value)">
+            </div>
+            <div class="ant3d-epa-box">
+              <div style="color:var(--txt-sec);font-size:10px;margin-bottom:3px">EPA calculada (TIA-222-H §2.6.11.2)</div>
+              <div id="ant3d-epa">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="ant3d-footer">
+          <button class="btn" onclick="_ant3dCancel()">Cancelar</button>
+          <button class="btn-accent" onclick="_ant3dConfirm()">Aceptar</button>
+        </div>
       </div>
     </div>
 
@@ -8036,7 +8112,7 @@ function _renderAntennaForceTable(cfg) {
       <td>${r.azimuth}</td>
       <td>${Math.round(fd.theta_rel)}</td>
       <td>${caVal}</td>
-      <td>1.00</td>
+      <td>${fd.Ka.toFixed(2)}</td>
       <td>${uConv('area', fd.EPA).toFixed(3)}</td>
       <td>${uConv('pressure', r.qz/9.80665).toFixed(1)}</td>
       <td>${r.Gh.toFixed(3)}</td>
@@ -10610,8 +10686,14 @@ function _renderAntenasTable() {
 
     const epaInpG = (field) =>
       `<input class="ant-inp ant-num" id="ant-${field}-${fi}" type="number"
-        value="${a[field]!=null?uConv('area',a[field]).toFixed(4):''}" step="0.001" min="0"
-        oninput="${indices.map(i=>`antenasData[${i}].${field}=uConvInv('area', +this.value)`).join(';')}">`;
+        value="${a[field]!=null?uConv('area',a[field]).toFixed(4):''}" readonly
+        style="pointer-events:none;opacity:.7;background:transparent;">`;
+
+    // Solo lectura — igual que EPA; edición solo desde el modal 3D
+    const dimRO = (val, kind='len') =>
+      `<input class="ant-inp ant-num" type="number" readonly
+        value="${val!=null?uConv(kind,val).toFixed(kind==='weight'?2:3):''}"
+        style="pointer-events:none;opacity:.7;background:transparent;">`;
 
     const tipoSel =
       `<select class="ant-sel" onchange="${updAll('tipo',true)};${calcAll()};_renderAntenasTable()">
@@ -10700,14 +10782,15 @@ function _renderAntenasTable() {
       `<td>${zCell}</td>` +
       `<td>${azCell}</td>` +
       `<td>${piernaCell}</td>` +
-      `<td>${isDish?dimInpG('alto', a.alto, 0.05):dimInpG('alto', a.alto, 0.01)}</td>` +
-      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimInpG('ancho', a.ancho, 0.01)}</td>` +
-      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">—</span>`:dimInpG('espesor', a.espesor, 0.001)}</td>` +
-      `<td>${dimInpG('peso', a.peso, 0.5, 'weight')}</td>` +
+      `<td>${dimRO(a.alto)}</td>` +
+      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">= D</span>`:dimRO(a.ancho)}</td>` +
+      `<td>${isDish?`<span class="ant-inp" style="opacity:.35;text-align:center">—</span>`:dimRO(a.espesor)}</td>` +
+      `<td>${dimRO(a.peso,'weight')}</td>` +
       `<td>${epaInpG('epa0')}</td>` +
       `<td>${epaInpG('epa60')}</td>` +
       `<td>${epaInpG('epa90')}</td>` +
-      `<td>${!isGroup?`<button class="ant-del" onclick="deleteAntenaRow(${fi})">✕</button>`:''}</td>`;
+      `<td><span id="ant-ka-${fi}" class="ant-inp" style="text-align:center;display:block;opacity:.8">${(_computeKaAll(antenasData)[fi]).toFixed(2)}</span></td>` +
+      `<td style="white-space:nowrap"><button class="btn" style="font-size:9px;padding:1px 4px;margin-right:2px" title="Vista previa 3D" onclick="_ant3dOpen(${fi},${JSON.stringify(indices)})">3D</button>${!isGroup?`<button class="ant-del" onclick="deleteAntenaRow(${fi})">✕<\/button>`:''}</td>`;
     tbody.appendChild(headTr);
 
     // Sub-filas de azimuths expandidos
@@ -10748,11 +10831,11 @@ function _renderAntenasTable() {
               `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
                   min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value;_syncLinkedRRUs();_renderAntenasTable()"></td>` +
               `<td><span style="opacity:.35;text-align:center;display:block">—</span></td>` +
-              `<td colspan="6"></td>`
+              `<td colspan="8"></td>`
             : `<td><input class="ant-inp ant-num" type="number" value="${sub.azimuth??0}"
                   min="0" max="359" step="1" oninput="antenasData[${idx}].azimuth=+this.value"></td>` +
               _subPiernaCell +
-              `<td colspan="7"></td>`) +
+              `<td colspan="8"></td>`) +
           `<td><button class="ant-del" onclick="deleteAntenaRow(${idx})">✕</button></td>`;
         tbody.appendChild(subTr);
       });
@@ -10768,9 +10851,333 @@ function _refreshEPACells(i) {
   if (el0)  el0.value  = a.epa0  != null ? uConv('area', a.epa0).toFixed(4)  : '';
   if (el60) el60.value = a.epa60 != null ? uConv('area', a.epa60).toFixed(4) : '';
   if (el90) el90.value = a.epa90 != null ? uConv('area', a.epa90).toFixed(4) : '';
+  const elKa = document.getElementById(`ant-ka-${i}`);
+  if (elKa) elKa.textContent = _computeKaAll(antenasData)[i].toFixed(2);
 }
 
 function _esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ── Vista previa 3D de antena (perfil con aristas redondeadas) ────────────────
+let _ant3d = null;
+
+// Geometría con aristas frontales redondeadas:
+//   r  = radio aristas verticales frontales (izq/der de la cara frontal)
+//   rh = radio aristas horizontales (top/bottom de toda la cara frontal), opt. usuario
+// Las esquinas traseras y los bordes traseros siempre quedan rectos.
+function _buildFrontRoundedGeo(W, H, D, r, rh) {
+  r  = Math.max(0, Math.min(r  || 0, W/2 - 1e-5, D/2 - 1e-5));
+  rh = Math.max(0, Math.min(rh || 0, H/2 - 1e-5, D/2 - 1e-5));
+  if (r < 1e-4 && rh < 1e-4) return new THREE.BoxGeometry(W, H, D);
+  const hw = W/2, hd = D/2;
+  const shape = new THREE.Shape();
+  // Sección en plano X-Y (X=ancho, Y=profundidad); front = Y negativo
+  shape.moveTo(-hw,  hd);
+  shape.lineTo ( hw,  hd);
+  shape.lineTo ( hw, r > 0 ? -hd + r : -hd);
+  if (r > 0) shape.quadraticCurveTo( hw, -hd,  hw - r, -hd);
+  shape.lineTo(r > 0 ? -hw + r : -hw, -hd);
+  if (r > 0) shape.quadraticCurveTo(-hw, -hd, -hw, -hd + r);
+  shape.lineTo(-hw, hd);
+  // bevelEnabled solo para rh (aristas horizontales superior/inferior).
+  // El bevel de ExtrudeGeometry NO toca las aristas verticales (caras laterales de
+  // la extrusión), solo las transiciones en los extremos → cara posterior vertical
+  // sigue sin redondear.
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: H, curveSegments: 20,
+    bevelEnabled: rh > 1e-4,
+    bevelThickness: rh,
+    bevelSize: rh,
+    bevelSegments: 10,
+  });
+  geo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+  geo.computeBoundingBox();
+  const bc = geo.boundingBox.getCenter(new THREE.Vector3());
+  geo.translate(-bc.x, -bc.y, -bc.z);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// Geometría de caja con TODAS las aristas redondeadas (reservada para uso futuro)
+function _buildRoundedBoxGeo(W, H, D, r, S) {
+  S = Math.max(2, S | 0);
+  r = Math.max(0, Math.min(+r || 0, W/2 - 1e-5, H/2 - 1e-5, D/2 - 1e-5));
+  if (r < 1e-4) return new THREE.BoxGeometry(W, H, D);
+  const hs = [W/2, H/2, D/2], ih = [W/2 - r, H/2 - r, D/2 - r];
+  // 6 caras: [signo, eje_normal, eje_u, eje_v]
+  const faces = [[+1,2,0,1],[-1,2,0,1],[+1,1,0,2],[-1,1,0,2],[+1,0,2,1],[-1,0,2,1]];
+  const pos = [], nor = [], idx = [];
+  let vi = 0;
+  faces.forEach(([sg, na, ua, va]) => {
+    const fs = vi;
+    for (let j = 0; j <= S; j++) {
+      for (let i = 0; i <= S; i++) {
+        const u = (2*i/S - 1) * hs[ua], v = (2*j/S - 1) * hs[va];
+        const qu = Math.max(-ih[ua], Math.min(ih[ua], u));
+        const qv = Math.max(-ih[va], Math.min(ih[va], v));
+        const du = u-qu, dv = v-qv, dn = sg*r;
+        const len = Math.sqrt(du*du + dv*dv + r*r) || 1e-9;
+        const p = [0,0,0], n = [0,0,0];
+        p[ua]=qu+r*du/len; p[va]=qv+r*dv/len; p[na]=sg*ih[na]+r*dn/len;
+        n[ua]=du/len;      n[va]=dv/len;      n[na]=dn/len;
+        pos.push(p[0],p[1],p[2]); nor.push(n[0],n[1],n[2]); vi++;
+      }
+    }
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const a=fs+j*(S+1)+i, b=a+1, c=b+S+1, d=a+S+1;
+      sg>0 ? idx.push(a,b,c,a,c,d) : idx.push(a,c,b,a,d,c);
+    }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal',   new THREE.Float32BufferAttribute(nor, 3));
+  geo.setIndex(idx);
+  return geo;
+}
+
+function _ant3dEPAtext(H, W, D, r) {
+  if (!W || !H) return '—';
+  // ca_N: cara frontal = placa plana; ca_T: cara lateral = HSS si hay radio
+  const ca_N = _caFlat(W > 0 ? H / W : 25);
+  const ca_T = r > 0 && D > 0 ? _caHSS(r / D) : _caFlat(D > 0 ? H / D : 25);
+  const e0=ca_N*H*W, e60=e0*0.25+(ca_T*H*D)*0.75, e90=ca_T*H*D;
+  const u = k => uConv('area',k).toFixed(2)+' '+uLabel('area');
+  return `0°: <b>${u(e0)}</b> &nbsp; 60°: <b>${u(e60)}</b> &nbsp; 90°: <b>${u(e90)}</b>
+    <br><small style="opacity:.6">Ca_N=${ca_N.toFixed(3)} (placa plana) &nbsp; Ca_T=${ca_T.toFixed(3)} (rs_T=${D>0?(r/D).toFixed(3):'—'})</small>`;
+}
+
+function _ant3dRebuild() {
+  const s = _ant3d; if (!s?.scene) return;
+  let geo;
+  if (s.isDish) {
+    // Paraboloide de revolución: apertura hacia la cámara (+Z)
+    const R = s.H / 2;
+    const depth = R * 0.45;
+    const rim   = R * 0.05;
+    const N = 32;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts.push(new THREE.Vector2(t * R, -depth * t * t));
+    }
+    pts.push(new THREE.Vector2(R, -(depth + rim)));
+    pts.push(new THREE.Vector2(0, -(depth + rim)));
+    geo = new THREE.LatheGeometry(pts, 48);
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    geo.translate(0, 0, (depth + rim) / 2);
+    geo.computeVertexNormals();
+  } else {
+    geo = _buildFrontRoundedGeo(s.W, s.H, s.D, s.r, s.rh||0);
+  }
+  if (s.mesh) {
+    // Reemplazar solo la geometría — preserva rotación, posición y pan sin reiniciar la vista
+    s.mesh.geometry.dispose();
+    s.mesh.geometry = geo;
+  } else {
+    s.mesh = new THREE.Mesh(geo, s.mat);
+    s.scene.add(s.mesh);
+    const maxD = Math.max(s.H, s.W, s.D);
+    const pc = s.perspCam || s.camera;
+    pc.position.setLength(maxD * 3.2);
+    pc.lookAt(0, 0, 0);
+  }
+  s.mesh.position.x = s.panX || 0;
+  s.mesh.position.y = s.panY || 0;
+  if (s.viewMode === 'plan') _ant3dSetView('plan');
+  document.getElementById('ant3d-epa').innerHTML = s.isDish
+    ? `<small style="opacity:.6">Parabólica Ø=${uConv('len',s.H).toFixed(2)} ${uLabel('len')}</small>`
+    : _ant3dEPAtext(s.H, s.W, s.D, s.r);
+}
+
+function _ant3dInput(dim, displayVal) {
+  const s = _ant3d; if (!s) return;
+  s[dim] = uConvInv('len', +displayVal);
+  // Acotar r (vertical) al máximo (W/2, D/2)
+  const maxR = Math.min(s.W, s.D) / 2 - 1e-4;
+  if (dim !== 'r' && s.r > maxR) {
+    s.r = maxR;
+    const ri = document.getElementById('ant3d-r');
+    if (ri) ri.value = uConv('len', maxR).toFixed(2);
+  }
+  // Acotar rh (horizontal) al máximo (H/2)
+  const maxRh = s.H / 2 - 1e-4;
+  if (dim !== 'rh' && (s.rh||0) > maxRh) {
+    s.rh = maxRh;
+    const ri = document.getElementById('ant3d-rh');
+    if (ri) ri.value = uConv('len', maxRh).toFixed(2);
+  }
+  _ant3dRebuild();
+}
+
+function _ant3dOpen(antIdx, groupIdxs) {
+  const a = antenasData[antIdx]; if (!a) return;
+  const H = +a.alto||0.5, W = +a.ancho||0.3, D = Math.max(+a.espesor||0.05, 0.01), r = +a.r||0, rh = +a.rh||0;
+  // Cerrar instancia previa
+  if (_ant3d) { cancelAnimationFrame(_ant3d.animId); _ant3d.renderer?.dispose(); _ant3d = null; }
+  const grp = Array.isArray(groupIdxs) && groupIdxs.length ? groupIdxs : [antIdx];
+  const isDish = _isDishType(a.tipo);
+  const peso = +a.peso || 0;
+  _ant3d = { antIdx, grp, isDish, origH:a.alto, origW:a.ancho, origD:a.espesor, origR:a.r, origRh:a.rh, origPeso:a.peso, H, W, D, r, rh, peso };
+
+  // Llenar inputs
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=uConv('len',val).toFixed(2); };
+  set('ant3d-H', H); set('ant3d-W', W); set('ant3d-D', D); set('ant3d-r', r); set('ant3d-rh', rh);
+  const pesoEl = document.getElementById('ant3d-peso'); if (pesoEl) pesoEl.value = uConv('weight',peso).toFixed(2);
+  const pesoUEl = document.getElementById('ant3d-u-peso'); if (pesoUEl) pesoUEl.textContent = uLabel('weight');
+  // Para parabólicas: ocultar W/D/r/rh (solo diámetro = H)
+  ['ant3d-row-W','ant3d-row-D','ant3d-row-r','ant3d-row-rh'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.style.display=isDish?'none':'';
+  });
+  document.getElementById('ant3d-title').textContent = a.desc || `Antena ${antIdx+1}`;
+  ['ant3d-u','ant3d-u2','ant3d-u3','ant3d-u4','ant3d-u5'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.textContent=uLabel('len');
+  });
+  const lblH = document.getElementById('ant3d-lbl-H');
+  if (lblH) lblH.innerHTML = isDish
+    ? `Diámetro Ø (<span id="ant3d-u">${uLabel('len')}</span>)`
+    : `Alto H (<span id="ant3d-u">${uLabel('len')}</span>)`;
+
+  // Inicializar Three.js
+  const canvas = document.getElementById('ant3d-canvas');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  renderer.setSize(400, 320); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+  // Fondo y material adaptados al tema activo
+  const _thDark = document.documentElement.dataset.theme === 'dark' ||
+    (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  // Fondo: oscuro en tema dark, neutro claro en tema light
+  renderer.setClearColor(_thDark ? 0x070e1a : 0xd4e3f0, 1);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 400/320, 0.001, 500);
+  camera.position.set(0.6, 0.5, 1.0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, _thDark ? 0.4 : 0.65));
+  const dl = new THREE.DirectionalLight(0xffffff, _thDark ? 1.1 : 1.3); dl.position.set(2,4,3); scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x88aacc, 0.3); dl2.position.set(-2,-1,-2); scene.add(dl2);
+
+  // flatShading en paneles: aristas duras en la cara posterior sin tocar la geometría
+  const mat = new THREE.MeshStandardMaterial({
+    color: _thDark ? 0x1e6090 : 0x2a88d0,
+    metalness: 0.28, roughness: 0.55, side: THREE.DoubleSide,
+    flatShading: !isDish
+  });
+  Object.assign(_ant3d, {renderer, scene, camera, perspCam: camera, mat, viewMode: '3d', panX:0, panY:0});
+
+  _ant3dRebuild();
+  document.body.classList.add('ant3d-open');
+  document.activeElement?.blur();
+  // inert bloquea mouse Y teclado en toda la tabla (incluye Tab y edición directa)
+  document.getElementById('ant-table-wrap')?.setAttribute('inert', '');
+
+  // Ángulo inicial
+  let drag=false, lx=0, ly=0,
+      rx    = isDish ? 0.60 : 0.38,
+      ry    = isDish ? 0.30 : 0.80,
+      autoR = isDish ? 0.30 : 0.80;
+  let panDrag=false, lpx2=0, lpy2=0;
+
+  canvas.onmousedown = e => {
+    if (_ant3d?.viewMode === 'plan') return;
+    // Rueda media o Shift+clic izq → pan
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      panDrag = true; lpx2 = e.clientX; lpy2 = e.clientY;
+      canvas.style.cursor = 'move'; e.preventDefault(); return;
+    }
+    if (e.button === 0) { drag=true; lx=e.clientX; ly=e.clientY; canvas.style.cursor='grabbing'; }
+  };
+  window.addEventListener('mousemove', e => {
+    if (!_ant3d) return;
+    if (panDrag) {
+      const dist = _ant3d.camera.position.length();
+      const sc = dist / 600;
+      const cr = new THREE.Vector3().setFromMatrixColumn(_ant3d.camera.matrixWorld, 0);
+      const cu = new THREE.Vector3().setFromMatrixColumn(_ant3d.camera.matrixWorld, 1);
+      const dx = e.clientX - lpx2, dy = e.clientY - lpy2;
+      _ant3d.panX += cr.x * dx * sc - cu.x * dy * sc;
+      _ant3d.panY += cr.y * dx * sc - cu.y * dy * sc;
+      lpx2 = e.clientX; lpy2 = e.clientY;
+      return;
+    }
+    if (!drag || _ant3d.viewMode === 'plan') return;
+    ry += (e.clientX-lx)*0.012; rx += (e.clientY-ly)*0.012;
+    rx = Math.max(-1.3, Math.min(1.3, rx)); autoR=ry; lx=e.clientX; ly=e.clientY;
+  });
+  window.addEventListener('mouseup', e => {
+    if (e.button === 1) panDrag = false;
+    drag = false; panDrag = false;
+    if (canvas && _ant3d?.viewMode !== 'plan') canvas.style.cursor = 'grab';
+  });
+  canvas.addEventListener('wheel', e => {
+    if (!_ant3d) return;
+    e.preventDefault();
+    _ant3d.camera.position.multiplyScalar(e.deltaY > 0 ? 1.12 : 0.89);
+  }, { passive: false });
+  canvas.style.cursor = 'grab';
+
+  const animate = () => {
+    if (!_ant3d) return;
+    _ant3d.animId = requestAnimationFrame(animate);
+    if (_ant3d.mesh) {
+      _ant3d.mesh.position.x = _ant3d.panX;
+      _ant3d.mesh.position.y = _ant3d.panY;
+      if (_ant3d.viewMode !== 'plan') {
+        _ant3d.mesh.rotation.x = rx; _ant3d.mesh.rotation.y = autoR;
+      } else {
+        _ant3d.mesh.rotation.x = 0; _ant3d.mesh.rotation.y = 0;
+      }
+    }
+    renderer.render(scene, _ant3d.camera);
+  };
+  animate();
+
+  document.getElementById('ant3d-modal').style.display = 'flex';
+}
+
+function _ant3dConfirm() {
+  const s = _ant3d; if (!s) return;
+  (s.grp || [s.antIdx]).forEach(i => {
+    const a = antenasData[i]; if (!a) return;
+    a.alto=s.H; a.ancho=s.W; a.espesor=s.D; a.r=s.r>0?s.r:undefined; a.rh=s.rh>0?s.rh:undefined;
+    a.peso = s.peso;
+    _calcEPA(a);
+  });
+  _renderAntenasTable();
+  if (windForcesOn||windForceLabelsOn) { _windForceResults=null; _buildWindForceArrows(); }
+  _ant3dCancel();
+}
+function _ant3dCancel() {
+  if (!_ant3d) return;
+  cancelAnimationFrame(_ant3d.animId);
+  _ant3d.renderer?.dispose(); _ant3d.mat?.dispose();
+  if (_ant3d.mesh) _ant3d.mesh.geometry.dispose();
+  _ant3d = null;
+  document.getElementById('ant3d-modal').style.display = 'none';
+  document.body.classList.remove('ant3d-open');
+  document.getElementById('ant-table-wrap')?.removeAttribute('inert');
+}
+
+function _ant3dSetView(mode) {
+  const s = _ant3d; if (!s) return;
+  s.viewMode = mode;
+  if (mode === 'plan') {
+    const aspect = 400 / 320;
+    const planSize = s.isDish ? s.H * 0.65 : Math.max(s.W, s.D) * 1.4;
+    s.orthoCam = new THREE.OrthographicCamera(
+      -planSize * aspect, planSize * aspect, planSize, -planSize, 0.001, 500
+    );
+    s.orthoCam.position.set(0, Math.max(s.H, s.W, s.D) * 10, 0);
+    s.orthoCam.up.set(0, 0, 1);
+    s.orthoCam.lookAt(0, 0, 0);
+    s.camera = s.orthoCam;
+    if (s.mesh) { s.mesh.rotation.x = 0; s.mesh.rotation.y = 0; }
+  } else {
+    s.camera = s.perspCam;
+  }
+  const b3 = document.getElementById('ant3d-btn-3d');
+  const bp = document.getElementById('ant3d-btn-plan');
+  if (b3) b3.classList.toggle('active', mode === '3d');
+  if (bp) bp.classList.toggle('active', mode === 'plan');
+}
 
 // ── Agregar N antenas con ángulos individuales ─────────────────
 function _updateAntAddAngles() {
@@ -10818,6 +11225,26 @@ function _caFlat(ar) {
   if (a < 25)   return 1.4 + (a - 7) / 18 * 0.6;
   return 2.0;
 }
+// Ca para perfiles HSS (tubo rect/cuadrado con aristas redondeadas) — Tabla 2-9
+// rs = radio_arista / ancho_proyectado_de_esa_cara
+function _caHSS(rs) { return Math.max(2.0 - 6.0 * Math.max(0, rs), 1.25); }
+
+// §2.6.11.2 — Ka por antena según tipo de herraje y número de marcos a la misma cota
+//   ninguno      → 1.0 (sin marco de montaje)
+//   brazo/bandera → 0.9, o 0.8 si ≥3 marcos a la misma cota (±0.25 m)
+function _computeKaAll(ants) {
+  const tol = 0.25;
+  return ants.map(a => {
+    if (!a.herraje || a.herraje === 'ninguno') return 1.0;
+    const zi = +a.z || 0;
+    let n = 0;
+    for (const b of ants) {
+      if ((!b.herraje || b.herraje === 'ninguno')) continue;
+      if (Math.abs((+b.z || 0) - zi) <= tol) n++;
+    }
+    return n >= 3 ? 0.8 : 0.9;
+  });
+}
 
 function _calcEPA(a) {
   if (_isDishType(a.tipo)) {
@@ -10835,11 +11262,13 @@ function _calcEPA(a) {
     a.epa90 = +(Math.abs(c90.CS) * A).toFixed(4);
     return;
   }
-  // §2.6.11.2 — Panel / RRU: Ka=1.0, Ca de Tabla 2-9, cos²/sin² por ángulo
-  const W = +a.ancho || 0, H = +a.alto || 0, E = +a.espesor || 0;
+  // §2.6.11.2 — Panel / RRU: Ca de Tabla 2-9
+  // ca_N: cara frontal = placa plana → siempre _caFlat
+  // ca_T: cara lateral (profundidad) = HSS si tiene radio de arista vertical
+  const W = +a.ancho || 0, H = +a.alto || 0, E = +a.espesor || 0, r = +a.r || 0;
   if (W === 0 && H === 0) return;
-  const ca_N  = _caFlat(W > 0 ? H / W : 25);  // relación de aspecto cara normal
-  const ca_T  = _caFlat(E > 0 ? H / E : 25);  // relación de aspecto cara transversal
+  const ca_N = _caFlat(W > 0 ? H / W : 25);
+  const ca_T = r > 0 && E > 0 ? _caHSS(r / E) : _caFlat(E > 0 ? H / E : 25);
   const EPA_N = ca_N * H * W;
   const EPA_T = ca_T * H * E;
   // cos²(60°)=0.25  sin²(60°)=0.75
@@ -10854,12 +11283,14 @@ function _calcEPA(a) {
 function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride} = {}) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
+  const _kaArr = _computeKaAll(ants);
   // Un ensamble de herraje (mismos az+z+tipo) se cuenta una sola vez aunque haya varias antenas
   const _herrCounted = new Set();
   return ants.map((a, antIdx) => {
     const z    = +a.z || 0;
     const qz   = calcWindPressure(cfg, windData, z, vKmhOverride);   // N/m²
     const Gh   = _tiaGh(z, cfg.type);
+    const Ka   = _kaArr[antIdx];
     const azDeg = +a.azimuth || 0;
     const herrId  = a.herraje || 'ninguno';
     const herrKey = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
@@ -10888,7 +11319,7 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride}
       // Herraje: se suma una vez por ensamble (az, z, tipo) para no triplicar la EPA
       if (addHerraje) EPA += _herrEPAdir(herrId, theta_rel);
 
-      const FA_N   = qz * Gh * EPA;                     // N
+      const FA_N   = qz * Gh * Ka * EPA;                  // N — Ka §2.6.11.2
       const FA_kgf = FA_N / 9.80665;                    // kgf
 
       // Descomposición en ejes globales STAAD (FX = TSA X, FZ = -TSA Y)
@@ -10896,7 +11327,7 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride}
       const fx_staad =  FA_kgf * Math.sin(wRad);
       const fz_staad = -FA_kgf * Math.cos(wRad);
 
-      return { angleDeg, theta_rel, EPA, FA_N, FA_kgf, fx_staad, fz_staad };
+      return { angleDeg, theta_rel, EPA, Ka, FA_N, FA_kgf, fx_staad, fz_staad };
     });
 
     return { antIdx, desc: a.desc || '—', tipo: a.tipo || 'Panel', z, azimuth: azDeg, pierna: a.pierna, qz, Gh, forcesByDir };
