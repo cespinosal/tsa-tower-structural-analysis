@@ -1921,11 +1921,7 @@ body.ant3d-open .ant-table-wrap { pointer-events:none; opacity:0.45; }
               <input class="ant-inp ant-num" type="number" id="ant3d-r" step="0.001" min="0"
                 oninput="_ant3dInput('r',+this.value)">
             </div>
-            <div class="ant3d-row" id="ant3d-row-rh">
-              <label>Radio arista horizontal rh (<span id="ant3d-u5">m</span>)</label>
-              <input class="ant-inp ant-num" type="number" id="ant3d-rh" step="0.001" min="0"
-                oninput="_ant3dInput('rh',+this.value)">
-            </div>
+
             <div class="ant3d-row" id="ant3d-row-peso">
               <label>Peso (<span id="ant3d-u-peso">kg</span>)</label>
               <input class="ant-inp ant-num" type="number" id="ant3d-peso" step="0.1" min="0"
@@ -10860,39 +10856,45 @@ function _esc(s) { return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;');
 // ── Vista previa 3D de antena (perfil con aristas redondeadas) ────────────────
 let _ant3d = null;
 
-// Geometría con aristas frontales redondeadas:
-//   r  = radio aristas verticales frontales (izq/der de la cara frontal)
-//   rh = radio aristas horizontales (top/bottom de toda la cara frontal), opt. usuario
-// Las esquinas traseras y los bordes traseros siempre quedan rectos.
-function _buildFrontRoundedGeo(W, H, D, r, rh) {
-  r  = Math.max(0, Math.min(r  || 0, W/2 - 1e-5, D/2 - 1e-5));
-  rh = Math.max(0, Math.min(rh || 0, H/2 - 1e-5, D/2 - 1e-5));
-  if (r < 1e-4 && rh < 1e-4) return new THREE.BoxGeometry(W, H, D);
-  const hw = W/2, hd = D/2;
+function _mergeGeos(a, b) {
+  const pa = a.attributes.position.array, pb = b.attributes.position.array;
+  const na = a.attributes.normal?.array,  nb = b.attributes.normal?.array;
+  const ia = a.index?.array,              ib = b.index?.array;
+  const merged = new THREE.BufferGeometry();
+  const pos = new Float32Array(pa.length + pb.length);
+  pos.set(pa); pos.set(pb, pa.length);
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (na && nb) {
+    const nor = new Float32Array(na.length + nb.length);
+    nor.set(na); nor.set(nb, na.length);
+    merged.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  }
+  if (ia && ib) {
+    const vA = pa.length / 3;
+    const idx = new Uint32Array(ia.length + ib.length);
+    idx.set(ia);
+    for (let i = 0; i < ib.length; i++) idx[ia.length + i] = ib[i] + vA;
+    merged.setIndex(new THREE.BufferAttribute(idx, 1));
+  }
+  return merged;
+}
+
+// r  = radio aristas verticales frontales   → sección XZ extruida en Y, sin bevel
+function _buildFrontRoundedGeo(W, H, D, r) {
+  r = Math.max(0, Math.min(r || 0, W/2 - 1e-5, D/2 - 1e-5));
+  if (r < 1e-4) return new THREE.BoxGeometry(W, H, D);
+  const hw = W/2, hd = D/2, hh = H/2;
   const shape = new THREE.Shape();
-  // Sección en plano X-Y (X=ancho, Y=profundidad); front = Y negativo
   shape.moveTo(-hw,  hd);
   shape.lineTo ( hw,  hd);
-  shape.lineTo ( hw, r > 0 ? -hd + r : -hd);
-  if (r > 0) shape.quadraticCurveTo( hw, -hd,  hw - r, -hd);
-  shape.lineTo(r > 0 ? -hw + r : -hw, -hd);
-  if (r > 0) shape.quadraticCurveTo(-hw, -hd, -hw, -hd + r);
+  shape.lineTo ( hw, -hd + r);
+  shape.quadraticCurveTo( hw, -hd,  hw - r, -hd);
+  shape.lineTo(-hw + r, -hd);
+  shape.quadraticCurveTo(-hw, -hd, -hw, -hd + r);
   shape.lineTo(-hw, hd);
-  // bevelEnabled solo para rh (aristas horizontales superior/inferior).
-  // El bevel de ExtrudeGeometry NO toca las aristas verticales (caras laterales de
-  // la extrusión), solo las transiciones en los extremos → cara posterior vertical
-  // sigue sin redondear.
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: H, curveSegments: 20,
-    bevelEnabled: rh > 1e-4,
-    bevelThickness: rh,
-    bevelSize: rh,
-    bevelSegments: 10,
-  });
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: H, curveSegments: 20, bevelEnabled: false });
   geo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
-  geo.computeBoundingBox();
-  const bc = geo.boundingBox.getCenter(new THREE.Vector3());
-  geo.translate(-bc.x, -bc.y, -bc.z);
+  geo.translate(0, -hh, 0);
   geo.computeVertexNormals();
   return geo;
 }
@@ -10966,7 +10968,7 @@ function _ant3dRebuild() {
     geo.translate(0, 0, (depth + rim) / 2);
     geo.computeVertexNormals();
   } else {
-    geo = _buildFrontRoundedGeo(s.W, s.H, s.D, s.r, s.rh||0);
+    geo = _buildFrontRoundedGeo(s.W, s.H, s.D, s.r);
   }
   if (s.mesh) {
     // Reemplazar solo la geometría — preserva rotación, posición y pan sin reiniciar la vista
@@ -10998,37 +11000,30 @@ function _ant3dInput(dim, displayVal) {
     const ri = document.getElementById('ant3d-r');
     if (ri) ri.value = uConv('len', maxR).toFixed(2);
   }
-  // Acotar rh (horizontal) al máximo (H/2)
-  const maxRh = s.H / 2 - 1e-4;
-  if (dim !== 'rh' && (s.rh||0) > maxRh) {
-    s.rh = maxRh;
-    const ri = document.getElementById('ant3d-rh');
-    if (ri) ri.value = uConv('len', maxRh).toFixed(2);
-  }
   _ant3dRebuild();
 }
 
 function _ant3dOpen(antIdx, groupIdxs) {
   const a = antenasData[antIdx]; if (!a) return;
-  const H = +a.alto||0.5, W = +a.ancho||0.3, D = Math.max(+a.espesor||0.05, 0.01), r = +a.r||0, rh = +a.rh||0;
+  const H = +a.alto||0.5, W = +a.ancho||0.3, D = Math.max(+a.espesor||0.05, 0.01), r = +a.r||0;
   // Cerrar instancia previa
   if (_ant3d) { cancelAnimationFrame(_ant3d.animId); _ant3d.renderer?.dispose(); _ant3d = null; }
   const grp = Array.isArray(groupIdxs) && groupIdxs.length ? groupIdxs : [antIdx];
   const isDish = _isDishType(a.tipo);
   const peso = +a.peso || 0;
-  _ant3d = { antIdx, grp, isDish, origH:a.alto, origW:a.ancho, origD:a.espesor, origR:a.r, origRh:a.rh, origPeso:a.peso, H, W, D, r, rh, peso };
+  _ant3d = { antIdx, grp, isDish, origH:a.alto, origW:a.ancho, origD:a.espesor, origR:a.r, origPeso:a.peso, H, W, D, r, peso };
 
   // Llenar inputs
   const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=uConv('len',val).toFixed(2); };
-  set('ant3d-H', H); set('ant3d-W', W); set('ant3d-D', D); set('ant3d-r', r); set('ant3d-rh', rh);
+  set('ant3d-H', H); set('ant3d-W', W); set('ant3d-D', D); set('ant3d-r', r);
   const pesoEl = document.getElementById('ant3d-peso'); if (pesoEl) pesoEl.value = uConv('weight',peso).toFixed(2);
   const pesoUEl = document.getElementById('ant3d-u-peso'); if (pesoUEl) pesoUEl.textContent = uLabel('weight');
   // Para parabólicas: ocultar W/D/r/rh (solo diámetro = H)
-  ['ant3d-row-W','ant3d-row-D','ant3d-row-r','ant3d-row-rh'].forEach(id => {
+  ['ant3d-row-W','ant3d-row-D','ant3d-row-r'].forEach(id => {
     const el=document.getElementById(id); if(el) el.style.display=isDish?'none':'';
   });
   document.getElementById('ant3d-title').textContent = a.desc || `Antena ${antIdx+1}`;
-  ['ant3d-u','ant3d-u2','ant3d-u3','ant3d-u4','ant3d-u5'].forEach(id => {
+  ['ant3d-u','ant3d-u2','ant3d-u3','ant3d-u4'].forEach(id => {
     const el=document.getElementById(id); if(el) el.textContent=uLabel('len');
   });
   const lblH = document.getElementById('ant3d-lbl-H');
@@ -11137,7 +11132,7 @@ function _ant3dConfirm() {
   const s = _ant3d; if (!s) return;
   (s.grp || [s.antIdx]).forEach(i => {
     const a = antenasData[i]; if (!a) return;
-    a.alto=s.H; a.ancho=s.W; a.espesor=s.D; a.r=s.r>0?s.r:undefined; a.rh=s.rh>0?s.rh:undefined;
+    a.alto=s.H; a.ancho=s.W; a.espesor=s.D; a.r=s.r>0?s.r:undefined;
     a.peso = s.peso;
     _calcEPA(a);
   });
