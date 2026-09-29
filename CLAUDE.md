@@ -196,6 +196,35 @@ sustituir dentro de la declaración `const _planInner = ... : '#172a45'` creando
 auto-referencia. Si se hacen sustituciones masivas de hex en `_fdDrawPlan`, excluir
 las propias declaraciones de variables.
 
+## Paquetes de feeders — mejoras y correcciones (2026-09-28)
+
+### Editor de Paquete
+- Ventana más alta: `max-height` de 88 vh → 96 vh; grid de 340 px → 440 px.
+- Nueva fila **N / T** (dimensiones proyectadas del rectángulo tangente) visible para
+  paquetes no-cluster. Usa la misma fórmula que el dibujo real:
+  - **N** = Σ(diáms de la columna más profunda) + (nCables−1)×2 mm
+  - **T** = Σ(maxDiám de cada columna) + (nCols−1)×2 mm  ← usa el diámetro real de
+    cada columna, no el máximo global uniforme.
+- La fila Dc (cluster) y la fila N/T (no-cluster) se excluyen mutuamente.
+
+### Tabla de feeders
+- Columna "Ø MM" de paquetes no-cluster ahora muestra `N 85 · T 87 mm` en vez de
+  solo los tipos de cable.
+
+### Renderizado 3D de columnas en paquete
+- Paso entre columnas ahora es variable (depende de los diámetros adyacentes, no de
+  `maxD` global): centra cada columna con `colX[i] = colX[i-1] + (d_{i-1}+d_i)/2 + 2mm`.
+- El rectángulo visual en 3D coincide exactamente con el N/T reportado.
+
+### Separación entre cables en paquete
+- `PAQ_GAP = 2 mm` (superficies), igual que cluster TIA-222-H Fig. 2-14.
+- Los feeders individuales no-paquete conservan `CABLE_GAP = 20 mm`.
+
+### Fix: aislamiento de feeders y antenas con dado
+- `_isoMinZ/_isoMaxZ` en `_renderFeeders3D` y en el filtro de antenas ahora arrancan
+  desde `dadoHeight` (en vez de 0). Antes el clip de feeders no coincidía con los nodos
+  de la torre cuando `dadoHeight > 0`.
+
 ## Convención de caras A/B/C en torre triangular — CAMBIADA (2026-09-25)
 
 La cara **A** es ahora la cara inferior del triángulo (paralela al eje X, normal hacia el
