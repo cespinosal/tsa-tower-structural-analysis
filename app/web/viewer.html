@@ -439,6 +439,29 @@ body {
 .side-btn:hover .side-tip { opacity: 1; visibility: visible; }
 .side-spacer { flex: 1; }
 
+/* Tooltip topbar — aparece debajo del botón */
+.has-tb-tip { position: relative; display: inline-block; }
+.tb-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--txt-pri);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s;
+  z-index: 200;
+  box-shadow: 0 4px 12px rgba(0,0,0,.45);
+}
+.has-tb-tip:hover .tb-tip { opacity: 1; visibility: visible; }
+
 /* ── Home menu ───────────────────────────────────────────────── */
 .home-menu {
   display: none;
@@ -555,6 +578,7 @@ body {
    330px. */
 .rpanel.wide { width: 560px; }
 .rpanel.ant-wide { width: 400px; }
+.rpanel.solver-wide { width: 480px; }
 
 /* ── Info panel (único view del rpanel ahora) ────────────────── */
 #rpanel-info { display: none; flex-direction: column; flex: 1; min-height: 0; }
@@ -577,6 +601,31 @@ body {
 #rpanel-viento.visible { display: flex; }
 #rpanel-antenas { display: none; flex-direction: column; flex: 1; min-height: 0; }
 #rpanel-antenas.visible { display: flex; }
+#rpanel-solver  { display: none; flex-direction: column; flex: 1; min-height: 0; }
+#rpanel-solver.visible  { display: flex; }
+/* FEM solver rpanel */
+.fem-anim-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--bg-deep); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.fem-anim-btn { font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; background: var(--cyan); color: #000; transition: background .15s; }
+.fem-anim-btn.stop { background: #ef4444; color: #fff; }
+.fem-tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-deep); flex-shrink: 0; }
+.fem-tab { padding: 6px 11px; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; color: var(--txt-sec); white-space: nowrap; transition: color .12s; }
+.fem-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+.fem-tab:hover:not(.active) { color: var(--txt-pri); }
+.fem-section { display: none; padding: 10px 12px; }
+.fem-section.active { display: block; }
+.fem-tbl { width: 100%; border-collapse: collapse; font-size: 10px; font-variant-numeric: tabular-nums; }
+.fem-tbl thead th { padding: 4px 5px; text-align: right; background: var(--bg-input); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--txt-sec); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+.fem-tbl thead th:first-child { text-align: left; }
+.fem-tbl tbody td { padding: 3px 5px; text-align: right; border-bottom: 1px solid var(--border-sub); font-size: 9.5px; }
+.fem-tbl tbody td:first-child { text-align: left; color: var(--txt-sec); }
+.fem-tbl tbody tr:last-child td { border-bottom: none; }
+.fem-tbl tbody tr:hover td { background: rgba(0,212,255,.05); }
+.fem-header-block { font-family: monospace; font-size: 9px; color: var(--txt-sec); background: var(--bg-deep); padding: 8px 12px; border-radius: 4px; white-space: pre; line-height: 1.7; margin-bottom: 10px; border: 1px solid var(--border); overflow-x: auto; }
+.fem-dir-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; margin-bottom: 10px; }
+.fem-dir-card { background: var(--bg-input); border-radius: 5px; padding: 6px 9px; }
+.fem-dir-theta { font-size: 9px; color: var(--txt-sec); margin-bottom: 2px; font-weight: 600; }
+.fem-dir-vals { display: flex; gap: 10px; align-items: baseline; }
+.fem-sec-lbl { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--txt-sec); margin: 8px 0 5px; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
 /* .rpanel-scroll no trae padding propio (rpanel-info lo maneja en sus hijos) — el
    contenido de Cargas de Viento quedaba pegado a los bordes laterales, pedido explícito
    del usuario (2026-06-28). */
@@ -698,6 +747,7 @@ body {
    .torre-flyout) — Nueva Torre sigue en 268px. */
 #viento-flyout   { width: 380px; }
 #antenas-flyout  { width: 840px; }
+#solver-flyout   { width: 360px; }
 
 /* ── Panel Antenas ──────────────────────────────────────────── */
 .ant-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -1648,7 +1698,10 @@ body.ant3d-open .ant-table-wrap { pointer-events:none; opacity:0.45; }
   </div>
   <button class="btn" id="feedback-btn" onclick="openFeedbackModal()" style="color:var(--cyan);border-color:var(--cyan);">💬 Feedback</button>
   <button class="btn" onclick="openHelp()">Ayuda</button>
-  <button class="btn" id="btn-theme" onclick="toggleTheme()" title="Cambiar tema claro/oscuro" style="width:32px;padding:0;font-size:14px;"></button>
+  <span class="has-tb-tip">
+    <button class="btn" id="btn-theme" onclick="toggleTheme()" style="width:32px;padding:0;font-size:14px;"></button>
+    <span class="tb-tip">Cambiar tema</span>
+  </span>
 </div>
 
 <!-- ══════════════ TAB BAR ══════════════════════════════════════ -->
@@ -1789,7 +1842,7 @@ body.ant3d-open .ant-table-wrap { pointer-events:none; opacity:0.45; }
     </button>
 
     <!-- Solver FEM -->
-    <button class="side-btn" id="solver-btn" onclick="toggleSolverPanel(event)" title="Solver FEM — Armadura Espacial">
+    <button class="side-btn" id="solver-btn" onclick="toggleSolverPanel(event)">
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2"  y="2"  width="7" height="7" rx="1"/>
         <rect x="13" y="2"  width="7" height="7" rx="1"/>
@@ -2560,6 +2613,38 @@ body.ant3d-open .ant-table-wrap { pointer-events:none; opacity:0.45; }
       <div class="rpanel-scroll" id="rpanel-antenas-body"></div>
     </div><!-- /rpanel-antenas -->
 
+    <!-- ═══ SOLVER / FEM VIEW ══════════════════════════════════ -->
+    <div id="rpanel-solver">
+      <div class="rpanel-header">Análisis Estructural — FEM</div>
+
+      <!-- Barra de animación -->
+      <div class="fem-anim-bar" id="fem-anim-bar" style="display:none;">
+        <button class="fem-anim-btn" id="fem-anim-btn" onclick="_femToggleAnim()">▶ Animar</button>
+        <span style="font-size:9px;color:var(--txt-sec);">Escala</span>
+        <input id="fem-anim-scale" type="range" min="10" max="5000" step="10" value="200"
+               style="flex:1;accent-color:var(--cyan);"
+               oninput="_femAnimScale=+this.value;document.getElementById('fem-anim-scale-lbl').textContent=this.value+'×';">
+        <span id="fem-anim-scale-lbl" style="font-size:10px;color:var(--cyan);min-width:36px;text-align:right;">200×</span>
+        <button id="fem-deformed-btn" onclick="_femToggleDeformed()"
+          style="font-size:9px;padding:2px 6px;border:1px solid var(--border);background:var(--bg-deep);
+                 color:var(--txt-sec);border-radius:3px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+          ⬡ Def.
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="fem-tab-bar">
+        <div class="fem-tab active" data-tab="resumen"        onclick="_femSwitchTab('resumen')">Resumen</div>
+        <div class="fem-tab"        data-tab="displacements"  onclick="_femSwitchTab('displacements')">Desplaz.</div>
+        <div class="fem-tab"        data-tab="members"        onclick="_femSwitchTab('members')">Miembros</div>
+      </div>
+
+      <div class="rpanel-scroll">
+        <div id="fem-sec-resumen"       class="fem-section active"></div>
+        <div id="fem-sec-displacements" class="fem-section"></div>
+        <div id="fem-sec-members"       class="fem-section"></div>
+      </div>
+    </div><!-- /rpanel-solver -->
 
   </div><!-- /rpanel -->
 
@@ -5150,8 +5235,7 @@ function _buildWindForceArrows() {
     : computeNodalWindForces(cfg, windData, _selectedWindAngle);
   // Agregar fuerzas de antenas/equipos como cargas puntuales
   if (Array.isArray(antenasData) && antenasData.length) {
-    const wRad  = _selectedWindAngle * Math.PI / 180;
-    const dirXY = { x: -Math.sin(wRad), y: -Math.cos(wRad) };
+    const dirXY = _windDirFromAngle(_selectedWindAngle);
     const antForces = _calcAntennaForces(cfg, windData);
     if (cfg.type === 'monopole') {
       // Monopolo: posición puntual en la superficie a la z exacta de la antena
@@ -5782,7 +5866,7 @@ function renderTower(data) {
     if (_isSolidMono && (m.type === 'leg' || m.type === 'monothk' || m.type === 'horizontal')) return;
     const alternate = (m.type==='leg' || m.type==='diagonal' || m.type==='horizontal') && m.sec!=null;
     const isSecondary = (m.type==='diagonal' || m.type==='horizontal') && m.principal===false;
-    const key = alternate ? `${m.type}_${m.sec%2}${isSecondary?'_s':''}`
+    const key = alternate ? `${m.type}_${(m.sec+1)%2}${isSecondary?'_s':''}`
       : (m.type==='hipbrace' ? `hipbrace_${m.isDiag?'d':'h'}` : m.type);
     (batches[key] = batches[key]||[]).push(m);
   });
@@ -5883,7 +5967,7 @@ function renderTower(data) {
       if (h < 1e-6) continue;
       if (aislarTramoSec !== null && p0.sec !== aislarTramoSec) continue;
       const sides = Math.max(3, p0.sides || 12);
-      const color = (p0.sec ?? 0) % 2 === 0 ? 0xCC1111 : 0xFFFFFF;
+      const color = (p0.sec ?? 0) % 2 === 0 ? C_RING() : C_LEG();
       const geo   = new THREE.CylinderGeometry(p1.r, p0.r, h, sides, 1);
       const mat   = new THREE.MeshStandardMaterial({
         color, metalness: 0.55, roughness: 0.35,
@@ -6181,8 +6265,11 @@ resizeRenderer();
 // ══════════════════════════════════════════════════════════════════
 // ── Configuración de la app (persistida en localStorage) ────────────
 const SETTINGS_KEY = 'tsa_settings_v1';
+// Colores por defecto de tramos pares/impares según tema.
+function _legColorDefault()  { return document.documentElement.getAttribute('data-theme') === 'light' ? '#1A6EC0' : '#FFFFFF'; }
+function _ringColorDefault() { return '#FF2233'; }  // Rojo en ambos temas
 const DEFAULT_SETTINGS = {
-  colors: { leg:'#FF2233', ring:'#1A90CC', guy:'#FFCC00', stabarm:'#33CC88', windforceOdd:'#3B82F6', windforceEven:'#22C55E' },
+  colors: { leg:'#FFFFFF', ring:'#FF2233', guy:'#FFCC00', stabarm:'#33CC88', windforceOdd:'#3B82F6', windforceEven:'#22C55E' },
   bgColor: '#0A1628',
   orbitSpeed: 2.0, zoomSpeed: 1.0, panSpeed: 1.0,
   nodeLabelsDefault: false, profileLabelsDefault: false,
@@ -6201,8 +6288,10 @@ function loadAppSettings() {
   // pierde el default. Mismo criterio ya usado para secData/profileCatalogs al cargar
   // proyectos viejos.
   appSettings.colors = Object.assign({}, DEFAULT_SETTINGS.colors, appSettings.colors);
-  // Migración: #CCEEFF (blanco-azulado, invisible en tema claro) → nuevo default
-  if (appSettings.colors.ring === '#CCEEFF') appSettings.colors.ring = '#1A90CC';
+  // Migración ring: defaults anteriores (#CCEEFF, #1A90CC) → rojo
+  if (appSettings.colors.ring === '#CCEEFF' || appSettings.colors.ring === '#1A90CC') appSettings.colors.ring = _ringColorDefault();
+  // Migración leg: #FF2233 (rojo, default anterior tramos pares) → default según tema
+  if (appSettings.colors.leg === '#FF2233') appSettings.colors.leg = _legColorDefault();
   applyAppSettings();
 }
 function saveAppSettingsToStorage() {
@@ -7105,6 +7194,8 @@ function openSettingsModal() {
 // aplica de inmediato y deja el formulario abierto reflejando los valores reiniciados.
 function resetSettingsModal() {
   appSettings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  appSettings.colors.leg  = _legColorDefault();
+  appSettings.colors.ring = _ringColorDefault();
   saveAppSettingsToStorage();
   applyAppSettings();
   _populateSettingsForm();
@@ -7873,6 +7964,9 @@ function switchTab(tabEl, view) {
   document.getElementById('rpanel').classList.toggle('wide', view === 'viento');
   document.getElementById('rpanel').classList.remove('ant-wide');
   document.getElementById('rpanel-antenas').classList.remove('visible');
+  document.getElementById('rpanel-solver').classList.remove('visible');
+  document.getElementById('rpanel').classList.remove('solver-wide');
+  if (_femAnimActive) _femStopAnim();
   if (view === 'viento') {
     document.getElementById('rpanel-info').classList.remove('visible');
     document.getElementById('rpanel-viento').classList.add('visible');
@@ -8023,22 +8117,31 @@ function _renderWindAngleTable(cfg, rows) {
   if (!container) return;
   const angleDeg = _selectedWindAngle;
   const noLattice = cfg.type !== 'triangular' && cfg.type !== 'square' && cfg.type !== 'guyed';
-  let total = 0;
+  const feederSecs = _calcFeederWindForces(cfg, windData, angleDeg);
+  const feederBySec = new Map();
+  feederSecs.forEach(s => { feederBySec.set(s.sec - 1, s.totalF_kgf); });
+  let totalFST = 0, totalFC = 0;
   const rowsHtml = rows.map(r => {
-    const f = calcSectionWindForce(cfg, windData, r.sec - 1, r.z, r.faceWidth, angleDeg);
-    if (f) total += f.F_kgf;
+    const f   = calcSectionWindForce(cfg, windData, r.sec - 1, r.z, r.faceWidth, angleDeg);
+    const fST = f ? f.F_kgf : 0;
+    const fFC = feederBySec.get(r.sec - 1) || 0;
+    if (f) totalFST += fST;
+    totalFC += fFC;
     return f
-      ? `<tr><td>${r.sec}</td><td>${uConv('area',f.areaPlana).toFixed(3)}</td><td>${uConv('area',f.areaRedonda).toFixed(3)}</td><td>${uConv('area',f.grossArea).toFixed(3)}</td><td>${f.epsilon.toFixed(3)}</td><td>${f.Cf.toFixed(2)}</td><td>${f.Df.toFixed(2)}</td><td>${f.Dr.toFixed(2)}</td><td>${f.Rr.toFixed(2)}</td><td>${uConv('force',f.F_kgf).toFixed(1)}</td></tr>`
-      : `<tr><td>${r.sec}</td><td colspan="9" style="color:var(--txt-sec);">—${noLattice ? ' (solo lattice)' : ''}</td></tr>`;
+      ? `<tr><td>${r.sec}</td><td>${uConv('area',f.areaPlana).toFixed(3)}</td><td>${uConv('area',f.areaRedonda).toFixed(3)}</td><td>${uConv('area',f.grossArea).toFixed(3)}</td><td>${f.epsilon.toFixed(3)}</td><td>${f.Cf.toFixed(2)}</td><td>${f.Df.toFixed(2)}</td><td>${f.Dr.toFixed(2)}</td><td>${f.Rr.toFixed(2)}</td><td>${uConv('force',fST).toFixed(1)}</td><td>${fFC>0?uConv('force',fFC).toFixed(1):'—'}</td><td><b>${uConv('force',fST+fFC).toFixed(1)}</b></td></tr>`
+      : `<tr><td>${r.sec}</td><td colspan="11" style="color:var(--txt-sec);">—${noLattice ? ' (solo lattice)' : ''}</td></tr>`;
   }).join('');
+  const hasFC = totalFC > 0;
   container.innerHTML = `
     <table class="ret-table wind-table-center">
-      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th><th>FTotal (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
       <tbody>
         ${rowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
           <td colspan="9" style="text-align:right;">TOTAL</td>
-          <td>${uConv('force', total).toFixed(1)}</td>
+          <td>${uConv('force', totalFST).toFixed(1)}</td>
+          <td>${hasFC ? uConv('force', totalFC).toFixed(1) : '—'}</td>
+          <td><b>${uConv('force', totalFST + totalFC).toFixed(1)}</b></td>
         </tr>
       </tbody>
     </table>`;
@@ -8115,13 +8218,13 @@ function _renderAntennaForceTable(cfg) {
     container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin antenas o equipos registrados.</div>';
     return;
   }
-  const legSet = new Set();
-  _towerData.members.forEach(m => { if (m.type === 'leg') { legSet.add(m.ni); legSet.add(m.nj); } });
-  const results = _calcAntennaForces(cfg, windData);
   const dir = _selectedWindAngle;
-  const rowsHtml = results.map(r => {
+
+  // ── Tabla de ANTENAS (sin herraje) ───────────────────────────────────────
+  const antResults = _calcAntennaForces(cfg, windData, { includeHerraje: false });
+  const thdr = `<th>#</th><th>Desc.</th><th>z (${uLabel('len')})</th><th>Az°</th><th>θr°</th><th>Ca</th><th>Ka</th><th>EPA ${uLabel('area')}</th><th>qz ${uLabel('pressure')}</th><th>Gh</th><th>FA ${uLabel('force')}</th>`;
+  const antRowsHtml = antResults.map(r => {
     const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0];
-    // Ca: coeficiente de arrastre por ángulo relativo
     let caVal;
     if (_isDishType(r.tipo)) {
       caVal = Math.abs(_dishCoeff(r.tipo, fd.theta_rel).CA).toFixed(3);
@@ -8130,9 +8233,7 @@ function _renderAntennaForceTable(cfg) {
       const W = +a.ancho || 0, H2 = +a.alto || 0, E2 = +a.espesor || 0;
       const tRad = fd.theta_rel * Math.PI / 180;
       const cos2 = Math.cos(tRad) ** 2, sin2 = Math.sin(tRad) ** 2;
-      const ca_N = _caFlat(W > 0 ? H2 / W : 25);
-      const ca_T = _caFlat(E2 > 0 ? H2 / E2 : 25);
-      caVal = (ca_N * cos2 + ca_T * sin2).toFixed(3);
+      caVal = (_caFlat(W > 0 ? H2 / W : 25) * cos2 + _caFlat(E2 > 0 ? H2 / E2 : 25) * sin2).toFixed(3);
     }
     return `<tr>
       <td>${r.antIdx + 1}</td>
@@ -8148,18 +8249,71 @@ function _renderAntennaForceTable(cfg) {
       <td><b>${uConv('force', fd.FA_kgf).toFixed(1)}</b></td>
     </tr>`;
   }).join('');
-  const total = results.reduce((s, r) => { const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0]; return s + fd.FA_kgf; }, 0);
+  const antTotal = antResults.reduce((s, r) => { const fd = r.forcesByDir.find(f => f.angleDeg === dir) || r.forcesByDir[0]; return s + fd.FA_kgf; }, 0);
+
+  // ── Tabla de HERRAJES (deduplicados por az/z/tipo) ───────────────────────
+  const herrResults = _calcHerrajeWindForces(cfg, windData);
+  const hasHerraje = herrResults.length > 0;
+  let herrSection = '';
+  if (hasHerraje) {
+    const herrRowsHtml = herrResults.map((h, idx) => {
+      const fd = h.forcesByDir.find(f => f.angleDeg === dir) || h.forcesByDir[0];
+      const epa = fd ? (h.forcesByDir.find(f => f.angleDeg === dir) || h.forcesByDir[0]) : null;
+      const herrCat = _getHerrajeCatalog().find(x => x.id === h.herrId);
+      const herrDesc = herrCat ? herrCat.nombre : h.herrId;
+      const qz  = calcWindPressure(cfg, windData, h.z);
+      const Gh  = _tiaGh(h.z, cfg.type);
+      // EPA herraje a θr
+      const ants2 = (antenasData || []).filter(a => a.herraje === h.herrId && Math.abs((+a.z||0) - h.z) < 0.01 && Math.abs((+a.azimuth||0) - h.azimuth) < 0.1);
+      const Ka2 = ants2.length ? (_computeKaAll(ants2)[0] ?? 1) : 1;
+      let theta_rel = ((dir - h.azimuth) % 360 + 360) % 360;
+      if (theta_rel > 180) theta_rel = 360 - theta_rel;
+      const EPAh = _herrEPAdir(h.herrId, theta_rel);
+      return `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:left;max-width:110px;overflow:hidden;white-space:nowrap;">${herrDesc}</td>
+        <td>${uConv('len', h.z).toFixed(1)}</td>
+        <td>${h.azimuth}</td>
+        <td>${Math.round(theta_rel)}</td>
+        <td>—</td>
+        <td>${Ka2.toFixed(2)}</td>
+        <td>${uConv('area', EPAh).toFixed(3)}</td>
+        <td>${uConv('pressure', qz/9.80665).toFixed(1)}</td>
+        <td>${Gh.toFixed(3)}</td>
+        <td><b>${uConv('force', fd?.FA_kgf ?? 0).toFixed(1)}</b></td>
+      </tr>`;
+    }).join('');
+    const herrTotal = herrResults.reduce((s, h) => { const fd = h.forcesByDir.find(f => f.angleDeg === dir) || h.forcesByDir[0]; return s + (fd?.FA_kgf ?? 0); }, 0);
+    herrSection = `
+      <div style="font-size:10px;font-weight:600;color:var(--txt-sec);margin:10px 0 4px;letter-spacing:.04em;">HERRAJES DE MONTAJE</div>
+      <table class="ret-table wind-table-center" style="font-size:10.5px;">
+        <thead><tr>${thdr}</tr></thead>
+        <tbody>
+          ${herrRowsHtml}
+          <tr style="font-weight:700;border-top:2px solid var(--border);">
+            <td colspan="10" style="text-align:right;">TOTAL</td>
+            <td>${uConv('force', herrTotal).toFixed(1)}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  const grandTotal = antTotal + herrResults.reduce((s, h) => { const fd = h.forcesByDir.find(f => f.angleDeg === dir) || h.forcesByDir[0]; return s + (fd?.FA_kgf ?? 0); }, 0);
+
   container.innerHTML = `
+    <div style="font-size:10px;font-weight:600;color:var(--txt-sec);margin:0 0 4px;letter-spacing:.04em;">ANTENAS</div>
     <table class="ret-table wind-table-center" style="font-size:10.5px;">
-      <thead><tr><th>#</th><th>Desc.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Az°</th><th>θr°</th><th>Ca</th><th>Ka</th><th>EPA <span class="unit-area">${uLabel('area')}</span></th><th>qz <span class="unit-pressure">${uLabel('pressure')}</span></th><th>Gh</th><th>FA <span class="unit-force">${uLabel('force')}</span></th></tr></thead>
+      <thead><tr>${thdr}</tr></thead>
       <tbody>
-        ${rowsHtml}
+        ${antRowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
-          <td colspan="10" style="text-align:right;">TOTAL</td>
-          <td>${uConv('force', total).toFixed(1)}</td>
+          <td colspan="10" style="text-align:right;">TOTAL ANTENAS</td>
+          <td>${uConv('force', antTotal).toFixed(1)}</td>
         </tr>
       </tbody>
-    </table>`;
+    </table>
+    ${herrSection}
+    ${hasHerraje ? `<div style="font-size:10px;font-weight:700;color:var(--accent);margin-top:6px;text-align:right;">TOTAL ANTENAS + HERRAJES = ${uConv('force', grandTotal).toFixed(1)} ${uLabel('force')}</div>` : ''}`;
 }
 
 // ── Fuerzas de viento en coaxiales / feeders ─────────────────────────────────
@@ -8209,7 +8363,7 @@ function _feederEPA(f, L_overlap, towerType, windAngleDeg) {
   return d * L_overlap * (N * cos2 + (1 - cos2));
 }
 
-function _calcFeederWindForces(cfg, windData, angleDeg) {
+function _calcFeederWindForces(cfg, windData, angleDeg, vKmhOverride) {
   const hasData = feedersData.length || cgoData.length || escalData.length;
   if (!hasData || !projectGenerated) return [];
   const Cd_coax = 1.0;
@@ -8221,7 +8375,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
   for (let i = 0; i < nsec; i++) {
     const h    = +secData[i]?.h || (cfg.height / nsec);
     const zBot = zBase, zTop = zBase + h, zMid = zBase + h / 2;
-    const qz   = calcWindPressure(cfg, windData, zMid);
+    const qz   = calcWindPressure(cfg, windData, zMid, vKmhOverride);
     const rows = [];
 
     // ── Coaxiales / paquetes ──────────────────────────────────────────────────
@@ -8250,7 +8404,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
         dLabel = `${f.diam} mm`;
         epa    = _feederEPA(f, overlap, cfg.type, angleDeg);
       }
-      rows.push({ label, dLabel, n: f.n, ruta: f.ruta,
+      rows.push({ srcType: 'feeder', label, dLabel, n: f.n, ruta: f.ruta,
                   overlap, EPA: epa, F_kgf: Cd_coax * qz * Gh * epa / 9.80665 });
     });
 
@@ -8259,7 +8413,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
       const overlap = Math.max(0, Math.min(+cgo.zf, zTop) - Math.max(+cgo.zi, zBot));
       if (!(overlap > 0)) return;
       const epa = _cgoEPAdir(overlap, cfg.type, cgo.ruta, angleDeg);
-      rows.push({ label: 'CGO', dLabel: `B=${_CGO.B} mm, Cd=${_CGO.Cd}`,
+      rows.push({ srcType: 'cgo', label: 'CGO', dLabel: `B=${_CGO.B} mm, Cd=${_CGO.Cd}`,
                   n: 1, ruta: cgo.ruta, overlap,
                   EPA: epa, F_kgf: _CGO.Cd * qz * Gh * epa / 9.80665 });
     });
@@ -8270,7 +8424,7 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
       if (!(overlap > 0)) return;
       const dRung = (_ESC_RUNGS.find(r => r.label === esc.rung) || _ESC_RUNGS[0]).d;
       const epa = _escEPAdir(overlap, dRung, cfg.type, esc.ruta, angleDeg);
-      rows.push({ label: 'Escalerilla', dLabel: `B=${_ESC.B} mm, Cd=${_ESC.Cd}`,
+      rows.push({ srcType: 'escal', label: 'Escalerilla', dLabel: `B=${_ESC.B} mm, Cd=${_ESC.Cd}`,
                   n: 1, ruta: esc.ruta, overlap,
                   EPA: epa, F_kgf: _ESC.Cd * qz * Gh * epa / 9.80665 });
     });
@@ -8288,21 +8442,18 @@ function _calcFeederWindForces(cfg, windData, angleDeg) {
 function _renderFeederForceTable(cfg) {
   const container = document.getElementById('feeder-force-table-container');
   if (!container) return;
-  if (!feedersData.length && !cgoData.length && !escalData.length) {
-    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales, CGO ni escalerilla registrados.</div>';
+  if (!feedersData.length) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales registrados.</div>';
     return;
   }
   const secs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
-  if (!secs.length) {
-    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin elementos en rango de la torre.</div>';
-    return;
-  }
   let rowsHtml = '', total = 0;
   secs.forEach(s => {
-    s.rows.forEach((r, k) => {
+    let secFirst = true;
+    s.rows.filter(r => r.srcType === 'feeder').forEach(r => {
       rowsHtml += `<tr>
-        <td>${k === 0 ? s.sec : ''}</td>
-        <td>${k === 0 ? uConv('len', s.z).toFixed(1) : ''}</td>
+        <td>${secFirst ? s.sec : ''}</td>
+        <td>${secFirst ? uConv('len', s.z).toFixed(1) : ''}</td>
         <td style="text-align:left;max-width:110px;overflow:hidden;white-space:nowrap;">${r.label}</td>
         <td>${r.dLabel}</td><td>${r.ruta}</td>
         <td>${uConv('len', r.overlap).toFixed(2)}</td>
@@ -8312,11 +8463,61 @@ function _renderFeederForceTable(cfg) {
         <td><b>${uConv('force', r.F_kgf).toFixed(2)}</b></td>
       </tr>`;
       total += r.F_kgf;
+      secFirst = false;
     });
   });
+  if (!rowsHtml) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin coaxiales en rango de la torre.</div>';
+    return;
+  }
   container.innerHTML = `
     <table class="ret-table wind-table-center" style="font-size:10.5px;">
       <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>d / Dc</th>
+        <th>Ruta</th><th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+      <tbody>
+        ${rowsHtml}
+        <tr style="font-weight:700;border-top:2px solid var(--border);">
+          <td colspan="9" style="text-align:right;">TOTAL</td>
+          <td>${uConv('force', total).toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
+function _renderCgoEscalForceTable(cfg) {
+  const container = document.getElementById('cgo-escal-force-table-container');
+  if (!container) return;
+  if (!cgoData.length && !escalData.length) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin CGO ni escalerilla registrados.</div>';
+    return;
+  }
+  const secs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
+  let rowsHtml = '', total = 0;
+  secs.forEach(s => {
+    let secFirst = true;
+    s.rows.filter(r => r.srcType === 'cgo' || r.srcType === 'escal').forEach(r => {
+      rowsHtml += `<tr>
+        <td>${secFirst ? s.sec : ''}</td>
+        <td>${secFirst ? uConv('len', s.z).toFixed(1) : ''}</td>
+        <td style="text-align:left;">${r.label}</td>
+        <td style="text-align:left;">${r.dLabel}</td><td>${r.ruta}</td>
+        <td>${uConv('len', r.overlap).toFixed(2)}</td>
+        <td>${uConv('area', r.EPA).toFixed(4)}</td>
+        <td>${uConv('pressure', s.qz / 9.80665).toFixed(1)}</td>
+        <td>${s.Gh.toFixed(3)}</td>
+        <td><b>${uConv('force', r.F_kgf).toFixed(2)}</b></td>
+      </tr>`;
+      total += r.F_kgf;
+      secFirst = false;
+    });
+  });
+  if (!rowsHtml) {
+    container.innerHTML = '<div style="color:var(--txt-sec);font-size:11px;font-style:italic;margin-top:4px;">Sin CGO ni escalerilla en rango de la torre.</div>';
+    return;
+  }
+  container.innerHTML = `
+    <table class="ret-table wind-table-center" style="font-size:10.5px;">
+      <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>B / Cd</th>
         <th>Ruta</th><th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
       <tbody>
         ${rowsHtml}
@@ -8345,6 +8546,7 @@ function _onWindAngleSelect(val) {
   else _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
   _renderFeederForceTable(cfg);
+  _renderCgoEscalForceTable(cfg);
   // Actualizar flechas 3D con el nuevo ángulo
   if (windForcesOn || windForceLabelsOn) _buildWindForceArrows();
 }
@@ -8588,6 +8790,12 @@ function buildCargasVientoPanel() {
       FC = Cd·EPA·Gh·qz — §2.6.11.4. Cd=1.0 (redondo sin hielo). Cluster: Dc per Fig.2-14.
       Bundle plano: EPA=d·L·(N·cos²θ+sin²θ), θ relativo a la cara (ruta).
     </div>
+    <div class="sep" style="margin:12px 0;"></div>
+    <div class="sect-title" style="margin:0 0 8px;padding:0;text-align:center;">FUERZA EN CGO Y ESCALERILLA</div>
+    <div id="cgo-escal-force-table-container"></div>
+    <div style="font-size:10px;color:var(--txt-sec);margin-top:8px;">
+      FC = Cd·EPA·Gh·qz — §2.6.11.4. CGO: Cd=${_CGO.Cd} (perfil angular, B=${_CGO.B} mm). Escalerilla: Cd=${_ESC.Cd} (B=${_ESC.B} mm).
+    </div>
   `;
   // Inicializar ángulo seleccionado al primero de la lista si aún no está en las opciones
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
@@ -8596,6 +8804,7 @@ function buildCargasVientoPanel() {
   else _renderWindAngleTable(cfg, rows);
   _renderAntennaForceTable(cfg);
   _renderFeederForceTable(cfg);
+  _renderCgoEscalForceTable(cfg);
 }
 
 function saveSettingsModal() {
@@ -11475,7 +11684,7 @@ function _calcHerrajeWindForces(cfg, windData, vKmhOverride) {
     if (herrId === 'ninguno') return;
     const z = +a.z || 0;
     const azDeg = +a.azimuth || 0;
-    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}_${a.pierna??'auto'}`;
+    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
     if (seen.has(key)) return;
     seen.add(key);
     const Ka = _kaArr[antIdx];
@@ -11846,7 +12055,9 @@ function _femSolveSpaceTruss(cfg, angleDeg) {
   return { U, memberResults, maxDisp, maxUC, tSolve, nDof: ndof, nFree: nf, nNodes: n, angleDeg, mechPinned: sol.pinned };
 }
 
-let _femLastResult = null;
+let _femLastResult    = null;
+let _femDeformedOn    = false;
+let _femDeformedMesh3D = null;
 let _femAllResults = [];
 
 function _femRunAllDirections() {
@@ -11870,6 +12081,7 @@ function _femRunAllDirections() {
       }).filter(Boolean);
       _femAllResults = results;
       _renderFemResultsMulti(results, dirs);
+      _femOpenRpanel(results, dirs);
     } catch(e) {
       el.innerHTML = `<p style="color:#e05555;font-size:10.5px;">Error: ${e.message}</p>`;
     }
@@ -11919,6 +12131,14 @@ function _renderFemResultsMulti(results, dirs) {
   envelope.sort((a, b) => b.UC - a.UC);
   const top = envelope.slice(0, 15);
 
+  const _imp_r   = isImperial();
+  const _fLbl_r  = uLabel('force').toUpperCase();
+  const _lLbl_r  = uLabel('len');
+  const _aLbl_r  = _imp_r ? 'in²' : 'cm²';
+  const _fmtF_r  = P_N => { if (P_N == null) return '—'; const v = uConv('force', P_N / 9.80665); return (v >= 0 ? '+' : '') + v.toFixed(1); };
+  const _fmtL_r  = L_m => uConv('len', L_m).toFixed(2);
+  const _fmtA_r  = A_m2 => _imp_r ? (A_m2 * 1550.003).toFixed(3) : (A_m2 * 1e4).toFixed(2);
+
   const typeShort = { leg:'P', diagonal:'D', horizontal:'H', stabarm:'Bz', puntal:'Pt', tensor:'Ts', 'mast-strut':'MS', horizPuntal:'HP', horizTensor:'HT' };
   const rows = top.map(r => {
     const uc=(r.UC*100).toFixed(0), c=r.UC>1?'#ef4444':r.UC>0.7?'#f59e0b':'#22c55e';
@@ -11927,9 +12147,9 @@ function _renderFemResultsMulti(results, dirs) {
       <td style="padding:2px 4px;">${r.sec??'—'}</td>
       <td style="padding:2px 4px;">${typeShort[r.type]??r.type}</td>
       <td style="padding:2px 4px;max-width:72px;overflow:hidden;white-space:nowrap;font-size:9px;">${gp?.profile??'—'}</td>
-      <td style="padding:2px 4px;">${r.L.toFixed(2)}</td>
-      <td style="padding:2px 4px;">${(r.A*1e4).toFixed(2)}</td>
-      <td style="padding:2px 4px;">${r.P_kN>0?'+':''}${r.P_kN.toFixed(1)}</td>
+      <td style="padding:2px 4px;">${_fmtL_r(r.L)}</td>
+      <td style="padding:2px 4px;">${_fmtA_r(r.A)}</td>
+      <td style="padding:2px 4px;">${_fmtF_r(r.P_N)}</td>
       <td style="padding:2px 4px;font-weight:700;color:${c}">${uc}%</td>
       <td style="padding:2px 4px;font-size:9px;color:var(--txt-sec);">${r.govDir}°</td>
     </tr>`;
@@ -11950,27 +12170,501 @@ function _renderFemResultsMulti(results, dirs) {
         <table style="width:100%;border-collapse:collapse;font-size:10px;">
           <thead><tr style="background:var(--bg-input);">
             <th style="padding:3px 4px;text-align:left;">Sec</th><th>Tipo</th>
-            <th style="text-align:left;">Perfil</th><th>L(m)</th>
-            <th>A(cm²)</th><th>P(kN)</th><th>UC</th><th>θ°</th>
+            <th style="text-align:left;">Perfil</th><th>L(${_lLbl_r})</th>
+            <th>A(${_aLbl_r})</th><th>P(${_fLbl_r})</th><th>UC</th><th>θ°</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>` : '<p style="color:var(--txt-sec);font-size:10.5px;margin-top:6px;">Sin perfiles asignados — UC no calculable.</p>'}`;
 }
 
+// ── FEM RPANEL — Resultados estilo STAAD.Pro ────────────────────────────────
+let _femAnimActive = false;
+let _femAnimScale  = 200;
+let _femAnimT      = 0;
+let _femAnimResult = null;
+let _femAnimRafId  = null;
+
+function _femOpenRpanel(results, dirs) {
+  if (!results || !results.length) return;
+  const valid = results.filter(r => !r.error && r.U && r.memberResults);
+  if (!valid.length) return;
+
+  document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
+  document.getElementById('solver-btn')?.classList.add('active');
+  _femShowRpanelSolver();
+
+  // Peor caso para animación (mayor desplazamiento)
+  _femAnimResult = valid.reduce((b, r) => (!b || r.maxDisp > b.maxDisp) ? r : b, null);
+  document.getElementById('fem-anim-bar').style.display = _femAnimResult ? 'flex' : 'none';
+
+  // Actualizar mesh deformado 3D si estaba activo
+  if (_femDeformedOn) _femBuild3DDeformed(_femAnimResult);
+
+  // Poblar secciones
+  _femFillResumen(valid, dirs);
+  _femFillDisplacements(_femAnimResult);
+  _femFillMembers(results);
+  _femSwitchTab('resumen');
+}
+
+function _femSwitchTab(tabId) {
+  document.querySelectorAll('.fem-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === tabId));
+  ['resumen','displacements','members'].forEach(id =>
+    document.getElementById(`fem-sec-${id}`).classList.toggle('active', id === tabId));
+}
+
+function _femFillResumen(valid, dirs) {
+  const cfg   = getConfig() || {};
+  const n     = valid[0]?.nNodes ?? '—';
+  const nMem  = _towerData?.members?.length ?? '—';
+  const nF    = valid[0]?.nFree  ?? '—';
+  const allUC = valid.flatMap(r => (r.memberResults||[]).filter(m=>m.UC!=null).map(m=>m.UC));
+  const maxUC = allUC.length ? Math.max(...allUC) : null;
+  const maxD  = Math.max(...valid.map(r=>r.maxDisp||0));
+  const ucC   = maxUC==null?'var(--txt-sec)':maxUC>1?'#ef4444':maxUC>0.7?'#f59e0b':'#22c55e';
+
+  // Encabezado tipo STAAD.Pro
+  const _imp   = isImperial();
+  const _fLbl  = uLabel('force').toUpperCase();   // 'KGF' o 'KIP'
+  const _lLbl  = _imp ? 'PIE' : 'METRO';
+  const _llLbl = uLabel('len');                   // 'm' o 'ft'
+  const _aLbl  = _imp ? 'in²' : 'cm²';
+  const _dLbl  = _imp ? 'in' : 'mm';
+  const _dFact = _imp ? 39.3701 : 1000;          // m → in o m → mm
+  const _sLbl  = uLabel('stress').toUpperCase();  // 'KG/CM²' o 'KSI'
+  const _fmtF  = P_N => { if (P_N == null) return '—'; const v = uConv('force', P_N / 9.80665); return (v >= 0 ? '+' : '') + v.toFixed(1); };
+  const _fmtS  = (P_N, A_m2) => { if (P_N == null || !A_m2) return '—'; return uConv('stress', P_N / A_m2 / 98066.5).toFixed(1); };
+  const _fmtL  = L_m => uConv('len', L_m).toFixed(2);
+  const _fmtA  = A_m2 => _imp ? (A_m2 * 1550.003).toFixed(3) : (A_m2 * 1e4).toFixed(2);
+
+  const hdDate = new Date().toISOString().slice(0,10);
+  const assetN  = document.getElementById('assetNumber')?.value || '—';
+  const hdLines = [
+    `STAAD SPACE`,
+    `TORRE  ${assetN}   ${hdDate}`,
+    `UNIT   ${_lLbl.padEnd(6)} ${_fLbl}`,
+    ``,
+    `JOINTS    ${String(n).padStart(5)}    DOF LIBRES  ${String(nF).padStart(6)}`,
+    `MEMBERS   ${String(nMem).padStart(5)}    CASOS CARGA ${String(valid.length).padStart(6)}`,
+  ].join('\n');
+
+  // Tarjetas por dirección
+  const cards = valid.map(r => {
+    const dMM = (r.maxDisp*1000).toFixed(2);
+    const uc  = r.maxUC!=null?(r.maxUC*100).toFixed(1)+'%':'—';
+    const c   = r.maxUC==null?'var(--txt-sec)':r.maxUC>1?'#ef4444':r.maxUC>0.7?'#f59e0b':'#22c55e';
+    return `<div class="fem-dir-card">
+      <div class="fem-dir-theta">θ = ${r.angleDeg}° &nbsp;<span style="font-size:8px;color:var(--txt-dim)">${r.tSolve?.toFixed(0)} ms</span></div>
+      <div class="fem-dir-vals">
+        <span style="font-size:12px;font-weight:700;">${dMM}&nbsp;<span style="font-size:9px;font-weight:400;color:var(--txt-sec)">mm</span></span>
+        <span style="font-size:12px;font-weight:700;color:${c}">${uc}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Envolvente top 10
+  const nMb = valid[0].memberResults.length;
+  const env = [];
+  for (let mi=0; mi<nMb; mi++) {
+    let worst=null;
+    for (const r of valid) {
+      const mr = r.memberResults[mi];
+      if (!mr||mr.skip||mr.UC==null) continue;
+      if (!worst||mr.UC>worst.UC) worst={...mr, govDir:r.angleDeg};
+    }
+    if (worst) env.push(worst);
+  }
+  env.sort((a,b)=>b.UC-a.UC);
+  const typeShort={leg:'Pna',diagonal:'Diag',horizontal:'Horiz',stabarm:'Brace',puntal:'Pnl',tensor:'Tens','mast-strut':'MS',horizPuntal:'HP',horizTensor:'HT'};
+  const rows10 = env.slice(0,10).map(r=>{
+    const uc=(r.UC*100).toFixed(0);
+    const c=r.UC>1?'#ef4444':r.UC>0.7?'#f59e0b':'#22c55e';
+    const gp=getMemberProfile(r.m);
+    const prof=gp?.designacion||'—';
+    return `<tr>
+      <td>${r.sec??'—'}</td>
+      <td style="color:var(--txt-pri)">${typeShort[r.type]??r.type}</td>
+      <td style="color:var(--txt-pri);font-size:8.5px;">${prof}</td>
+      <td>${_fmtL(r.L)}</td>
+      <td>${_fmtA(r.A)}</td>
+      <td>${_fmtF(r.P_N)}</td>
+      <td style="font-weight:700;color:${c}">${uc}%</td>
+      <td style="font-size:8.5px;color:var(--txt-sec)">${r.govDir}°</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('fem-sec-resumen').innerHTML = `
+    <div class="fem-header-block">${hdLines}</div>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;">Máx. desplazamiento:</span>
+      <span style="font-size:13px;font-weight:700;color:var(--cyan)">${(maxD*_dFact).toFixed(2)} ${_dLbl}</span>
+      <span style="font-size:11px;font-weight:700;margin-left:6px;">UC máx:</span>
+      <span style="font-size:13px;font-weight:700;color:${ucC}">${maxUC!=null?(maxUC*100).toFixed(1)+'%':'—'}</span>
+    </div>
+    <div class="fem-dir-cards">${cards}</div>
+    ${rows10?`
+    <div class="fem-sec-lbl">ENVOLVENTE — Top 10 miembros por UC</div>
+    <div style="overflow-x:auto;">
+      <table class="fem-tbl">
+        <thead><tr><th>Sec</th><th>Tipo</th><th>Perfil</th><th>L(${_llLbl})</th><th>A(${_aLbl})</th><th>F(${_fLbl})</th><th>UC</th><th>θ°</th></tr></thead>
+        <tbody>${rows10}</tbody>
+      </table>
+    </div>`:''}`;
+}
+
+function _femFillDisplacements(result) {
+  const sec = document.getElementById('fem-sec-displacements');
+  if (!result || !result.U || !_towerData) {
+    sec.innerHTML = '<p style="color:var(--txt-sec);font-size:10.5px;padding:10px 0">Sin datos de desplazamiento.</p>';
+    return;
+  }
+  const U = result.U;
+  const nodes = _towerData.nodes;
+  const n = nodes.length;
+  const _imp_d  = isImperial();
+  const _lLbl_d = uLabel('len');
+  const _dLbl_d = _imp_d ? 'in' : 'mm';
+  const _dFact  = _imp_d ? 39.3701 : 1000;
+
+  const rows = [];
+  for (let i=0; i<n; i++) {
+    const dx=(U[3*i]||0)*_dFact, dy=(U[3*i+1]||0)*_dFact, dz=(U[3*i+2]||0)*_dFact;
+    const mag=Math.hypot(dx,dy,dz);
+    if (mag < 0.0001) continue;
+    rows.push({i, dx, dy, dz, mag, z: nodes[i].z});
+  }
+  rows.sort((a,b)=>b.mag-a.mag);
+  const show = rows.slice(0,120);
+
+  const fmt = v => v.toFixed(3);
+  const fmtZ = z => uConv('len', z).toFixed(2);
+  const trs = show.map(r=>`<tr>
+    <td>${r.i}</td>
+    <td style="color:var(--txt-sec);font-size:8.5px">${fmtZ(r.z)}</td>
+    <td>${fmt(r.dx)}</td>
+    <td>${fmt(r.dy)}</td>
+    <td>${fmt(r.dz)}</td>
+    <td style="font-weight:600;color:var(--cyan)">${fmt(r.mag)}</td>
+  </tr>`).join('');
+
+  sec.innerHTML = `
+    <div style="font-size:9px;color:var(--txt-sec);margin-bottom:6px;">
+      θ = ${result.angleDeg}° · ${rows.length} nodos con desplazamiento &gt; 0
+      ${rows.length>120?' · mostrando top 120':''}
+    </div>
+    ${_femDeformedOn ? '<div id="fem-deformed-wrap" style="margin-bottom:10px;"></div>' : ''}
+    <div style="overflow-x:auto;">
+      <table class="fem-tbl">
+        <thead><tr>
+          <th>Nodo</th><th>z(${_lLbl_d})</th>
+          <th>DX(${_dLbl_d})</th><th>DY(${_dLbl_d})</th><th>DZ(${_dLbl_d})</th><th>|D|(${_dLbl_d})</th>
+        </tr></thead>
+        <tbody>${trs}</tbody>
+      </table>
+    </div>`;
+
+  if (_femDeformedOn) _femDrawDeformed(result, document.getElementById('fem-deformed-wrap'));
+}
+
+function _femToggleDeformed() {
+  _femDeformedOn = !_femDeformedOn;
+  const btn = document.getElementById('fem-deformed-btn');
+  if (btn) {
+    btn.style.color       = _femDeformedOn ? 'var(--accent)' : 'var(--txt-sec)';
+    btn.style.borderColor = _femDeformedOn ? 'var(--accent)' : 'var(--border)';
+    btn.title = _femDeformedOn ? 'Ocultar forma deformada' : 'Mostrar forma deformada en canvas 3D';
+  }
+  if (_femDeformedOn) {
+    _femBuild3DDeformed(_femAnimResult || _femLastResult);
+  } else {
+    _femRemove3DDeformed();
+  }
+  // Refrescar pestaña de desplazamientos si está activa
+  const dispSec = document.getElementById('fem-sec-displacements');
+  if (dispSec?.classList.contains('active')) _femFillDisplacements(_femAnimResult || _femLastResult);
+}
+
+function _femRemove3DDeformed() {
+  if (_femDeformedMesh3D) { scene.remove(_femDeformedMesh3D); _femDeformedMesh3D.geometry.dispose(); _femDeformedMesh3D.material.dispose(); _femDeformedMesh3D = null; }
+}
+
+function _femBuild3DDeformed(result) {
+  _femRemove3DDeformed();
+  if (!result?.U || !_towerData) return;
+  const nodes   = _towerData.nodes;
+  const members = _towerData.members;
+  const U       = result.U;
+  const towerH  = Math.max(...nodes.map(n => n.z), 1);
+  const maxD    = result.maxDisp || 0;
+  // Amplificar para que el desplazamiento máximo = 8 % de la altura
+  const scale   = maxD > 1e-9 ? (0.08 * towerH) / maxD : 1;
+
+  const positions = [];
+  members.forEach(m => {
+    const i = m.ni, j = m.nj;
+    if (i == null || j == null || i >= nodes.length || j >= nodes.length) return;
+    const ni = nodes[i], nj = nodes[j];
+    positions.push(
+      ni.x + (U[3*i]   || 0) * scale,
+      ni.y + (U[3*i+1] || 0) * scale,
+      ni.z + (U[3*i+2] || 0) * scale,
+      nj.x + (U[3*j]   || 0) * scale,
+      nj.y + (U[3*j+1] || 0) * scale,
+      nj.z + (U[3*j+2] || 0) * scale
+    );
+  });
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const mat = new THREE.LineBasicMaterial({ color: 0x00e676, transparent: true, opacity: 0.85 });
+  _femDeformedMesh3D = new THREE.LineSegments(geo, mat);
+  scene.add(_femDeformedMesh3D);
+}
+
+function _femDrawDeformed(result, container) {
+  if (!result?.U || !_towerData) { container.innerHTML = ''; return; }
+  const nodes   = _towerData.nodes;
+  const members = _towerData.members;
+  const U       = result.U;
+  const angleDeg = result.angleDeg ?? 0;
+  const towerH   = Math.max(...nodes.map(n => n.z), 1);
+  const maxD     = result.maxDisp || 0;
+
+  // Dirección de proyección (plano viento-vertical)
+  const tRad = angleDeg * Math.PI / 180;
+  const wdx = Math.sin(tRad), wdy = Math.cos(tRad);
+
+  // Factor de amplificación para que la deflexión máxima = 8 % de altura
+  const scale = maxD > 1e-9 ? (0.08 * towerH) / maxD : 1;
+
+  // Proyectar nodos: (h = coord horizontal en plano viento, v = coord vertical)
+  const proj = nodes.map((nd, i) => {
+    const h  = nd.x * wdx + nd.y * wdy;
+    const v  = nd.z;
+    const dh = ((U[3*i]||0) * wdx + (U[3*i+1]||0) * wdy) * scale;
+    const dv = (U[3*i+2]||0) * scale;
+    return { h, v, hd: h + dh, vd: v + dv };
+  });
+
+  // Bounding box que contiene tanto la forma original como la deformada
+  const hs = proj.flatMap(p => [p.h, p.hd]);
+  const vs = proj.flatMap(p => [p.v, p.vd]);
+  const hMin = Math.min(...hs), hMax = Math.max(...hs);
+  const vMin = Math.min(...vs), vMax = Math.max(...vs);
+  const hSpan = Math.max(hMax - hMin, 0.01);
+  const vSpan = Math.max(vMax - vMin, 0.01);
+
+  const svgW = 260, svgH = 430, padX = 18, padY = 14;
+  const drawW = svgW - 2 * padX, drawH = svgH - 2 * padY;
+  const scl   = Math.min(drawW / hSpan, drawH / vSpan);
+  const offX  = padX + (drawW - hSpan * scl) / 2;
+  const offY  = padY;
+
+  const px = h => offX + (h - hMin) * scl;
+  const py = v => svgH - offY - (v - vMin) * scl;
+
+  // Generar polilíneas de miembros
+  let origPaths = '', defPaths = '';
+  members.forEach(m => {
+    const i = m.ni, j = m.nj;
+    if (i == null || j == null || i >= proj.length || j >= proj.length) return;
+    origPaths += `<line x1="${px(proj[i].h).toFixed(1)}" y1="${py(proj[i].v).toFixed(1)}" x2="${px(proj[j].h).toFixed(1)}" y2="${py(proj[j].v).toFixed(1)}"/>`;
+    defPaths  += `<line x1="${px(proj[i].hd).toFixed(1)}" y1="${py(proj[i].vd).toFixed(1)}" x2="${px(proj[j].hd).toFixed(1)}" y2="${py(proj[j].vd).toFixed(1)}"/>`;
+  });
+
+  const _imp_d = isImperial();
+  const _dLbl = _imp_d ? 'in' : 'mm';
+  const _dFact = _imp_d ? 39.3701 : 1000;
+  const maxDStr = (maxD * _dFact).toFixed(1);
+
+  container.innerHTML = `
+    <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:8px;display:inline-block;">
+      <div style="font-size:9px;color:var(--txt-sec);margin-bottom:4px;display:flex;gap:12px;">
+        <span><span style="color:#555;font-weight:600;">——</span> Original</span>
+        <span><span style="color:#00e676;font-weight:600;">——</span> Deformada</span>
+        <span>Amp. ×${scale.toFixed(0)} · Δmáx = ${maxDStr} ${_dLbl} · θ = ${angleDeg}°</span>
+      </div>
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="display:block;">
+        <g stroke="#444" stroke-width="0.6" fill="none" opacity="0.7">${origPaths}</g>
+        <g stroke="#00e676" stroke-width="1.1" fill="none">${defPaths}</g>
+      </svg>
+    </div>`;
+}
+
+function _femFillMembers(results) {
+  const valid = results.filter(r => !r.error && r.memberResults);
+  if (!valid.length) {
+    document.getElementById('fem-sec-members').innerHTML =
+      '<p style="color:var(--txt-sec);font-size:10.5px;padding:10px 0">Sin resultados.</p>';
+    return;
+  }
+  const nMb = valid[0].memberResults.length;
+  const env = [];
+  for (let mi=0; mi<nMb; mi++) {
+    let worst=null;
+    for (const r of valid) {
+      const mr=r.memberResults[mi];
+      if (!mr||mr.skip) continue;
+      if (!worst||(mr.UC??-1)>(worst.UC??-1)) worst={...mr, govDir:r.angleDeg};
+    }
+    if (worst) env.push(worst);
+  }
+  env.sort((a,b)=>(b.UC??-1)-(a.UC??-1));
+
+  const _imp2  = isImperial();
+  const _fLbl2 = uLabel('force').toUpperCase();
+  const _sLbl2 = uLabel('stress').toUpperCase();
+  const _lLbl2 = uLabel('len');
+  const _aLbl2 = _imp2 ? 'in²' : 'cm²';
+  const _fmtF2 = P_N => { if (P_N == null) return '—'; const v = uConv('force', P_N / 9.80665); return (v >= 0 ? '+' : '') + v.toFixed(1); };
+  const _fmtS2 = (P_N, A) => { if (P_N == null || !A) return '—'; return uConv('stress', P_N / A / 98066.5).toFixed(1); };
+  const _fmtL2 = L_m => L_m != null ? uConv('len', L_m).toFixed(2) : '—';
+  const _fmtA2 = A_m2 => A_m2 ? (_imp2 ? (A_m2 * 1550.003).toFixed(3) : (A_m2 * 1e4).toFixed(2)) : '—';
+
+  const typeShort={leg:'Pna',diagonal:'Diag',horizontal:'Horiz',stabarm:'Brace',puntal:'Pnl',tensor:'Tens','mast-strut':'MS',horizPuntal:'HP',horizTensor:'HT'};
+  const rows=env.map(r=>{
+    const gp=getMemberProfile(r.m);
+    const prof=gp?.designacion||'—';
+    const uc=r.UC!=null?(r.UC*100).toFixed(1):'—';
+    const c=r.UC==null?'var(--txt-sec)':r.UC>1?'#ef4444':r.UC>0.7?'#f59e0b':'#22c55e';
+    return `<tr>
+      <td>${r.sec??'—'}</td>
+      <td style="color:var(--txt-pri)">${typeShort[r.type]??r.type}</td>
+      <td style="font-size:8.5px;color:var(--txt-pri)">${prof}</td>
+      <td>${_fmtL2(r.L)}</td>
+      <td>${_fmtA2(r.A)}</td>
+      <td>${_fmtF2(r.P_N)}</td>
+      <td>${_fmtS2(r.P_N, r.A)}</td>
+      <td style="font-weight:700;color:${c}">${uc}${r.UC!=null?'%':''}</td>
+      <td style="font-size:8.5px;color:var(--txt-sec)">${r.govDir??'—'}°</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('fem-sec-members').innerHTML = `
+    <div style="font-size:9px;color:var(--txt-sec);margin-bottom:6px;">
+      Envolvente de ${valid.length} dirección(es) · ${env.length} miembros activos
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="fem-tbl">
+        <thead><tr>
+          <th>Sec</th><th>Tipo</th><th>Perfil</th>
+          <th>L(${_lLbl2})</th><th>A(${_aLbl2})</th><th>F(${_fLbl2})</th><th>σ(${_sLbl2})</th><th>UC</th><th>θ°</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── ANIMACIÓN DE DESPLAZAMIENTOS ─────────────────────────────────────────────
+function _femToggleAnim() {
+  _femAnimActive ? _femStopAnim() : _femStartAnim();
+}
+function _femStartAnim() {
+  if (!_femAnimResult?.U || !_towerData) return;
+  _femAnimActive = true;
+  _femAnimT = 0;
+  const btn = document.getElementById('fem-anim-btn');
+  if (btn) { btn.textContent = '⏹ Detener'; btn.classList.add('stop'); }
+  _femAnimFrame();
+}
+function _femStopAnim() {
+  _femAnimActive = false;
+  if (_femAnimRafId) { cancelAnimationFrame(_femAnimRafId); _femAnimRafId = null; }
+  const btn = document.getElementById('fem-anim-btn');
+  if (btn) { btn.textContent = '▶ Animar'; btn.classList.remove('stop'); }
+  _femUpdateDeformed(0); // restaurar posiciones originales
+  render();
+}
+function _femAnimFrame() {
+  if (!_femAnimActive) return;
+  _femAnimT += 0.025;
+  _femUpdateDeformed((1 + Math.sin(_femAnimT * 1.8)) / 2);
+  render();
+  _femAnimRafId = requestAnimationFrame(_femAnimFrame);
+}
+function _femUpdateDeformed(alpha) {
+  if (!_femAnimResult?.U || !_towerData) return;
+  const U     = _femAnimResult.U;
+  const nodes = _towerData.nodes;
+  const scale = _femAnimScale;
+  const n     = nodes.length;
+  const dx = new Float32Array(n), dy = new Float32Array(n), dz = new Float32Array(n);
+  for (let i=0; i<n; i++) {
+    dx[i] = nodes[i].x + alpha * scale * (U[3*i]   || 0);
+    dy[i] = nodes[i].y + alpha * scale * (U[3*i+1] || 0);
+    dz[i] = nodes[i].z + alpha * scale * (U[3*i+2] || 0);
+  }
+  const _upV = new THREE.Vector3(0, 1, 0);
+  const _dm  = new THREE.Object3D();
+  towerGroup.children.forEach(obj => {
+    const members = obj.userData?.members;
+    if (!members) return;
+    if (obj instanceof THREE.InstancedMesh) {
+      members.forEach((m, i) => {
+        const ni=m.ni, nj=m.nj;
+        if (ni>=n || nj>=n) return;
+        const ex=dx[nj]-dx[ni], ey=dy[nj]-dy[ni], ez=dz[nj]-dz[ni];
+        const len=Math.sqrt(ex*ex+ey*ey+ez*ez);
+        if (len<1e-6) return;
+        _dm.position.set((dx[ni]+dx[nj])/2,(dy[ni]+dy[nj])/2,(dz[ni]+dz[nj])/2);
+        _dm.quaternion.setFromUnitVectors(_upV, new THREE.Vector3(ex/len,ey/len,ez/len));
+        _dm.scale.set(0.05, len, 0.05);
+        _dm.updateMatrix();
+        obj.setMatrixAt(i, _dm.matrix);
+      });
+      obj.instanceMatrix.needsUpdate = true;
+    } else if (obj instanceof THREE.LineSegments && obj.geometry?.attributes?.position) {
+      const pos = obj.geometry.attributes.position;
+      members.forEach((m, i) => {
+        const ni=m.ni, nj=m.nj;
+        if (ni>=n || nj>=n) return;
+        pos.setXYZ(i*2,   dx[ni], dy[ni], dz[ni]);
+        pos.setXYZ(i*2+1, dx[nj], dy[nj], dz[nj]);
+      });
+      pos.needsUpdate = true;
+    }
+  });
+}
+
 function toggleSolverPanel(e) {
   e?.stopPropagation();
-  const fl = document.getElementById('solver-flyout');
+  const fl  = document.getElementById('solver-flyout');
   const btn = document.getElementById('solver-btn');
-  const wasOpen = fl.classList.contains('open');
+  const rps = document.getElementById('rpanel-solver');
+  const wasOpen = fl.classList.contains('open') || rps?.classList.contains('visible');
   closeTorreFlyout(); closeVientoFlyout(); closeAntenasFlyout();
   closeHerrajesPanel(); closeFeedersPanel(); closeCombisPanel();
   document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
   if (!wasOpen) {
+    // Abrir flyout
     fl.classList.add('open');
     btn.classList.add('active');
     _renderSolverPanel();
+    // Si ya hay resultados, abrir también el rpanel-solver
+    if (_femLastResult || _femAnimResult) _femShowRpanelSolver();
+  } else {
+    // Cerrar flyout y rpanel-solver
+    fl.classList.remove('open');
+    rps?.classList.remove('visible');
+    const rp = document.getElementById('rpanel');
+    rp?.classList.remove('solver-wide');
+    if (projectGenerated) {
+      rp?.classList.add('visible');
+      document.getElementById('rpanel-info')?.classList.add('visible');
+    } else {
+      rp?.classList.remove('visible');
+    }
   }
+}
+
+function _femShowRpanelSolver() {
+  const rp = document.getElementById('rpanel');
+  ['rpanel-info','rpanel-viento','rpanel-antenas'].forEach(id =>
+    document.getElementById(id)?.classList.remove('visible'));
+  rp.className = 'rpanel visible solver-wide';
+  document.getElementById('rpanel-solver').classList.add('visible');
 }
 
 function closeSolverPanel() {
@@ -12112,6 +12806,7 @@ function _runFemSolver() {
       const res = _femSolveSpaceTruss(cfg, angleDeg);
       _femLastResult = res;
       _renderFemResults(res);
+      if (res && !res.error) _femOpenRpanel([res], [angleDeg]);
     } catch(err) {
       document.getElementById('fem-results').innerHTML = `<p style="color:#e05555;font-size:10.5px;">Error: ${err.message}</p>`;
     }
@@ -12127,6 +12822,14 @@ function _renderFemResults(res) {
   const ucColor = res.maxUC == null ? 'var(--txt-sec)' : res.maxUC > 1 ? '#ef4444' : res.maxUC > 0.7 ? '#f59e0b' : '#22c55e';
   const ucTxt  = res.maxUC != null ? (res.maxUC * 100).toFixed(1) + '%' : '—';
 
+  const _imp_s   = isImperial();
+  const _fLbl_s  = uLabel('force').toUpperCase();
+  const _lLbl_s  = uLabel('len');
+  const _aLbl_s  = _imp_s ? 'in²' : 'cm²';
+  const _fmtF_s  = P_N => { if (P_N == null) return '—'; const v = uConv('force', P_N / 9.80665); return (v >= 0 ? '+' : '') + v.toFixed(1); };
+  const _fmtL_s  = L_m => uConv('len', L_m).toFixed(2);
+  const _fmtA_s  = A_m2 => _imp_s ? (A_m2 * 1550.003).toFixed(3) : (A_m2 * 1e4).toFixed(2);
+
   const typeShort = { leg:'P', diagonal:'D', horizontal:'H', stabarm:'Bz', puntal:'Pt', tensor:'Ts', 'mast-strut':'MS', horizPuntal:'HP', horizTensor:'HT' };
   const ranked = res.memberResults
     .filter(r => !r.skip && r.UC != null)
@@ -12141,9 +12844,9 @@ function _renderFemResults(res) {
       <td style="padding:2px 4px;">${r.sec ?? '—'}</td>
       <td style="padding:2px 4px;">${typeShort[r.type] ?? r.type}</td>
       <td style="padding:2px 4px;max-width:72px;overflow:hidden;white-space:nowrap;font-size:9px;">${gp?.profile ?? '—'}</td>
-      <td style="padding:2px 4px;">${r.L.toFixed(2)}</td>
-      <td style="padding:2px 4px;">${(r.A * 1e4).toFixed(2)}</td>
-      <td style="padding:2px 4px;">${r.P_kN > 0 ? '+' : ''}${r.P_kN.toFixed(1)}</td>
+      <td style="padding:2px 4px;">${_fmtL_s(r.L)}</td>
+      <td style="padding:2px 4px;">${_fmtA_s(r.A)}</td>
+      <td style="padding:2px 4px;">${_fmtF_s(r.P_N)}</td>
       <td style="padding:2px 4px;font-weight:700;color:${c}">${uc}%</td>
     </tr>`;
   }).join('');
@@ -12175,9 +12878,9 @@ function _renderFemResults(res) {
             <th style="padding:3px 4px;text-align:left;">Sec</th>
             <th>Tipo</th>
             <th style="text-align:left;">Perfil</th>
-            <th>L(m)</th>
-            <th>A(cm²)</th>
-            <th>P(kN)</th>
+            <th>L(${_lLbl_s})</th>
+            <th>A(${_aLbl_s})</th>
+            <th>P(${_fLbl_s})</th>
             <th>UC</th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -16460,7 +17163,7 @@ document.querySelectorAll('.tab').forEach(t =>
 // Viento SÍ debe dejar el panel visible, ver openVientoFlyout(); este listener corría
 // DESPUÉS de su onclick inline y le quitaba la clase "visible" que openVientoFlyout()
 // recién había puesto — bug real reportado por el usuario, 2026-06-29).
-document.querySelectorAll('.side-btn:not(#home-btn):not(#torre-btn):not(#viento-btn)').forEach(b =>
+document.querySelectorAll('.side-btn:not(#home-btn):not(#torre-btn):not(#viento-btn):not(#solver-btn)').forEach(b =>
   b.addEventListener('click', () => {
     document.querySelectorAll('.side-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
@@ -20628,28 +21331,37 @@ async function _doExportSTAAD() {
   _appendCableAnalysisChange();
 
   // Pre-calcular nodos de piernas y elevación media por sección (misma lógica que JOINT groups)
+  // zMid para calcSectionWindForce debe ser z absoluta desde calle (= rooftop + dado + acumulado)
+  // igual que buildCargasVientoPanel/_renderWindAngleTable; fw debe usar z relativa a base de
+  // torre (sin dado ni rooftop) igual que _faceWidthAt espera — corrección 2026-09-30.
   const _wlLegSet = new Set();
   members.forEach(m => { if (m.type === 'leg') { _wlLegSet.add(m.ni); _wlLegSet.add(m.nj); } });
   const _wlNSec = (cfg.nInc || 0) + (cfg.nStr || 0);
-  let _wlZ = dadoHeight || 0;
+  const _wlRooftopZ = (windData.rooftop ? (windData.rooftopHs || 0) : 0);
+  let _wlZabs   = _wlRooftopZ + (dadoHeight || 0);  // z absoluta para presión (Kz)
+  let _wlZtower = 0;                                  // z relativa a base de torre (ancho de cara)
+  let _wlZ3D    = dadoHeight || 0;                    // z en espacio 3D para filtrar nodos
   const _wlSecs = [];
   for (let i = 0; i < _wlNSec; i++) {
     const h = +secData[i]?.h || 0;
-    const zBase = _wlZ, zTop = _wlZ + h;
-    _wlZ = zTop;
-    const zMid = (zBase + zTop) / 2;
-    const fw = _faceWidthAt(cfg, zMid);
-    const nNodes = nodes.filter((n, idx) => _wlLegSet.has(idx) && n.z >= zBase - 1e-4 && n.z <= zTop + 1e-4).length;
+    const zBase3D = _wlZ3D, zTop3D = _wlZ3D + h;
+    const zMid = _wlZabs + h / 2;
+    const fw = _faceWidthAt(cfg, _wlZtower + h / 2);
+    const nNodes = nodes.filter((n, idx) => _wlLegSet.has(idx) && n.z >= zBase3D - 1e-4 && n.z <= zTop3D + 1e-4).length;
     _wlSecs.push({ i, zMid, fw, nNodes });
+    _wlZabs   += h;
+    _wlZtower += h;
+    _wlZ3D    += h;
   }
 
   const _wlDirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
 
-  // Pre-calcular fuerzas en antenas (sin EPA de herraje) y herrajes (separado)
+  // Pre-calcular fuerzas en antenas y herrajes por separado (misma lógica de deduplicación
+  // que la tabla TSA: herraje se suma una sola vez por ensamble az+z+tipo).
   const _stAntLegSet = new Set();
   members.forEach(m => { if (m.type === 'leg') { _stAntLegSet.add(m.ni); _stAntLegSet.add(m.nj); } });
-  const _stAntForces    = _calcAntennaForces(cfg, windData, {includeHerraje: false});
-  const _stHerrajeForces = _calcHerrajeWindForces(cfg, windData);
+  const _stAntForces        = _calcAntennaForces(cfg, windData, {includeHerraje: false});
+  const _stHerrajeForces    = _calcHerrajeWindForces(cfg, windData);
   // Velocidad de servicio (SLC1, §2.8.3) — misma fuente que la memoria de cálculo
   // (capítulo 6.2, "Viento de Servicio (Operacional)"): windData.velOperacional.
   // Antes el caso "SERVICIO" de STAAD reutilizaba las fuerzas de viento ÚLTIMO
@@ -20715,11 +21427,18 @@ async function _doExportSTAAD() {
     out += `JOINT LOAD\n`;
     const thetaRad = angleDeg * Math.PI / 180;
     const cosTh = Math.cos(thetaRad), sinTh = Math.sin(thetaRad);
+    // FC (feeders, CGO, escalerilla) sumados a FST por sección — misma velocidad de diseño/servicio
+    const _feederSecs = _calcFeederWindForces(cfg, windData, angleDeg, vKmhOverride);
+    const _feederBySec = new Map();
+    _feederSecs.forEach(s => { _feederBySec.set(s.sec - 1, s.totalF_kgf); });
     _wlSecs.forEach(({ i, zMid, fw, nNodes }) => {
       if (!nNodes) return;
-      const f = calcSectionWindForce(cfg, windData, i, zMid, fw, angleDeg, vKmhOverride);
-      if (!f || !f.F_kgf) return;
-      const fpn = f.F_kgf / nNodes;
+      const f   = calcSectionWindForce(cfg, windData, i, zMid, fw, angleDeg, vKmhOverride);
+      const fST = f ? f.F_kgf : 0;
+      const fFC = _feederBySec.get(i) || 0;
+      const fTotal = fST + fFC;
+      if (!(fTotal > 0.001)) return;
+      const fpn = fTotal / nNodes;
       const fx = fpn * sinTh;
       const fz = -(fpn * cosTh);
       let line = `_SEC${i+1}_VIENTO`;
@@ -20728,7 +21447,7 @@ async function _doExportSTAAD() {
       if (line !== `_SEC${i+1}_VIENTO`) out += `${line}\n`;
     });
     if (antForces.length > 0) {
-      out += `*\n*ANTENAS\n*\n`;
+      out += `*\n* ANTENAS\n*\n`;
       antForces.forEach(af => {
         const fd = af.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
@@ -20739,12 +21458,12 @@ async function _doExportSTAAD() {
         let line = `${stId}`;
         if (Math.abs(fd.fx_staad) > 0.001) line += ` FX ${_asForce(fd.fx_staad).toFixed(2)}`;
         if (Math.abs(fd.fz_staad) > 0.001) line += ` FZ ${_asForce(fd.fz_staad).toFixed(2)}`;
-        const label = `* ANT${af.antIdx + 1} Z=${uConv('len', af.z).toFixed(1)}${uLabel('len')} AZ=${af.azimuth}`;
+        const label = `* ANT${af.antIdx + 1} Z=${uConv('len', af.z).toFixed(1)}${uLabel('len')} AZ=${af.azimuth} FA=${fd.FA_kgf.toFixed(1)}kgf`;
         if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
-    if (herrForces.length > 0) {
-      out += `*\n*HERRAJES\n*\n`;
+    if (herrForces && herrForces.length > 0) {
+      out += `*\n* HERRAJES\n*\n`;
       herrForces.forEach(hf => {
         const fd = hf.forcesByDir.find(f => f.angleDeg === angleDeg);
         if (!fd || fd.FA_kgf < 0.001) return;
@@ -20755,7 +21474,7 @@ async function _doExportSTAAD() {
         let line = `${stId}`;
         if (Math.abs(fd.fx_staad) > 0.001) line += ` FX ${_asForce(fd.fx_staad).toFixed(2)}`;
         if (Math.abs(fd.fz_staad) > 0.001) line += ` FZ ${_asForce(fd.fz_staad).toFixed(2)}`;
-        const label = `* HERRAJE ${hf.herrId} Z=${uConv('len', hf.z).toFixed(1)}${uLabel('len')} AZ=${hf.azimuth}`;
+        const label = `* HERR Z=${uConv('len', hf.z).toFixed(1)}${uLabel('len')} AZ=${hf.azimuth} FA=${fd.FA_kgf.toFixed(1)}kgf`;
         if (line !== `${stId}`) out += `${label}\n${line}\n`;
       });
     }
@@ -20850,6 +21569,7 @@ async function _doExportSTAAD() {
   out += `*\n`;
   _lcActivas.filter(c => c.isService).forEach(_emitLcCombo);
 
+  out += `PERFORM ANALYSIS PRINT ALL\n`;
   out += `FINISH\n`;
 
   // Todo el archivo en mayúsculas — convención STAAD, pedido explícito del usuario
@@ -21263,8 +21983,13 @@ function toggleTheme() {
   const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
   root.setAttribute('data-theme', next);
   localStorage.setItem('tsa-theme', next);
+  appSettings.colors.leg = _legColorDefault();
+  saveAppSettingsToStorage();
+  const legInput = document.getElementById('set-color-leg');
+  if (legInput) legInput.value = appSettings.colors.leg;
   if (scene) scene.background.set(next === 'light' ? 0xEEF3FA : 0x0A1628);
   if (typeof refreshGrid === 'function') refreshGrid();
+  if (projectGenerated) refresh();
   if (document.getElementById('fd-plan-win')?.classList.contains('open')) _fdDrawPlan();
 }
 

@@ -225,6 +225,74 @@ las propias declaraciones de variables.
   desde `dadoHeight` (en vez de 0). Antes el clip de feeders no coincidía con los nodos
   de la torre cuando `dadoHeight > 0`.
 
+## Tooltips en QWebEngineView — patrón definitivo (2026-09-30)
+
+El atributo `title` nativo en botones interactivos aparece en la esquina superior de la
+ventana en QWebEngineView, no junto al elemento. Regla: **nunca usar `title` en botones**.
+
+- **Sidebar (`.side-btn`)**: `<span class="side-tip">Texto</span>` dentro del botón.
+  CSS ya existe — aparece a la derecha al hover.
+- **Topbar (`.btn`)**: envolver en `<span class="has-tb-tip">`, con
+  `<span class="tb-tip">Texto</span>` como hermano. CSS `.has-tb-tip`/`.tb-tip` añadido
+  en esta fecha — aparece debajo del botón, alineado a la derecha.
+
+Aplicado a `#solver-btn` (sesión anterior) y `#btn-theme` (2026-09-30).
+
+**Re-renderizar la torre:** usar siempre `refresh()`, nunca `renderTower(data)` directamente.
+`refresh()` llama `generateTower(getConfig())` + `renderTower()` y verifica `projectGenerated`.
+
+## Auto-ajuste de color de tramos pares al cambiar tema (2026-09-30)
+
+`toggleTheme()` ahora actualiza `appSettings.colors.leg = _legColorDefault()` después de
+aplicar el nuevo `data-theme`, guarda en localStorage, actualiza el color picker si el modal
+de configuración está abierto, y llama `refresh()`. La función `_legColorDefault()` ya es
+theme-aware — devuelve `#FFFFFF` en oscuro y `#1A6EC0` en claro.
+
+## Colores de sección — defaults y bug de paridad (2026-09-30)
+
+- Tramos pares (`colors.leg`): blanco en tema oscuro, azul (`#1A6EC0`) en tema claro.
+- Tramos impares (`colors.ring`): rojo (`#FF2233`) en ambos temas.
+- **Bug corregido:** la sección 0 (base de la torre) se renderizaba en blanco en vez de
+  rojo. Causa: clave de batch usaba `m.sec%2` — sección 0 daba paridad 0 (tramos pares).
+  Fix: `(m.sec+1)%2` — sección 0 da paridad 1 (tramos impares = rojo). ← no reintroducir.
+- **Monopolo sólido**: mismo criterio — `(p0.sec ?? 0) % 2 === 0 ? C_RING() : C_LEG()`.
+
+## Export STAAD — correcciones de fuerzas de viento (2026-09-30)
+
+### Fix: z y ancho de cara en `_wlSecs`
+`_wlSecs` (precálculo del export) tenía dos errores vs. `buildCargasVientoPanel`/`_renderWindAngleTable`:
+1. `zMid` para `calcSectionWindForce` (presión Kz) no incluía el offset de rooftop (`_rooftopZ`).
+2. `fw` para `_faceWidthAt` incluía `dadoHeight` — ancho de cara incorrecto en torres con dado > 0 ahusadas.
+
+Ahora usa tres variables paralelas: `_wlZabs` (z absoluta para presión, con rooftop+dado),
+`_wlZtower` (z relativa a base de torre para ancho de cara), `_wlZ3D` (z en espacio 3D
+para filtrar nodos). Coincide exactamente con `buildCargasVientoPanel`.
+
+### PERFORM ANALYSIS PRINT ALL
+Agregado justo antes de `FINISH` en el .std.
+
+## Fuerzas de viento: feeders + CGO + escalerilla sumadas a FST (2026-09-30)
+
+Las fuerzas de coaxiales, CGO y escalerilla ahora se suman a la fuerza estructural (FST)
+tanto en el panel de TSA como en el export STAAD.
+
+### Panel "Cargas de Viento"
+- `_renderWindAngleTable`: tres columnas finales: **FST** (estructura), **FC** (feeders+CGO+escal),
+  **FTotal = FST+FC**. El TOTAL al pie muestra las tres.
+- Nueva sección **"FUERZA EN CGO Y ESCALERILLA"** (container `cgo-escal-force-table-container`)
+  debajo de "FUERZA EN COAXIALES". Mismas columnas pero solo filas de CGO/escalerilla.
+- "FUERZA EN COAXIALES" ahora muestra solo feeders/coaxiales.
+
+### Export STAAD (`_emitWindLoad`)
+Antes de escribir el JOINT LOAD, calcula `_calcFeederWindForces(cfg, windData, angleDeg, vKmhOverride)`
+y suma `totalF_kgf` de feeders+CGO+escal al `F_kgf` estructural por sección. El caso de
+servicio usa la misma `vKmhOverride` que las demás fuerzas.
+
+### Cambios de soporte
+- `_calcFeederWindForces`: acepta `vKmhOverride` (4° parámetro), lo pasa a `calcWindPressure`.
+- Cada fila ahora incluye `srcType: 'feeder' | 'cgo' | 'escal'` para poder filtrar por tabla.
+- `_renderCgoEscalForceTable`: nueva función; se llama desde `buildCargasVientoPanel` y `_onWindAngleSelect`.
+
 ## Convención de caras A/B/C en torre triangular — CAMBIADA (2026-09-25)
 
 La cara **A** es ahora la cara inferior del triángulo (paralela al eje X, normal hacia el
