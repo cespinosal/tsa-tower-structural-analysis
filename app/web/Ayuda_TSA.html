@@ -572,7 +572,7 @@
 <tr><td>Perfiles&nbsp;&nbsp;<kbd>Shift+X</kbd></td><td>Muestra la designaci&oacute;n del perfil asignado sobre cada miembro</td></tr>
 <tr><td>Apoyos&nbsp;&nbsp;<kbd>Shift+S</kbd></td><td>Muestra &iacute;conos de apoyo (tri&aacute;ngulo verde = PINNED, achurado = FIXED). La malla del grid se oculta para no encimarse con los &iacute;conos.</td></tr>
 <tr><td>Config. de malla</td><td>Tama&ntilde;o, divisiones, grosor y desvanecido del grid</td></tr>
-<tr><td>Selector de &aacute;ngulo de viento</td><td>Muestra flechas de fuerza FST sobre cada secci&oacute;n para el &aacute;ngulo seleccionado (0&deg;, 45&deg;, 90&deg;, etc.)</td></tr>
+<tr><td>Selector de &aacute;ngulo de viento</td><td>Muestra flechas de fuerza total (FST+FC) sobre los nodos de pierna de cada secci&oacute;n para el &aacute;ngulo seleccionado (0&deg;, 45&deg;, 90&deg;, etc.). La etiqueta kgf sobre cada nodo es la parte proporcional de FTotal asignada a ese nodo.</td></tr>
 </tbody></table>
 <h3 id="inspeccion">Inspecci&oacute;n de miembros</h3>
 <p>Haz clic sobre cualquier pierna, diagonal, horizontal, cable o <b>tramo del fuste de un monopolo/mástil</b> en el visor 3D para resaltarlo y abrir un panel lateral con: secci&oacute;n y categor&iacute;a del miembro, <b>perfil asignado</b> y <b>calidad de acero</b>, longitud real, n&uacute;meros de nodo Inicio y Fin, e ID interno. La imagen de abajo muestra ese panel de inspecci&oacute;n.</p>
@@ -606,7 +606,12 @@
 
 <h2 id="viento">Dise&ntilde;o por Viento &mdash; ANSI/TIA-222-H</h2>
 <p>El &iacute;cono <b>Viento</b> de la barra lateral abre un flyout sin ocultar el visor 3D. El an&aacute;lisis sigue el procedimiento de la norma <b>ANSI/TIA-222-H, Secci&oacute;n 2.6</b>. Todos los factores y presiones se calculan <b>por secci&oacute;n</b> de la torre, evaluados en la elevaci&oacute;n media de cada tramo.</p>
-<div class="callout info"><b>&#8505; &iquest;Qu&eacute; hace el an&aacute;lisis de viento en TSA?</b> Calcula cu&aacute;nta fuerza ejerce el viento sobre cada secci&oacute;n de la torre. El resultado es la <b>FST</b> (Fuerza Sism&oacute;mica Total, aunque en este contexto es Fuerza por Secci&oacute;n de Torre) en kgf por secci&oacute;n y por &aacute;ngulo de viento. Esta informaci&oacute;n aparece en el reporte Word y es la que el ingeniero estructurista usa para configurar las cargas en STAAD.Pro.</div>
+<div class="callout info"><b>&#8505; &iquest;Qu&eacute; hace el an&aacute;lisis de viento en TSA?</b> Calcula la fuerza de viento sobre cada secci&oacute;n de la torre y sus accesorios.
+<ul style="margin:6px 0 0;padding-left:18px;">
+<li><b>FST</b> (Fuerza de viento sobre la Secci&oacute;n de Torre) &mdash; calculada con EPA de perfiles estructurales seg&uacute;n <b>§2.6.11.1</b>.</li>
+<li><b>FC</b> (Fuerza en Coaxiales / Accesorios) &mdash; calculada con Cd·EPA·Gh·qz para feeders, CGO y escalerillas seg&uacute;n <b>§2.6.11.4</b>.</li>
+<li><b>FTotal = FST + FC</b> &mdash; fuerza total por secci&oacute;n. Es el valor que TSA distribuye a los nodos de pierna y exporta a STAAD.Pro.</li>
+</ul></div>
 
 <h3 id="viento-paso1">Paso 1 &mdash; Configuraci&oacute;n General</h3>
 <ul>
@@ -636,7 +641,9 @@
 <li><b>Resumen</b> &mdash; todos los par&aacute;metros capturados, m&aacute;s la Velocidad &Uacute;ltima ya convertida.</li>
 <li><b>Par&aacute;metros de Kz / Kzt</b> &mdash; factores intermedios: Kzmin, Zg, I, y si la topograf&iacute;a no es Plana: H/L, &beta;, K1, K2.</li>
 <li><b>Presi&oacute;n por Secci&oacute;n (qz)</b> &mdash; tabla con Kz, Kzt y qz (kg/m&sup2;) evaluados en la elevaci&oacute;n media de cada secci&oacute;n.</li>
-<li><b>FST por secci&oacute;n</b> &mdash; para cada &aacute;ngulo analizado, la fuerza total de viento sobre cada secci&oacute;n en kgf. Las flechas se visualizan en el visor 3D al seleccionar el &aacute;ngulo.</li>
+<li><b>FST por secci&oacute;n</b> &mdash; para cada &aacute;ngulo analizado, tabla con columnas <b>FST</b> (estructura), <b>FC</b> (coaxiales/CGO/escalerilla) y <b>FTotal = FST + FC</b>. Es la fuerza que se aplica a los nodos y se exporta a STAAD.Pro. Las flechas del visor 3D reflejan FTotal.</li>
+<li><b>Fuerza en Coaxiales (feeders)</b> &mdash; tabla detallada con EPA y FC por feeder registrado, desglosado por secci&oacute;n y ruta.</li>
+<li><b>Fuerza en CGO y Escalerilla</b> &mdash; tabla id&eacute;ntica para los accesorios CGO (Cd = 2.0, B = 569 mm) y escalerilla (Cd = 1.3, B = 450 mm).</li>
 </ul>
 
 <h3 id="viento-formulas">F&oacute;rmulas utilizadas (ANSI/TIA-222-H, Secci&oacute;n 2.6)</h3>
@@ -740,6 +747,19 @@ FST &nbsp;= &nbsp;qz &middot; Gh &middot; (EPA)s &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&
 <span class="cm">Rr &nbsp;&nbsp;= factor de reducci&oacute;n por n&uacute;mero de Reynolds &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[&mdash;]</span>
 </div>
 
+<div class="callout info" style="margin-top:10px;"><b>&#8505; FTotal aplicada a la estructura</b>
+La fuerza que TSA distribuye a los nodos de pierna y exporta a STAAD.Pro es <b>FTotal = FST + FC</b>, donde FC agrupa todos los accesorios:<br>
+<code>FC = Cd &middot; EPA &middot; Gh &middot; qz &nbsp;&nbsp;[kgf]</code><br><br>
+<table style="font-size:10.5px;border-collapse:collapse;width:100%;">
+<thead><tr><th style="text-align:left;padding:3px 8px;background:#1B3A6B20;">Accesorio</th><th style="text-align:left;padding:3px 8px;background:#1B3A6B20;">Cd</th><th style="text-align:left;padding:3px 8px;background:#1B3A6B20;">Referencia</th></tr></thead>
+<tbody>
+<tr><td style="padding:2px 8px;">Feeder coaxial (circular)</td><td style="padding:2px 8px;">1.0</td><td style="padding:2px 8px;">&sect;2.6.11.4, TIA-222-H</td></tr>
+<tr><td style="padding:2px 8px;">CGO (Cd proyectado, B = 569 mm)</td><td style="padding:2px 8px;">2.0</td><td style="padding:2px 8px;">&sect;2.6.11.4, TIA-222-H</td></tr>
+<tr><td style="padding:2px 8px;">Escalerilla (B = 450 mm)</td><td style="padding:2px 8px;">1.3</td><td style="padding:2px 8px;">&sect;2.6.11.4, TIA-222-H</td></tr>
+</tbody>
+</table>
+FC se distribuye uniformemente entre los mismos nodos de pierna que FST. La distribuci&oacute;n es: fuerza por nodo = FTotal / n&uacute;mero de nodos de pierna en la secci&oacute;n.</div>
+
 <h4 class="sub">Coeficiente de fuerza Cf vs. solidez &epsilon; <span class="ref-tag">&sect;2.6.11.1.1, Fig. 2-2, TIA-222-H</span></h4>
 <p>La solidez &epsilon; (epsilon) es qu&eacute; fracci&oacute;n del &aacute;rea bruta de la cara de la torre est&aacute; ocupada por metal. Una celosia muy abierta (&epsilon; peque&ntilde;o) tiene Cf alto porque cada miembro &quot;ve&quot; el viento completo con poca sombra; una cara muy llena (&epsilon; grande) se comporta m&aacute;s como una superficie plana. Los valores de referencia son:</p>
 <table>
@@ -765,7 +785,9 @@ FST &nbsp;= &nbsp;qz &middot; Gh &middot; (EPA)s &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&
 <tr><td>Gh</td><td>&sect;2.6.9 / &sect;2.6.10</td><td>Factor de efecto de r&aacute;faga</td></tr>
 <tr><td>qz</td><td>&sect;2.6.11.6, Ec. 2-17</td><td>Presi&oacute;n de velocidad final [N/m&sup2;]</td></tr>
 <tr><td>(EPA)s</td><td>&sect;2.6.11.1</td><td>&Aacute;rea efectiva proyectada al viento por secci&oacute;n [m&sup2;]</td></tr>
-<tr><td>FST</td><td>&sect;2.6.11.1</td><td>Fuerza total de viento sobre la secci&oacute;n [kgf]</td></tr>
+<tr><td>FST</td><td>&sect;2.6.11.1</td><td>Fuerza de viento sobre la estructura de la secci&oacute;n [kgf]</td></tr>
+<tr><td>FC</td><td>&sect;2.6.11.4</td><td>Fuerza de viento sobre accesorios (feeders/CGO/escalerilla) de la secci&oacute;n [kgf]</td></tr>
+<tr><td>FTotal</td><td>&mdash;</td><td>FST + FC &mdash; fuerza aplicada a nodos y exportada a STAAD.Pro [kgf]</td></tr>
 </tbody></table>
 <hr>
 

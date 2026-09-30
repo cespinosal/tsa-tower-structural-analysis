@@ -293,6 +293,54 @@ servicio usa la misma `vKmhOverride` que las demás fuerzas.
 - Cada fila ahora incluye `srcType: 'feeder' | 'cgo' | 'escal'` para poder filtrar por tabla.
 - `_renderCgoEscalForceTable`: nueva función; se llama desde `buildCargasVientoPanel` y `_onWindAngleSelect`.
 
+## Flechas 3D de viento — FC incluida (2026-09-30)
+
+`_buildWindForceArrows()` ahora incluye las fuerzas FC (feeders + CGO + escalerilla)
+en los resultados nodales visualizados en el visor 3D.
+
+Después de calcular `_windForceResults` con `computeNodalWindForces()` (solo FST):
+1. Llama `_calcFeederWindForces(cfg, windData, _selectedWindAngle)` para obtener FC total por sección.
+2. Agrupa los nodos de `_windForceResults` por sección (`r.sec`, 1-based).
+3. Distribuye `totalF_kgf / nNodos` de cada sección a los nodos correspondientes.
+
+La distribución es uniforme entre los mismos nodos de pierna que ya recibían FST.
+Solo aplica a celosías (no monopolo), igual que `computeNodalWindForces`.
+
+**Nota:** los valores kgf en las etiquetas y la longitud de las flechas ahora reflejan
+FTotal = FST+FC, idéntico a lo que se exporta a STAAD.
+
+## Fix: nodos frontera duplicados en grupos JOINT y `_wlSecs` (2026-09-30)
+
+El grupo JOINT `_SEC${i+1}_VIENTO` y el contador `nNodes` en `_wlSecs` usaban
+rango `z >= zBase - 1e-4 && z <= zTop + 1e-4` (inclusivo en ambos extremos). El nodo
+en la frontera entre sección i y i+1 (z = zTop_i = zBase_{i+1}) quedaba en **dos**
+grupos a la vez → recibía fuerza doble en STAAD y `nNodes` era mayor al real.
+
+**Fix:** cambiar a `z > zBase + 1e-4 && z <= zTop + 1e-4` (exclusivo abajo, inclusivo
+arriba). Mismo criterio que `computeNodalWindForces` con `slice(1)`. Nodos frontera
+van al tramo inferior. Nodos de apoyo (z = dadoH, base) quedan fuera de cualquier
+grupo de carga, lo que es correcto.
+
+← **No reintroducir** el rango `>=zBase` en ninguno de estos dos sitios.
+
+## Ayuda y Memoria de Cálculo — actualizadas (2026-09-30)
+
+### Ayuda_TSA.html
+- Callout principal de viento: explica FST, FC y FTotal=FST+FC como la carga aplicada a STAAD.
+- Selector de ángulo en visor 3D: las flechas muestran FTotal.
+- Paso 3: agrega bullets para las tablas de Coaxiales y CGO/Escalerilla.
+- Nueva subsección de fórmula FC con tabla de Cd por accesorio.
+- Tabla de factores resumen: agrega FC y FTotal.
+
+### Memoria de Cálculo (cap. 6.1 / 6.2)
+- Tabla de EPA por ángulo añade columnas **FC** y **FTotal = FST+FC**.
+- FC se obtiene de `_calcFeederWindForces` con la misma velocidad del capítulo.
+- Nota al pie actualizada.
+
+### Memoria de Cálculo (cap. 6.3)
+- Tabla separada para feeders/coaxiales (srcType==='feeder').
+- Tabla separada para CGO y escalerilla (srcType==='cgo'|'escal').
+
 ## Convención de caras A/B/C en torre triangular — CAMBIADA (2026-09-25)
 
 La cara **A** es ahora la cara inferior del triángulo (paralela al eje X, normal hacia el

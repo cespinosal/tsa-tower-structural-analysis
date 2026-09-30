@@ -5288,6 +5288,26 @@ function _buildWindForceArrows() {
       });
     }
   }
+  // Agregar FC (feeders, CGO, escalerilla) a los nodos de pierna por sección —
+  // distribuida igual que FST: mismos nodos, mismo reparto uniforme.
+  if (cfg.type !== 'monopole') {
+    const feederSecs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
+    if (feederSecs.length) {
+      const nodesBySec = new Map();
+      _windForceResults.forEach((r, i) => {
+        if (r.sec == null || r.isAntenna) return;
+        if (!nodesBySec.has(r.sec)) nodesBySec.set(r.sec, []);
+        nodesBySec.get(r.sec).push(i);
+      });
+      feederSecs.forEach(s => {
+        if (!(s.totalF_kgf > 0)) return;
+        const idxs = nodesBySec.get(s.sec);
+        if (!idxs?.length) return;
+        const addPerNode = s.totalF_kgf / idxs.length;
+        idxs.forEach(i => { _windForceResults[i].F_kgf += addPerNode; });
+      });
+    }
+  }
   _redrawWindForceArrows();
 }
 function toggleWindForces() {
@@ -18464,8 +18484,13 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
     const totalKgf = angleRows.reduce((s, x) => s + x.ep.F_kgf, 0);
     const ex = angleRows[0].ep;  // primera sección para ejemplo de fórmula
     const exR = angleRows[0].r;
+    // FC por sección (feeders + CGO + escalerilla)
+    const _fcSecs = _calcFeederWindForces(cfg, windData, angleDeg, vKmh);
+    const _fcBySec = new Map();
+    _fcSecs.forEach(s => _fcBySec.set(s.sec, s.totalF_kgf));
+    const totalFC = [..._fcBySec.values()].reduce((a, b) => a + b, 0);
+    const totalFTotal = totalKgf + totalFC;
     const epaEx = `(EPA)s = Cf·[Df·Af + Dr·Ar·Rr] = ${ex.Cf?.toFixed(3) ?? '—'}·[${ex.Df.toFixed(2)}·${ex.sol.areaPlana.toFixed(3)} + ${ex.Dr.toFixed(2)}·${ex.sol.areaRedonda.toFixed(3)}·${ex.Rr.toFixed(2)}] = <b>${ex.EPA.toFixed(4)} m²</b>`;
-    const fstEx  = `FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)}·${(GhVal??1).toFixed(2)}·${ex.EPA.toFixed(4)} = <b>${ex.F_kgf.toFixed(1)} kgf</b>`;
 
     return `
       <h4 style="font-size:10.5px;font-weight:700;margin:14px 0 4px;color:#1B3A6B;">
@@ -18481,30 +18506,38 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)} kg/m² × ${(GhVal??1).toFixed(2)} × ${ex.EPA.toFixed(4)} m² = <b>${ex.F_kgf.toFixed(1)} kgf</b>
       </p>
       <table class="rp-table wind-table-center">
-        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th><th>FTotal (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
         <tbody>
-          ${angleRows.map(({ r, ep }) => `<tr>
-            <td>${r.sec}</td>
-            <td>${uConv('len',r.z).toFixed(1)}</td>
-            <td>${uConv('pressure',r.qz/9.80665).toFixed(2)}</td>
-            <td>${uConv('area',ep.sol.grossArea).toFixed(3)}</td>
-            <td>${uConv('area',ep.sol.areaPlana).toFixed(3)}</td>
-            <td>${uConv('area',ep.sol.areaRedonda).toFixed(3)}</td>
-            <td>${ep.sol.epsilon.toFixed(3)}</td>
-            <td>${ep.Cf != null ? ep.Cf.toFixed(3) : '—'}</td>
-            <td>${ep.Df.toFixed(3)}</td>
-            <td>${ep.Dr.toFixed(3)}</td>
-            <td>${ep.Rr.toFixed(2)}</td>
-            <td>${uConv('force',ep.F_kgf).toFixed(1)}</td>
-          </tr>`).join('')}
+          ${angleRows.map(({ r, ep }) => {
+            const fC  = _fcBySec.get(r.sec) || 0;
+            const fTot = ep.F_kgf + fC;
+            return `<tr>
+              <td>${r.sec}</td>
+              <td>${uConv('len',r.z).toFixed(1)}</td>
+              <td>${uConv('pressure',r.qz/9.80665).toFixed(2)}</td>
+              <td>${uConv('area',ep.sol.grossArea).toFixed(3)}</td>
+              <td>${uConv('area',ep.sol.areaPlana).toFixed(3)}</td>
+              <td>${uConv('area',ep.sol.areaRedonda).toFixed(3)}</td>
+              <td>${ep.sol.epsilon.toFixed(3)}</td>
+              <td>${ep.Cf != null ? ep.Cf.toFixed(3) : '—'}</td>
+              <td>${ep.Df.toFixed(3)}</td>
+              <td>${ep.Dr.toFixed(3)}</td>
+              <td>${ep.Rr.toFixed(2)}</td>
+              <td>${uConv('force',ep.F_kgf).toFixed(1)}</td>
+              <td>${fC > 0 ? uConv('force',fC).toFixed(1) : '—'}</td>
+              <td><b>${uConv('force',fTot).toFixed(1)}</b></td>
+            </tr>`;
+          }).join('')}
           <tr style="font-weight:700;background:#f0f4ff;">
-            <td colspan="11" style="text-align:right;">TOTAL FST (${uLabel('force')})</td>
+            <td colspan="11" style="text-align:right;">TOTAL</td>
             <td>${uConv('force',totalKgf).toFixed(1)}</td>
+            <td>${totalFC > 0 ? uConv('force',totalFC).toFixed(1) : '—'}</td>
+            <td><b>${uConv('force',totalFTotal).toFixed(1)}</b></td>
           </tr>
         </tbody>
       </table>
       <p style="font-size:9px;color:#777;margin-top:4px;">
-        FST = qz·Gh·(EPA)s — §2.6.11.1. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
+        FST = qz·Gh·(EPA)s — §2.6.11.1. FC = Cd·EPA·Gh·qz (feeders/CGO/escalerilla) — §2.6.11.4. FTotal = FST + FC: fuerza aplicada a nodos y exportada a STAAD.Pro. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
       </p>`;
   }).join('');
 
@@ -18769,13 +18802,15 @@ function _memChapter6Html(cfg) {
              </table>`
           : noData('Sin antenas registradas.');
 
-        // ── Coaxiales ──
+        // ── Coaxiales y accesorios ──
         const fdSecs = _calcFeederWindForces(cfg, windData, angleDeg);
+        // Tabla 1: solo feeders/coaxiales
         let fdRows = '', fdTotal = 0;
-        fdSecs.forEach(s => s.rows.forEach((r, k) => {
+        fdSecs.forEach(s => s.rows.filter(r => r.srcType === 'feeder').forEach((r, k) => {
+          const kk = s.rows.filter(x => x.srcType === 'feeder').indexOf(r);
           fdRows += `<tr>
-            <td>${k === 0 ? s.sec : ''}</td>
-            <td>${k === 0 ? uConv('len',s.z).toFixed(1) : ''}</td>
+            <td>${kk === 0 ? s.sec : ''}</td>
+            <td>${kk === 0 ? uConv('len',s.z).toFixed(1) : ''}</td>
             <td style="text-align:left;max-width:100px;overflow:hidden;white-space:nowrap;">${r.label}</td>
             <td>${r.dLabel}</td><td>${r.ruta}</td>
             <td>${uConv('len',r.overlap).toFixed(2)}</td>
@@ -18786,7 +18821,8 @@ function _memChapter6Html(cfg) {
           </tr>`;
           fdTotal += r.F_kgf;
         }));
-        const fdTable = fdSecs.length
+        const hasFeeder = fdRows.length > 0;
+        const fdTable = hasFeeder
           ? `<table class="rp-table" style="font-size:10.5px;">
               <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>d/Dc</th><th>Ruta</th>
                 <th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
@@ -18797,7 +18833,37 @@ function _memChapter6Html(cfg) {
                 </tr>
               </tbody>
              </table>`
-          : noData('Sin coaxiales, CGO ni escalerilla registrados.');
+          : noData('Sin coaxiales/feeders registrados.');
+        // Tabla 2: CGO y escalerilla
+        let cgoRows = '', cgoTotal = 0;
+        fdSecs.forEach(s => s.rows.filter(r => r.srcType === 'cgo' || r.srcType === 'escal').forEach((r, k) => {
+          const kk = s.rows.filter(x => x.srcType === 'cgo' || x.srcType === 'escal').indexOf(r);
+          cgoRows += `<tr>
+            <td>${kk === 0 ? s.sec : ''}</td>
+            <td>${kk === 0 ? uConv('len',s.z).toFixed(1) : ''}</td>
+            <td style="text-align:left;">${r.srcType === 'cgo' ? 'CGO' : 'Escalerilla'}</td>
+            <td>${r.dLabel}</td><td>${r.ruta}</td>
+            <td>${uConv('len',r.overlap).toFixed(2)}</td>
+            <td>${uConv('area',r.EPA).toFixed(4)}</td>
+            <td>${uConv('pressure',s.qz / 9.80665).toFixed(1)}</td>
+            <td>${s.Gh.toFixed(3)}</td>
+            <td><b>${uConv('force',r.F_kgf).toFixed(2)}</b></td>
+          </tr>`;
+          cgoTotal += r.F_kgf;
+        }));
+        const hasCgo = cgoRows.length > 0;
+        const cgoTable = hasCgo
+          ? `<table class="rp-table" style="font-size:10.5px;">
+              <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>Tipo</th><th>B/Cd</th><th>Ruta</th>
+                <th>L (<span class="unit-len">${uLabel('len')}</span>)</th><th>EPA (<span class="unit-area">${uLabel('area')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Gh</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+              <tbody>${cgoRows}
+                <tr style="font-weight:700;border-top:2px solid #ccc;">
+                  <td colspan="9" style="text-align:right;">TOTAL</td>
+                  <td>${uConv('force',cgoTotal).toFixed(2)}</td>
+                </tr>
+              </tbody>
+             </table>`
+          : noData('Sin CGO ni escalerilla registrados.');
 
         return `
           <h3 style="font-size:11px;font-weight:700;color:#1B3A6B;margin:14px 0 6px;">
@@ -18805,8 +18871,10 @@ function _memChapter6Html(cfg) {
           </h3>
           <p style="font-size:10.5px;font-weight:600;margin:8px 0 4px;color:#444;">Antenas y Equipos — FA (kgf)</p>
           ${antTable}
-          <p style="font-size:10.5px;font-weight:600;margin:12px 0 4px;color:#444;">Coaxiales y Feeders — FC (kgf)</p>
+          <p style="font-size:10.5px;font-weight:600;margin:12px 0 4px;color:#444;">Coaxiales / Feeders — FC (kgf)</p>
           ${fdTable}
+          <p style="font-size:10.5px;font-weight:600;margin:12px 0 4px;color:#444;">CGO y Escalerilla — FC (kgf)</p>
+          ${cgoTable}
         `;
       }).join('');
     })()}
@@ -21131,7 +21199,7 @@ async function _doExportSTAAD() {
         zAccum = zTop;
         const secNodeIds = nodes
           .map((n, idx) => ({ idx, z: n.z }))
-          .filter(({ idx, z }) => legNodeSet.has(idx) && z >= zBase - 1e-4 && z <= zTop + 1e-4)
+          .filter(({ idx, z }) => legNodeSet.has(idx) && z > zBase + 1e-4 && z <= zTop + 1e-4)
           .map(({ idx }) => nodeNewId[idx])
           .filter(id => id != null)
           .sort((a, b) => a - b);
@@ -21347,7 +21415,7 @@ async function _doExportSTAAD() {
     const zBase3D = _wlZ3D, zTop3D = _wlZ3D + h;
     const zMid = _wlZabs + h / 2;
     const fw = _faceWidthAt(cfg, _wlZtower + h / 2);
-    const nNodes = nodes.filter((n, idx) => _wlLegSet.has(idx) && n.z >= zBase3D - 1e-4 && n.z <= zTop3D + 1e-4).length;
+    const nNodes = nodes.filter((n, idx) => _wlLegSet.has(idx) && n.z > zBase3D + 1e-4 && n.z <= zTop3D + 1e-4).length;
     _wlSecs.push({ i, zMid, fw, nNodes });
     _wlZabs   += h;
     _wlZtower += h;
