@@ -5059,7 +5059,7 @@ function _redrawWindForceArrows() {
   if (!windForcesOn && !windForceLabelsOn) return;
   const wupp = _worldUnitsPerPixel();
   _windForceLastWupp = wupp;
-  const maxLenPx = 55, minLenPx = 9;
+  const maxLenPx = 120, minLenPx = 15;
   const _secFilter = r => r.isAntenna || aislarTramoSec === null || r.sec === aislarTramoSec + 1;
   // maxF para cargas puntuales (celosía/antenas) — incluye también las muestras de
   // retenidas (F_kgf por punto) para que sus flechas salgan proporcionales a las de la
@@ -5290,23 +5290,27 @@ function _buildWindForceArrows() {
   }
   // Agregar FC (feeders, CGO, escalerilla) a los nodos de pierna por sección —
   // distribuida igual que FST: mismos nodos, mismo reparto uniforme.
-  if (cfg.type !== 'monopole') {
-    const feederSecs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
-    if (feederSecs.length) {
-      const nodesBySec = new Map();
-      _windForceResults.forEach((r, i) => {
-        if (r.sec == null || r.isAntenna) return;
-        if (!nodesBySec.has(r.sec)) nodesBySec.set(r.sec, []);
-        nodesBySec.get(r.sec).push(i);
-      });
-      feederSecs.forEach(s => {
-        if (!(s.totalF_kgf > 0)) return;
-        const idxs = nodesBySec.get(s.sec);
-        if (!idxs?.length) return;
-        const addPerNode = s.totalF_kgf / idxs.length;
-        idxs.forEach(i => { _windForceResults[i].F_kgf += addPerNode; });
-      });
+  try {
+    if (cfg.type !== 'monopole') {
+      const feederSecs = _calcFeederWindForces(cfg, windData, _selectedWindAngle);
+      if (feederSecs.length) {
+        const nodesBySec = new Map();
+        _windForceResults.forEach((r, i) => {
+          if (r.sec == null || r.isAntenna) return;
+          if (!nodesBySec.has(r.sec)) nodesBySec.set(r.sec, []);
+          nodesBySec.get(r.sec).push(i);
+        });
+        feederSecs.forEach(s => {
+          if (!(s.totalF_kgf > 0)) return;
+          const idxs = nodesBySec.get(s.sec);
+          if (!idxs?.length) return;
+          const addPerNode = s.totalF_kgf / idxs.length;
+          idxs.forEach(i => { _windForceResults[i].F_kgf += addPerNode; });
+        });
+      }
     }
+  } catch (e) {
+    console.error('[TSA] FC wind forces:', e);
   }
   _redrawWindForceArrows();
 }
@@ -8140,28 +8144,25 @@ function _renderWindAngleTable(cfg, rows) {
   const feederSecs = _calcFeederWindForces(cfg, windData, angleDeg);
   const feederBySec = new Map();
   feederSecs.forEach(s => { feederBySec.set(s.sec - 1, s.totalF_kgf); });
-  let totalFST = 0, totalFC = 0;
+  let totalF = 0;
   const rowsHtml = rows.map(r => {
-    const f   = calcSectionWindForce(cfg, windData, r.sec - 1, r.z, r.faceWidth, angleDeg);
-    const fST = f ? f.F_kgf : 0;
-    const fFC = feederBySec.get(r.sec - 1) || 0;
-    if (f) totalFST += fST;
-    totalFC += fFC;
+    const f     = calcSectionWindForce(cfg, windData, r.sec - 1, r.z, r.faceWidth, angleDeg);
+    const fST   = f ? f.F_kgf : 0;
+    const fFC   = feederBySec.get(r.sec - 1) || 0;
+    const fTot  = fST + fFC;
+    if (f) totalF += fTot;
     return f
-      ? `<tr><td>${r.sec}</td><td>${uConv('area',f.areaPlana).toFixed(3)}</td><td>${uConv('area',f.areaRedonda).toFixed(3)}</td><td>${uConv('area',f.grossArea).toFixed(3)}</td><td>${f.epsilon.toFixed(3)}</td><td>${f.Cf.toFixed(2)}</td><td>${f.Df.toFixed(2)}</td><td>${f.Dr.toFixed(2)}</td><td>${f.Rr.toFixed(2)}</td><td>${uConv('force',fST).toFixed(1)}</td><td>${fFC>0?uConv('force',fFC).toFixed(1):'—'}</td><td><b>${uConv('force',fST+fFC).toFixed(1)}</b></td></tr>`
-      : `<tr><td>${r.sec}</td><td colspan="11" style="color:var(--txt-sec);">—${noLattice ? ' (solo lattice)' : ''}</td></tr>`;
+      ? `<tr><td>${r.sec}</td><td>${uConv('area',f.areaPlana).toFixed(3)}</td><td>${uConv('area',f.areaRedonda).toFixed(3)}</td><td>${uConv('area',f.grossArea).toFixed(3)}</td><td>${f.epsilon.toFixed(3)}</td><td>${f.Cf.toFixed(2)}</td><td>${f.Df.toFixed(2)}</td><td>${f.Dr.toFixed(2)}</td><td>${f.Rr.toFixed(2)}</td><td><b>${uConv('force',fTot).toFixed(1)}</b></td></tr>`
+      : `<tr><td>${r.sec}</td><td colspan="9" style="color:var(--txt-sec);">—${noLattice ? ' (solo lattice)' : ''}</td></tr>`;
   }).join('');
-  const hasFC = totalFC > 0;
   container.innerHTML = `
     <table class="ret-table wind-table-center">
-      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th><th>FTotal (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+      <thead><tr><th>Sec.</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>F (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
       <tbody>
         ${rowsHtml}
         <tr style="font-weight:700;border-top:2px solid var(--border);">
           <td colspan="9" style="text-align:right;">TOTAL</td>
-          <td>${uConv('force', totalFST).toFixed(1)}</td>
-          <td>${hasFC ? uConv('force', totalFC).toFixed(1) : '—'}</td>
-          <td><b>${uConv('force', totalFST + totalFC).toFixed(1)}</b></td>
+          <td><b>${uConv('force', totalF).toFixed(1)}</b></td>
         </tr>
       </tbody>
     </table>`;
@@ -8284,8 +8285,8 @@ function _renderAntennaForceTable(cfg) {
       const qz  = calcWindPressure(cfg, windData, h.z);
       const Gh  = _tiaGh(h.z, cfg.type);
       // EPA herraje a θr
-      const ants2 = (antenasData || []).filter(a => a.herraje === h.herrId && Math.abs((+a.z||0) - h.z) < 0.01 && Math.abs((+a.azimuth||0) - h.azimuth) < 0.1);
-      const Ka2 = ants2.length ? (_computeKaAll(ants2)[0] ?? 1) : 1;
+      const _n2 = herrajesData.filter(x => x.herraje && x.herraje !== 'ninguno' && Math.abs(_herrZ(x) - h.z) <= 0.25).length;
+      const Ka2 = _n2 === 0 ? 1.0 : _n2 >= 3 ? 0.8 : 0.9;
       let theta_rel = ((dir - h.azimuth) % 360 + 360) % 360;
       if (theta_rel > 180) theta_rel = 360 - theta_rel;
       const EPAh = _herrEPAdir(h.herrId, theta_rel);
@@ -8883,6 +8884,9 @@ function setupKeyboardShortcuts() {
 // linkedTo: id de la antena Panel/Dish a la que está vinculado un RRU (null = libre)
 let antenasData = [];
 let _antNextId  = 1;
+// { id, z, azimuth, herraje, pierna, antId }  — antId: id en antenasData (null = standalone)
+let herrajesData   = [];
+let _herrajesNextId = 1;
 let antenasOn   = true;
 let antenasGroupCollapsed   = {};  // panel collapse state, keyed by group content key
 let _flyoutGroupCollapsed   = {};  // flyout collapse state
@@ -9186,6 +9190,7 @@ function getConfig() {
     windData:       JSON.parse(JSON.stringify(windData)),
     dadoHeight:     dadoHeight,
     antenasData:    JSON.parse(JSON.stringify(antenasData)),
+    herrajesData:   JSON.parse(JSON.stringify(herrajesData)),
     feedersData:    JSON.parse(JSON.stringify(feedersData)),
     antFeeders:     JSON.parse(JSON.stringify(antFeeders)),
     cgoData:        JSON.parse(JSON.stringify(cgoData)),
@@ -10970,8 +10975,7 @@ function _renderAntenasTable() {
   _ensureAntIds();
   _syncLinkedRRUs();
 
-  // linkedTo y herraje incluidos en la clave para evitar agrupaciones incorrectas
-  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.linkedTo??'',a.herraje||'ninguno'].join('\x00');
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.linkedTo??''].join('\x00');
   const groupMap = new Map();
   antenasData.forEach((a, i) => {
     const k = gKey(a);
@@ -10990,7 +10994,7 @@ function _renderAntenasTable() {
     // Helpers: actualiza todos los índices del grupo. `kind` (si se da) convierte el
     // valor capturado (unidad activa) de vuelta a la unidad canónica antes de guardar.
     const updAll = (field, str=false, kind=null) =>
-      indices.map(i => `antenasData[${i}].${field}=${str?'':(kind?`uConvInv('${kind}', +this.value)`:'+this.value')}`).join(';');
+      indices.map(i => `antenasData[${i}].${field}=${str?'this.value':(kind?`uConvInv('${kind}', +this.value)`:'+this.value')}`).join(';');
     const calcAll = () => indices.map(i => `_calcEPA(antenasData[${i}])`).join(';');
     const refresh = () => `_refreshEPACells(${fi})`;
     // Para dishes: al editar 'alto' (diámetro), sincroniza ancho = alto
@@ -11586,20 +11590,38 @@ function _caFlat(ar) {
 // rs = radio_arista / ancho_proyectado_de_esa_cara
 function _caHSS(rs) { return Math.max(2.0 - 6.0 * Math.max(0, rs), 1.25); }
 
-// §2.6.11.2 — Ka por antena según tipo de herraje y número de marcos a la misma cota
-//   ninguno      → 1.0 (sin marco de montaje)
-//   brazo/bandera → 0.9, o 0.8 si ≥3 marcos a la misma cota (±0.25 m)
+// Devuelve el tipo de herraje en herrajesData vinculado a una antena (por su id).
+function _herrajeForAnt(antId) {
+  const h = herrajesData.find(x => x.antId === antId);
+  return h?.herraje || 'ninguno';
+}
+// z/azimuth/pierna efectivos de un herrajesData entry (desde antena vinculada o propio).
+function _herrZ(h) {
+  if (h.antId == null) return +h.z || 0;
+  const a = antenasData.find(x => x.id === h.antId);
+  return +(a?.z ?? h.z) || 0;
+}
+function _herrAz(h) {
+  if (h.antId == null) return +h.azimuth || 0;
+  const a = antenasData.find(x => x.id === h.antId);
+  return +(a?.azimuth ?? h.azimuth) || 0;
+}
+function _herrPierna(h) {
+  if (h.pierna != null) return h.pierna;
+  if (h.antId == null) return null;
+  const a = antenasData.find(x => x.id === h.antId);
+  return a?.pierna ?? null;
+}
+
+// §2.6.11.2 — Ka por antena según número de marcos a la misma cota en herrajesData.
+//   ninguno (herrajesData vacío o sin herraje en ±0.25 m) → 1.0
+//   1–2 marcos → 0.9 · ≥3 marcos → 0.8
 function _computeKaAll(ants) {
   const tol = 0.25;
   return ants.map(a => {
-    if (!a.herraje || a.herraje === 'ninguno') return 1.0;
-    const zi = +a.z || 0;
-    let n = 0;
-    for (const b of ants) {
-      if ((!b.herraje || b.herraje === 'ninguno')) continue;
-      if (Math.abs((+b.z || 0) - zi) <= tol) n++;
-    }
-    return n >= 3 ? 0.8 : 0.9;
+    const z = +a.z || 0;
+    const n = herrajesData.filter(h => h.herraje && h.herraje !== 'ninguno' && Math.abs(_herrZ(h) - z) <= tol).length;
+    return n === 0 ? 1.0 : n >= 3 ? 0.8 : 0.9;
   });
 }
 
@@ -11637,25 +11659,19 @@ function _calcEPA(a) {
 // Calcula fuerzas de viento en antenas según TIA-222-H §2.6.11.2 (paneles) y Anexo C (microondas).
 // Devuelve un array con una entrada por antena; cada entrada incluye fuerzas por dirección de viento
 // ya descompuestas en el sistema global de STAAD (FX = TSA X, FZ = -TSA Y).
-function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride} = {}) {
+// includeHerraje ignorado (herrajes ahora independientes en herrajesData).
+function _calcAntennaForces(cfg, windData, {vKmhOverride} = {}) {
   const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
   const _kaArr = _computeKaAll(ants);
-  // Un ensamble de herraje (mismos az+z+tipo) se cuenta una sola vez aunque haya varias antenas
-  const _herrCounted = new Set();
   return ants.map((a, antIdx) => {
     const z    = +a.z || 0;
-    const qz   = calcWindPressure(cfg, windData, z, vKmhOverride);   // N/m²
+    const qz   = calcWindPressure(cfg, windData, z, vKmhOverride);
     const Gh   = _tiaGh(z, cfg.type);
     const Ka   = _kaArr[antIdx];
     const azDeg = +a.azimuth || 0;
-    const herrId  = a.herraje || 'ninguno';
-    const herrKey = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
-    const addHerraje = includeHerraje && herrId !== 'ninguno' && !_herrCounted.has(herrKey);
-    if (addHerraje) _herrCounted.add(herrKey);
 
     const forcesByDir = dirs.map(angleDeg => {
-      // θ_rel: ángulo relativo viento–antena normalizado a [0,180] (EPA simétrica)
       let theta_rel = ((angleDeg - azDeg) % 360 + 360) % 360;
       if (theta_rel > 180) theta_rel = 360 - theta_rel;
       const tRad = theta_rel * Math.PI / 180;
@@ -11667,58 +11683,45 @@ function _calcAntennaForces(cfg, windData, {includeHerraje = true, vKmhOverride}
         const c = _dishCoeff(a.tipo, theta_rel);
         EPA = Math.abs(c.CA * Math.cos(tRad) + c.CS * Math.sin(tRad)) * A;
       } else {
-        // §2.6.11.2: interpolación lineal por tramos entre los 3 puntos medidos
         const e0 = +(a.epa0) || 0, e60 = +(a.epa60) || 0, e90 = +(a.epa90) || 0;
         EPA = theta_rel <= 60
           ? e0 + (e60 - e0) * (theta_rel / 60)
           : e60 + (e90 - e60) * ((theta_rel - 60) / 30);
       }
-      // Herraje: se suma una vez por ensamble (az, z, tipo) para no triplicar la EPA
-      if (addHerraje) EPA += _herrEPAdir(herrId, theta_rel);
 
-      const FA_N   = qz * Gh * Ka * EPA;                  // N — Ka §2.6.11.2
-      const FA_kgf = FA_N / 9.80665;                    // kgf
-
-      // Descomposición en ejes globales STAAD (FX = TSA X, FZ = -TSA Y)
+      const FA_N   = qz * Gh * Ka * EPA;
+      const FA_kgf = FA_N / 9.80665;
       const wRad   = angleDeg * Math.PI / 180;
-      const fx_staad =  FA_kgf * Math.sin(wRad);
-      const fz_staad = -FA_kgf * Math.cos(wRad);
-
-      return { angleDeg, theta_rel, EPA, Ka, FA_N, FA_kgf, fx_staad, fz_staad };
+      return { angleDeg, theta_rel, EPA, Ka, FA_N, FA_kgf,
+               fx_staad: FA_kgf * Math.sin(wRad), fz_staad: -FA_kgf * Math.cos(wRad) };
     });
 
     return { antIdx, desc: a.desc || '—', tipo: a.tipo || 'Panel', z, azimuth: azDeg, pierna: a.pierna, qz, Gh, forcesByDir };
   });
 }
 
-// Fuerzas de viento de herrajes (EPA_herraje × qz × Gh), deduplicadas por (az, z, tipo).
-// Se llama desde _doExportSTAAD para emitir herrajes como sección separada en STAAD.
+// Fuerzas de viento de herrajes desde herrajesData (independiente de antenasData).
 function _calcHerrajeWindForces(cfg, windData, vKmhOverride) {
-  const ants = Array.isArray(antenasData) ? antenasData : [];
   const dirs = Array.isArray(windData.directions) && windData.directions.length ? windData.directions : [0];
-  const _kaArr = _computeKaAll(ants);
-  const seen = new Set();
   const result = [];
-  ants.forEach((a, antIdx) => {
-    const herrId = a.herraje || 'ninguno';
-    if (herrId === 'ninguno') return;
-    const z = +a.z || 0;
-    const azDeg = +a.azimuth || 0;
-    const key = `${azDeg.toFixed(1)}_${z.toFixed(2)}_${herrId}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    const Ka = _kaArr[antIdx];
+  herrajesData.forEach(h => {
+    if (!h.herraje || h.herraje === 'ninguno') return;
+    const z     = _herrZ(h);
+    const azDeg = _herrAz(h);
+    const pierna = _herrPierna(h);
+    const n  = herrajesData.filter(x => x.herraje && x.herraje !== 'ninguno' && Math.abs(_herrZ(x) - z) <= 0.25).length;
+    const Ka = n === 0 ? 1.0 : n >= 3 ? 0.8 : 0.9;
     const qz = calcWindPressure(cfg, windData, z, vKmhOverride);
     const Gh = _tiaGh(z, cfg.type);
     const forcesByDir = dirs.map(angleDeg => {
       let theta_rel = ((angleDeg - azDeg) % 360 + 360) % 360;
       if (theta_rel > 180) theta_rel = 360 - theta_rel;
-      const EPA = _herrEPAdir(herrId, theta_rel);
+      const EPA = _herrEPAdir(h.herraje, theta_rel);
       const FA_kgf = qz * Gh * Ka * EPA / 9.80665;
       const wRad = angleDeg * Math.PI / 180;
       return { angleDeg, FA_kgf, fx_staad: FA_kgf * Math.sin(wRad), fz_staad: -FA_kgf * Math.cos(wRad) };
     });
-    result.push({ herrId, z, azimuth: azDeg, pierna: a.pierna, forcesByDir });
+    result.push({ herrId: h.herraje, z, azimuth: azDeg, pierna, forcesByDir });
   });
   return result;
 }
@@ -12973,12 +12976,23 @@ function _legNodeForLoad(antZ, antAzDeg, pierna, nodes, legSet) {
 
 function deleteAntenaRow(i) {
   const removed = antenasData[i];
+  // Desvincular herrajes ANTES del splice; leer z/az directamente del removido
+  if (removed?.id != null) {
+    herrajesData.forEach(h => {
+      if (h.antId === removed.id) {
+        h.z       = +removed.z       || 0;
+        h.azimuth = +removed.azimuth || 0;
+        h.antId   = null;
+      }
+    });
+  }
   antenasData.splice(i, 1);
-  // Desvincular RRUs que apuntaban a esta antena
   if (removed?.id != null) {
     antenasData.forEach(a => { if (a.linkedTo === removed.id) a.linkedTo = null; });
   }
   _renderAntenasTable();
+  renderAntenas3D();
+  if (windForcesOn || windForceLabelsOn) { _windForceResults = null; _buildWindForceArrows(); }
 }
 
 // Asegura que cada entrada tenga un id estable (migración de datos viejos)
@@ -13349,6 +13363,20 @@ function toggleHerrajesPanel(e) {
   if (!wasOpen) buildHerrajesPanel();
 }
 
+function _herrajeAddStandalone() {
+  const zRaw = +document.getElementById('herr-add-z')?.value || 0;
+  const az   = +document.getElementById('herr-add-az')?.value || 0;
+  const zM   = uConvInv('len', zRaw);
+  const cfg  = getConfig() || {};
+  const maxH = cfg.height || 0;
+  if (zM < 0 || zM > maxH + 0.01) {
+    showToast(`Altura fuera de rango (0 – ${uConv('len', maxH).toFixed(1)} ${uLabel('len')})`, 'warn');
+    return;
+  }
+  herrajesData.push({ id: _herrajesNextId++, z: zM, azimuth: az, herraje: 'ninguno', pierna: null, antId: null });
+  buildHerrajesPanel();
+}
+
 function closeHerrajesPanel() {
   document.getElementById('herrajes-flyout')?.classList.remove('open');
   document.getElementById('side-accesorios-btn')?.classList.remove('active');
@@ -13364,59 +13392,79 @@ function _applyHerrajesPanel() {
 function buildHerrajesPanel() {
   const body = document.getElementById('herrajes-panel-body');
   if (!body) return;
+  const cfg  = getConfig() || {};
+  const maxH = uConv('len', cfg.height || 0).toFixed(1);
 
-  // Agrupar antenas no-RRU por z (mismo nivel comparte un ensamble físico)
-  const byZ = new Map();
-  antenasData.forEach((a, i) => {
-    if (a.tipo === 'RRU') return;
-    const zKey = (+a.z || 0).toFixed(2);
-    if (!byZ.has(zKey)) byZ.set(zKey, []);
-    byZ.get(zKey).push({ a, i });
-  });
+  // Opciones de antenas para el selector de vínculo (solo no-RRU)
 
-  const groups = [...byZ.entries()]
-    .sort((a, b) => +b[0] - +a[0])
-    .map(([zKey, items]) => ({ z: +zKey, items }));
+  const _inpStyle = 'border:1px solid var(--border);border-radius:3px;background:var(--bg-input);color:var(--txt-pri);font-size:11px;padding:1px 4px';
 
-  if (!groups.length) {
-    body.innerHTML = `<div style="color:var(--txt-sec);font-size:12px;padding:12px 0">
-      Sin antenas registradas. Agregue antenas primero.</div>`;
-    return;
-  }
+  const rows = herrajesData.map((h, hi) => {
+    const linkedAnt = h.antId != null ? antenasData.find(a => a.id === h.antId) : null;
+    const effZ  = linkedAnt ? +linkedAnt.z  : +h.z  || 0;
+    const effAz = linkedAnt ? +linkedAnt.azimuth : +h.azimuth || 0;
+
+    const zAzCell = linkedAnt
+      ? `<span style="font-size:10px;color:var(--txt-sec)">z=${uConv('len',effZ).toFixed(2)} ${uLabel('len')} / ${effAz}° 🔗</span>`
+      : `<span style="display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap">
+           z <input type="number" value="${uConv('len',effZ).toFixed(2)}" step="0.1" min="0" max="${maxH}"
+              style="width:58px;${_inpStyle}"
+              oninput="herrajesData[${hi}].z=uConvInv('len',+this.value)">
+           ${uLabel('len')} az
+           <input type="number" value="${effAz}" step="1" min="0" max="359"
+              style="width:44px;${_inpStyle}"
+              oninput="herrajesData[${hi}].azimuth=+this.value">°
+         </span>`;
+
+    const herrOpts = _getHerrajeCatalog().map(cat =>
+      `<option value="${cat.id}"${h.herraje === cat.id ? ' selected' : ''}>${cat.label}</option>`
+    ).join('');
+
+    const linkOpts = `<option value=""${h.antId == null ? ' selected' : ''}>sin vincular</option>${
+      antenasData.filter(a => a.tipo !== 'RRU').map(a =>
+        `<option value="${a.id}"${h.antId === a.id ? ' selected' : ''}>${_esc(a.desc || `Ant.${a.id}`)} z=${uConv('len',a.z).toFixed(1)}${uLabel('len')} / ${a.azimuth||0}°</option>`
+      ).join('')}`;
+
+    const delFn = `herrajesData.splice(${hi},1);buildHerrajesPanel();renderAntenas3D();if(windForcesOn||windForceLabelsOn){_windForceResults=null;_buildWindForceArrows();}`;
+    const linkFn = `const _la=antenasData.find(x=>x.id===herrajesData[${hi}].antId);if(_la){herrajesData[${hi}].z=+_la.z||0;herrajesData[${hi}].azimuth=+_la.azimuth||0;}herrajesData[${hi}].antId=this.value?+this.value:null;buildHerrajesPanel()`;
+
+    return `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <select class="ant-sel" style="font-size:11px;flex:1"
+          onchange="herrajesData[${hi}].herraje=this.value">${herrOpts}</select>
+        <button class="ant-del" onclick="${delFn}" style="flex-shrink:0">✕</button>
+      </div>
+      <div style="font-size:10px;margin-bottom:3px">${zAzCell}</div>
+      <div style="font-size:10px;color:var(--txt-sec);display:flex;align-items:center;gap:4px">
+        Vincular:
+        <select style="font-size:10px;flex:1;${_inpStyle};max-width:220px" onchange="${linkFn}">
+          ${linkOpts}
+        </select>
+      </div>
+    </div>`;
+  }).join('');
 
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <span style="font-size:10.5px;color:var(--txt-sec)">Un ensamble de herraje por nivel. La EPA del herraje se suma a la de la antena y Ka §2.6.11.2 se aplica al conjunto.</span>
+      <span style="font-size:10.5px;color:var(--txt-sec)">Herrajes independientes. Ka §2.6.11.2 aplica por nivel (≥3 marcos → 0.8).</span>
       <button onclick="openHerrajeCatalog()" style="font-size:11px;padding:3px 10px;background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--cyan);white-space:nowrap;margin-left:8px;flex-shrink:0">Catálogo…</button>
     </div>
-    ${groups.map(({ z, items }) => {
-      const sharedId = items[0].a.herraje || 'ninguno';
-      const indices  = items.map(x => x.i);
-      const opts = _getHerrajeCatalog().map(h =>
-        `<option value="${h.id}"${sharedId === h.id ? ' selected' : ''}>${h.label}</option>`
-      ).join('');
-      const tag  = items.length > 1
-        ? `<span style="font-size:10px;color:var(--cyan);margin-left:4px">(×${items.length} ant.)</span>`
-        : '';
-      const desc = items.map(x => _esc(x.a.desc || '(sin desc.)')).join(', ');
-      const onch = indices.map(i => `antenasData[${i}].herraje=this.value`).join(';');
-      return `<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
-          padding:7px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <span style="font-size:12px;font-weight:600">${desc}</span>${tag}
-          <span style="color:var(--txt-sec);font-size:10px;margin-left:6px">z=${uConv('len',z).toFixed(2)}${uLabel('len')}</span>
-        </div>
-        <select class="ant-sel" style="font-size:11px;min-width:170px"
-          onchange="${onch}">
-          ${opts}
-        </select>
-      </div>`;
-    }).join('')}
+    ${rows || `<div style="color:var(--txt-sec);font-size:11px;margin-bottom:12px">Sin herrajes registrados.</div>`}
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:14px">
+      <label style="font-size:11px">
+        Altura z (<span class="unit-len">${uLabel('len')}</span>)<br>
+        <input id="herr-add-z" type="number" step="0.1" min="0" max="${maxH}" value=""
+          style="width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--txt-pri);font-size:12px">
+      </label>
+      <label style="font-size:11px">
+        Azimut (°)<br>
+        <input id="herr-add-az" type="number" step="1" min="0" max="359" value="0"
+          style="width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--txt-pri);font-size:12px">
+      </label>
+      <button onclick="_herrajeAddStandalone()" style="padding:5px 12px;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;height:28px">+ Agregar</button>
+    </div>
     <div style="margin-top:14px;text-align:right">
-      <button class="btn" onclick="_applyHerrajesPanel()"
-        style="font-size:12px;padding:5px 16px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer">
-        Aplicar
-      </button>
+      <button class="btn" onclick="_applyHerrajesPanel()" style="font-size:12px;padding:5px 16px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer">Aplicar</button>
     </div>`;
 }
 
@@ -15012,7 +15060,7 @@ function buildAntenasPanel() {
   const fmtP = v => v != null ? uConv('area', +v).toFixed(4) : '—';
 
   // Agrupar antenas iguales (mismas propiedades excepto azimuth)
-  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso,a.herraje||'ninguno'].join('\x00');
+  const gKey = a => [a.desc||'',a.tipo||'',a.z,a.ancho,a.alto,a.espesor,a.peso].join('\x00');
   const groupMap = new Map();
   antenasData.forEach((a, i) => {
     const k = gKey(a);
@@ -15153,7 +15201,7 @@ function renderAntenas3D() {
     Object.values(grps).forEach(({ panels, rrus }) => {
       // Spread lateral de paneles/dishes
       const Np = panels.length;
-      const herr0 = Np ? (antenasData[panels[0]].herraje || 'ninguno') : 'ninguno';
+      const herr0 = Np ? _herrajeForAnt(antenasData[panels[0]].id) : 'ninguno';
       if (herr0 === 'RF_H') {
         // Postes RF_H: exterior derecho +0.60, exterior izquierdo -0.60, central 0.
         // Hasta 3 antenas se asignan a los postes reales; más de 3 usa paso de 0.60m.
@@ -15300,9 +15348,10 @@ function renderAntenas3D() {
       const fLen  = (r * r) / (4 * depth);      // distancia focal
 
       const _pz0dish  = +a.z || 0;
-      const _hasHerrD = a.herraje && a.herraje !== 'ninguno';
+      const _herrIdD  = _herrajeForAnt(a.id);
+      const _hasHerrD = _herrIdD !== 'ninguno';
       const radialOff = _hasHerrD
-        ? _rPost(a.herraje, _pz0dish) + _postR(a.herraje)   // apex del dish tangente al poste
+        ? _rPost(_herrIdD, _pz0dish) + _postR(_herrIdD)   // apex del dish tangente al poste
         : (halfW) + 0.30;
       const px = Math.sin(posAz) * radialOff + perp * Math.cos(posAz);
       const py = Math.cos(posAz) * radialOff - perp * Math.sin(posAz);
@@ -15464,19 +15513,20 @@ function renderAntenas3D() {
       // RRU con _rruBehind: espalda con espalda del panel, 5 cm de separación.
       // radialOffset RRU → su cara frontal queda a 5 cm de la cara trasera del panel.
       const base = halfW;
-      const _hasHerr = a.herraje && a.herraje !== 'ninguno';
+      const _herrIdP  = _herrajeForAnt(a.id);
+      const _hasHerr  = _herrIdP !== 'ninguno';
       const _pz0 = +a.z || 0;
       const _rruH   = _rruBehind[dataIdx] ? _rruHerr[dataIdx]   : null;
       const _rruRot = _rruBehind[dataIdx] ? _rruRotOff[dataIdx]  : 0;
       const radialOffset = _rruBehind[dataIdx]
-        ? (_rruH && _rruRot !== 0                                             // RRU tangencial: centro del poste
+        ? (_rruH && _rruRot !== 0
             ? _rPost(_rruH, _pz0)
-            : _rruH                                                           // RRU detrás del poste
-              ? _rPost(_rruH, _pz0) - _postR(_rruH) - E / 2         // RRU detrás del poste (cara interior)
-              : base + 0.60 - E / 2)                                         // RRU sin herraje (tangente a panel)
+            : _rruH
+              ? _rPost(_rruH, _pz0) - _postR(_rruH) - E / 2
+              : base + 0.60 - E / 2)
         : _hasHerr
-          ? _rPost(a.herraje, _pz0) + _postR(a.herraje) + E / 2              // antena: cara exterior del poste
-          : base + 0.60 + E / 2;                                              // sin herraje
+          ? _rPost(_herrIdP, _pz0) + _postR(_herrIdP) + E / 2
+          : base + 0.60 + E / 2;
       const px = Math.sin(posAz) * radialOffset + perp * Math.cos(posAz);
       const py = Math.cos(posAz) * radialOffset - perp * Math.sin(posAz);
       const pz = +a.z || 0;
@@ -15497,18 +15547,34 @@ function renderAntenas3D() {
       edges.rotation.copy(mesh.rotation);
       antenasGroup.add(edges);
     }
-    // Herraje de montaje (solo antenas no-RRU)
-    if (a.tipo !== 'RRU' && a.herraje && a.herraje !== 'ninguno') {
-      if (a.herraje === 'RF_H') {
-        // RF_H: renderizar UNA sola vez por grupo posAz/z (evitar duplicados)
-        const rfhKey = `${posAz.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
-        if (!_renderedRFH.has(rfhKey)) {
-          _renderedRFH.add(rfhKey);
-          _addHerraje3D('RF_H', posAz, halfW, +a.z || 0, 0, _faceFn, _antTotalH);
+    // Herraje de montaje (solo antenas no-RRU, desde herrajesData vinculado)
+    if (a.tipo !== 'RRU') {
+      const _hId = _herrajeForAnt(a.id);
+      if (_hId !== 'ninguno') {
+        if (_hId === 'RF_H') {
+          const rfhKey = `${posAz.toFixed(4)}_${(+a.z||0).toFixed(2)}`;
+          if (!_renderedRFH.has(rfhKey)) {
+            _renderedRFH.add(rfhKey);
+            _addHerraje3D('RF_H', posAz, halfW, +a.z || 0, 0, _faceFn, _antTotalH);
+          }
+        } else {
+          _addHerraje3D(_hId, posAz, halfW, +a.z || 0, perp, _faceFn, _antTotalH);
         }
-      } else {
-        _addHerraje3D(a.herraje, posAz, halfW, +a.z || 0, perp, _faceFn, _antTotalH);
       }
+    }
+  });
+  // Herrajes standalone (sin antena vinculada)
+  herrajesData.forEach(h => {
+    if (h.antId != null || !h.herraje || h.herraje === 'ninguno') return;
+    const _az  = (+h.azimuth || 0) * Math.PI / 180;
+    if (h.herraje === 'RF_H') {
+      const rfhKey = `${_az.toFixed(4)}_${(+h.z||0).toFixed(2)}`;
+      if (!_renderedRFH.has(rfhKey)) {
+        _renderedRFH.add(rfhKey);
+        _addHerraje3D('RF_H', _az, 0, +h.z || 0, 0, _faceFn, _antTotalH);
+      }
+    } else {
+      _addHerraje3D(h.herraje, _az, 0, +h.z || 0, 0, _faceFn, _antTotalH);
     }
   });
 }
@@ -15750,6 +15816,7 @@ function nuevoProyecto() {
   supportOverrides = {};
   revisionData = JSON.parse(JSON.stringify(REVISION_DATA_DEFAULT));
   antenasData = [];
+  herrajesData = []; _herrajesNextId = 1;
   antenasOn = true;
   antenasGroupCollapsed = {};
   windData = { codigo:'ANSI_TIA_H', catRiesgo:'II', catExposicion:'C', velocidad:null,
@@ -16458,7 +16525,7 @@ function _hcatCancelEdit() {
 function _hcatDelete(id) {
   if (!confirm(`¿Eliminar el herraje "${(_getHerrajeCatalog().find(x=>x.id===id)?.label||id)}"?`)) return;
   customHerrajesCatalog = customHerrajesCatalog.filter(x => x.id !== id);
-  antenasData.forEach(a => { if (a.herraje === id) a.herraje = 'ninguno'; });
+  herrajesData.forEach(h => { if (h.herraje === id) h.herraje = 'ninguno'; });
   renderAntenas3D();
   if (windForcesOn || windForceLabelsOn) { _windForceResults = null; _buildWindForceArrows(); }
   _hcatRenderList();
@@ -18506,7 +18573,7 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
         FST = qz·Gh·(EPA)s = ${(exR.qz/9.80665).toFixed(2)} kg/m² × ${(GhVal??1).toFixed(2)} × ${ex.EPA.toFixed(4)} m² = <b>${ex.F_kgf.toFixed(1)} kgf</b>
       </p>
       <table class="rp-table wind-table-center">
-        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>FST (<span class="unit-force">${uLabel('force')}</span>)</th><th>FC (<span class="unit-force">${uLabel('force')}</span>)</th><th>FTotal (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
+        <thead><tr><th>Sec.</th><th>z (<span class="unit-len">${uLabel('len')}</span>)</th><th>qz (<span class="unit-pressure">${uLabel('pressure')}</span>)</th><th>Ag (<span class="unit-area">${uLabel('area')}</span>)</th><th>Af (<span class="unit-area">${uLabel('area')}</span>)</th><th>Ar (<span class="unit-area">${uLabel('area')}</span>)</th><th>ε</th><th>Cf</th><th>Df</th><th>Dr</th><th>Rr</th><th>F (<span class="unit-force">${uLabel('force')}</span>)</th></tr></thead>
         <tbody>
           ${angleRows.map(({ r, ep }) => {
             const fC  = _fcBySec.get(r.sec) || 0;
@@ -18523,21 +18590,17 @@ function _memWindProcedureBlock(cfg, vKmh, vLabelCorto, velFormula) {
               <td>${ep.Df.toFixed(3)}</td>
               <td>${ep.Dr.toFixed(3)}</td>
               <td>${ep.Rr.toFixed(2)}</td>
-              <td>${uConv('force',ep.F_kgf).toFixed(1)}</td>
-              <td>${fC > 0 ? uConv('force',fC).toFixed(1) : '—'}</td>
               <td><b>${uConv('force',fTot).toFixed(1)}</b></td>
             </tr>`;
           }).join('')}
           <tr style="font-weight:700;background:#f0f4ff;">
             <td colspan="11" style="text-align:right;">TOTAL</td>
-            <td>${uConv('force',totalKgf).toFixed(1)}</td>
-            <td>${totalFC > 0 ? uConv('force',totalFC).toFixed(1) : '—'}</td>
             <td><b>${uConv('force',totalFTotal).toFixed(1)}</b></td>
           </tr>
         </tbody>
       </table>
       <p style="font-size:9px;color:#777;margin-top:4px;">
-        FST = qz·Gh·(EPA)s — §2.6.11.1. FC = Cd·EPA·Gh·qz (feeders/CGO/escalerilla) — §2.6.11.4. FTotal = FST + FC: fuerza aplicada a nodos y exportada a STAAD.Pro. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
+        F = FST + FC: qz·Gh·(EPA)s + Cd·EPA·Gh·qz (feeders) — §2.6.11.1 / §2.6.11.4. Rr = f(ε, C) §2.6.11.1.1. Gh = ${(GhVal??1).toFixed(2)}.
       </p>`;
   }).join('');
 
@@ -21445,17 +21508,20 @@ async function _doExportSTAAD() {
   const _antConPeso = (antenasData || []).filter(a => (+a.peso || 0) > 0.001);
   const _herrPesoSet = new Set();
   const _herrPesoEntries = [];
-  (antenasData || []).forEach(a => {
-    const h = _getHerrajeCatalog().find(x => x.id === (a.herraje || 'ninguno'));
+  (herrajesData || []).forEach(hd => {
+    const h = _getHerrajeCatalog().find(x => x.id === hd.herraje);
     if (!h || !h.peso) return;
-    const key = `${(+a.azimuth || 0).toFixed(1)}_${(+a.z || 0).toFixed(2)}_${h.id}_${a.pierna??'auto'}`;
+    const z    = _herrZ(hd);
+    const az   = _herrAz(hd);
+    const pier = _herrPierna(hd);
+    const key  = `${az.toFixed(1)}_${z.toFixed(2)}_${h.id}_${pier??'auto'}`;
     if (_herrPesoSet.has(key)) return;
     _herrPesoSet.add(key);
-    const nIdx = _legNodeForLoad(+a.z || 0, +a.azimuth || 0, a.pierna, nodes, _stAntLegSet);
+    const nIdx = _legNodeForLoad(z, az, pier, nodes, _stAntLegSet);
     if (nIdx == null) return;
     const stId = nodeNewId[nIdx];
     if (!stId) return;
-    _herrPesoEntries.push({ stId, peso: h.peso, herrId: h.id, z: +a.z || 0, az: a.azimuth || 0 });
+    _herrPesoEntries.push({ stId, peso: h.peso, herrId: h.id, z, az });
   });
   const hasDG = _antConPeso.length > 0 || _herrPesoEntries.length > 0;
   const windBase = hasDG ? 3 : 2;
@@ -22014,6 +22080,22 @@ function loadProjectData(cfg, filename) {
     if (document.getElementById('dado')) document.getElementById('dado').value = uConv('len', dadoHeight).toFixed(2);
     antenasData = Array.isArray(cfg.antenasData) ? JSON.parse(JSON.stringify(cfg.antenasData)) : [];
     antenasData.forEach(a => _calcEPA(a));
+    // Restaurar herrajesData; si no existe (proyectos viejos) migrar desde a.herraje
+    if (Array.isArray(cfg.herrajesData) && cfg.herrajesData.length) {
+      herrajesData = JSON.parse(JSON.stringify(cfg.herrajesData));
+      _herrajesNextId = herrajesData.length ? Math.max(...herrajesData.map(h => h.id || 0)) + 1 : 1;
+    } else {
+      herrajesData = []; _herrajesNextId = 1;
+      const _migrSeen = new Set();
+      antenasData.forEach(a => {
+        if (!a.herraje || a.herraje === 'ninguno') return;
+        const key = `${(+a.z||0).toFixed(2)}_${(+a.azimuth||0).toFixed(1)}_${a.herraje}`;
+        if (_migrSeen.has(key)) return;
+        _migrSeen.add(key);
+        herrajesData.push({ id: _herrajesNextId++, z: +a.z||0, azimuth: +a.azimuth||0,
+          herraje: a.herraje, pierna: a.pierna ?? null, antId: a.id ?? null });
+      });
+    }
     _renderAntenasTable();
     feedersData = Array.isArray(cfg.feedersData) ? JSON.parse(JSON.stringify(cfg.feedersData)) : [];
     antFeeders  = (cfg.antFeeders && typeof cfg.antFeeders === 'object') ? JSON.parse(JSON.stringify(cfg.antFeeders)) : {};
